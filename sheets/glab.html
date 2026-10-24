@@ -1,0 +1,419 @@
+<!doctype html><html data-theme="dark"><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body><div style="padding:8px 16px;font:600 12px ui-monospace,Consolas,monospace;letter-spacing:.04em"><a href="../index.html" style="color:inherit;opacity:.75;text-decoration:none">&larr; dev-tools</a></div>
+<title>glab Cheat Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: masthead + sticky filter, then a masonry-style column flow of section cards; workflow strip spans full width */
+:root{
+  --bg:#f3f2f7; --panel:#ffffff; --ink:#1d1a2b; --muted:#625d75; --line:#dcd9e6;
+  --accent:#e2491a; --accent2:#6b4fd8; --code-bg:#f6f4fb; --code-ink:#2a2440;
+  --cmt:#7c7792; --flag:#6b4fd8; --tag-bg:#efeaff;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#14121c; --panel:#1d1a28; --ink:#ece9f5; --muted:#a29db6; --line:#2f2b3d;
+  --accent:#ff7a45; --accent2:#a993ff; --code-bg:#17141f; --code-ink:#e3def2;
+  --cmt:#857f9b; --flag:#b7a5ff; --tag-bg:#2a2340; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#14121c; --panel:#1d1a28; --ink:#ece9f5; --muted:#a29db6; --line:#2f2b3d;
+  --accent:#ff7a45; --accent2:#a993ff; --code-bg:#17141f; --code-ink:#e3def2;
+  --cmt:#857f9b; --flag:#b7a5ff; --tag-bg:#2a2340; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14.5px;line-height:1.5;padding-inline:16px;padding-block:0 48px}
+.wrap{max-width:1320px;margin:0 auto}
+header.mast{padding-block:36px 20px;display:grid;gap:14px}
+.eyebrow{font:600 12px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+h1{font:800 clamp(34px,6vw,64px)/.95 var(--f-display);margin:0;letter-spacing:-.02em;text-wrap:balance}
+h1 span{color:var(--accent2)}
+.lede{max-width:68ch;color:var(--muted);margin:0}
+.prompt{font-family:var(--f-mono);font-size:13px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 14px;display:inline-flex;gap:10px;flex-wrap:wrap;width:fit-content;max-width:100%}
+.prompt b{color:var(--accent)}
+
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:10px;border-bottom:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.bar input{flex:1 1 240px;min-width:0;font:15px var(--f-mono);padding:9px 12px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)}
+.bar input:focus-visible{outline:2px solid var(--accent2);outline-offset:1px}
+.jump{display:flex;gap:6px;flex-wrap:wrap}
+.jump a{font:600 12px var(--f-mono);color:var(--muted);text-decoration:none;padding:4px 8px;border-radius:4px;border:1px solid var(--line);background:var(--panel)}
+.jump a:hover,.jump a:focus-visible{color:var(--accent);border-color:var(--accent)}
+.hint{font-size:12px;color:var(--muted)}
+
+/* workflow strip */
+.flow{margin-block:22px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px}
+.flow h2{margin:0 0 4px}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px;counter-reset:s}
+.step{counter-increment:s;border-top:3px solid var(--accent2);padding-top:8px;min-width:0}
+.step::before{content:"Step " counter(s);font:600 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent2)}
+.step p{margin:2px 0 6px;font-weight:600}
+.step code{display:block;font:12px/1.45 var(--f-mono);background:var(--code-bg);color:var(--code-ink);padding:6px 8px;border-radius:4px;overflow-x:auto;white-space:pre}
+
+.grid{columns:3 360px;column-gap:16px}
+section.card{break-inside:avoid;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 16px 12px;margin-bottom:16px;display:block}
+h2{font:800 20px/1.15 var(--f-display);margin:0 0 2px;letter-spacing:-.01em;display:flex;align-items:baseline;gap:8px}
+h2 .k{font:600 11px var(--f-mono);color:var(--accent);letter-spacing:.06em}
+.sub{color:var(--muted);font-size:13px;margin:0 0 10px}
+h3{font:600 11px/1 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
+
+.cmds{display:grid;gap:4px}
+.cmd{display:grid;grid-template-columns:minmax(0,1fr);gap:1px;padding:6px 8px;border-radius:5px;background:var(--code-bg);cursor:pointer;position:relative;border:1px solid transparent}
+.cmd:hover{border-color:var(--line)}
+.cmd:focus-visible{outline:2px solid var(--accent2)}
+.cmd pre{margin:0;font:12.5px/1.45 var(--f-mono);color:var(--code-ink);white-space:pre-wrap;word-break:break-word}
+.cmd pre .f{color:var(--flag)}
+.cmd pre .g{color:var(--accent);font-weight:600}
+.cmd .d{font-size:12.5px;color:var(--muted)}
+.cmd.copied::after{content:"copied";position:absolute;right:6px;top:5px;font:600 10px var(--f-mono);color:var(--accent);background:var(--panel);padding:1px 5px;border-radius:3px}
+
+.note{font-size:13px;border-left:3px solid var(--accent);padding:6px 10px;background:var(--code-bg);border-radius:0 5px 5px 0;margin:10px 0 4px}
+.note b{color:var(--accent)}
+dl.concepts{display:grid;grid-template-columns:minmax(90px,max-content) minmax(0,1fr);gap:6px 12px;margin:0;font-size:13.5px}
+dt{font:600 12.5px var(--f-mono);color:var(--accent2)}
+dd{margin:0;color:var(--ink)}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+.tbl{overflow-x:auto}
+th,td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:600 11px var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+td code{font:12px var(--f-mono);color:var(--code-ink);background:var(--code-bg);padding:1px 4px;border-radius:3px;white-space:nowrap}
+.tags{display:flex;flex-wrap:wrap;gap:5px}
+.tags code{font:12px var(--f-mono);background:var(--tag-bg);color:var(--accent2);padding:2px 6px;border-radius:4px}
+footer{color:var(--muted);font-size:12.5px;margin-top:10px}
+footer a{color:var(--accent2)}
+.hide{display:none!important}
+@media (prefers-reduced-motion:no-preference){.cmd{transition:border-color .15s}}
+</style>
+
+<div class="wrap">
+<header class="mast">
+  <div class="eyebrow">GitLab CLI · glab</div>
+  <h1>glab <span>cheat sheet</span></h1>
+  <p class="lede">Connect to GitLab.com or a self-managed instance, then run issues, merge requests, pipelines, variables and releases from the terminal. Tap any command to copy it.</p>
+  <div class="prompt"><span><b>glab</b> &lt;command&gt; &lt;subcommand&gt; [flags]</span><span style="color:var(--muted)">·</span><span><b>glab</b> &lt;cmd&gt; --help</span></div>
+</header>
+
+<div class="bar">
+  <input id="q" type="search" placeholder="Filter: mr, pipeline, token, ca_cert…" aria-label="Filter commands">
+  <nav class="jump" aria-label="Sections">
+    <a href="#connect">Connect</a><a href="#mr">MRs</a><a href="#ci">CI/CD</a><a href="#issues">Issues</a><a href="#api">API</a><a href="#concepts">Concepts</a>
+  </nav>
+</div>
+
+<section class="flow" id="flow">
+  <h2>Everyday loop <span class="k">issue → merge</span></h2>
+  <p class="sub">The typical feature cycle, start to finish, without opening a browser.</p>
+  <div class="steps">
+    <div class="step"><p>Pick up work</p><code>glab issue list --assignee=@me</code></div>
+    <div class="step"><p>Branch from issue</p><code>glab mr create --related-issue 42 \
+  --create-source-branch --draft --fill</code></div>
+    <div class="step"><p>Commit &amp; push</p><code>git commit -am "fix: retry"
+git push</code></div>
+    <div class="step"><p>Watch pipeline</p><code>glab ci status --live
+glab ci view</code></div>
+    <div class="step"><p>Ready for review</p><code>glab mr update --ready \
+  --reviewer alice,bob</code></div>
+    <div class="step"><p>Merge</p><code>glab mr merge --squash \
+  --remove-source-branch --auto-merge</code></div>
+  </div>
+</section>
+
+<div class="grid" id="grid">
+
+<section class="card" id="install">
+  <h2>Install <span class="k">setup</span></h2>
+  <p class="sub">Single Go binary. No admin needed if you drop it on your PATH.</p>
+  <div class="cmds">
+    <div class="cmd" tabindex="0"><pre>brew install glab</pre><span class="d">macOS / Linux (Homebrew)</span></div>
+    <div class="cmd" tabindex="0"><pre>winget install glab.glab</pre><span class="d">Windows (winget)</span></div>
+    <div class="cmd" tabindex="0"><pre>scoop install glab</pre><span class="d">Windows, per-user, no admin rights</span></div>
+    <div class="cmd" tabindex="0"><pre>go install gitlab.com/gitlab-org/cli/cmd/glab@latest</pre><span class="d">From source with Go</span></div>
+    <div class="cmd" tabindex="0"><pre>glab version <span class="g">&amp;&amp;</span> glab check-update</pre><span class="d">Confirm install, look for updates</span></div>
+    <div class="cmd" tabindex="0"><pre>glab completion <span class="f">-s</span> bash &gt; ~/.glab-completion.sh</pre><span class="d">Shell completion: bash, zsh, fish, powershell</span></div>
+  </div>
+  <div class="note"><b>Offline / air-gapped:</b> download the release archive for your OS from the gitlab-org/cli releases page, extract <code>glab</code>, and copy it into the bundle or onto PATH.</div>
+</section>
+
+<section class="card" id="connect">
+  <h2>Connect &amp; authenticate <span class="k">auth</span></h2>
+  <p class="sub">Every command needs a host and a token. Log in once per host.</p>
+  <h3>Log in</h3>
+  <div class="cmds">
+    <div class="cmd" tabindex="0"><pre>glab auth login</pre><span class="d">Interactive: pick GitLab.com or self-managed, browser or token, SSH or HTTPS</span></div>
+    <div class="cmd" tabindex="0"><pre>glab auth login <span class="f">--hostname</span> gitlab.example.mil</pre><span class="d">Self-managed instance</span></div>
+    <div class="cmd" tabindex="0"><pre>glab auth login <span class="f">--hostname</span> gitlab.example.mil <span class="f">--token</span> glpat-xxxx</pre><span class="d">Non-interactive with a personal access token</span></div>
+    <div class="cmd" tabindex="0"><pre>glab auth login <span class="f">--stdin</span> &lt; token.txt</pre><span class="d">Read token from a file or pipe, keeps it out of shell history</span></div>
+    <div class="cmd" tabindex="0"><pre>glab auth status</pre><span class="d">Show which hosts you're logged in to and token health</span></div>
+    <div class="cmd" tabindex="0"><pre>glab auth logout <span class="f">--hostname</span> gitlab.example.mil</pre><span class="d">Remove stored credentials</span></div>
+  </div>
+  <h3>Token scopes (PAT)</h3>
+  <div class="tags"><code>api</code><code>write_repository</code><code>read_user</code></div>
+  <p class="sub" style="margin-top:6px">Create at <b>User settings → Access tokens</b>. <code>api</code> covers nearly every glab command.</p>
+  <h3>Environment variables (CI, scripts)</h3>
+  <div class="cmds">
+    <div class="cmd" tabindex="0"><pre>export GITLAB_TOKEN=glpat-xxxx
+export GITLAB_HOST=https://gitlab.example.mil</pre><span class="d">Override config; ideal in pipelines and containers</span></div>
+  </div>
+  <h3>SSH vs HTTPS for git</h3>
+  <div class="cmds">
+    <div class="cmd" tabindex="0"><pre>glab config set git_protocol ssh <span class="f">--host</span> gitlab.example.mil</pre><span class="d">Clone and push over SSH</span></div>
+    <div class="cmd" tabindex="0"><pre>glab ssh-key add ~/.ssh/id_ed25519.pub <span class="f">-t</span> "work-laptop"</pre><span class="d">Upload your public key to your profile</span></div>
+    <div class="cmd" tabindex="0"><pre>ssh <span class="f">-T</span> git@gitlab.example.mil</pre><span class="d">Test: prints "Welcome to GitLab, @you!"</span></div>
+  </div>
+</section>
+
+<section class="card" id="certs">
+  <h2>Self-managed &amp; certs <span class="k">tls</span></h2>
+  <p class="sub">Internal GitLab behind a private CA (DoD PKI, corporate root) will fail TLS until glab trusts it.</p>
+  <div class="cmds">
+    <div class="cmd" tabindex="0"><pre>glab config set ca_cert /path/to/ca-bundle.pem <span class="f">--host</span> gitlab.example.mil</pre><span class="d">Trust a custom CA bundle for one host</span></div>
+    <div class="cmd" tabindex="0"><pre>glab config set api_protocol https <span class="f">--host</span> gitlab.example.mil</pre><span class="d">Force HTTPS for API calls</span></div>
+    <div class="cmd" tabindex="0"><pre>glab config set skip_tls_verify true <span class="f">--host</span> lab.local</pre><span class="d">Throwaway lab only. Never on real systems</span></div>
+    <div class="cmd" tabindex="0"><pre>export HTTPS_PROXY=http://proxy.example.mil:8080</pre><span class="d">glab honors standard proxy variables</span></div>
+  </div>
+  <div class="note"><b>Host resolution:</b> inside a repo, glab uses the host from the git remote. Outside a repo it falls back to <code>GITLAB_HOST</code>, then the config default. Use <code>-R host/group/project</code> to be explicit.</div>
+</section>
+
+<section class="card" id="config">
+  <h2>Config <span class="k">config</span></h2>
+  <p class="sub">Global file: <code>~/.config/glab-cli/config.yml</code> (Windows: <code>%APPDATA%\glab-cli</code>). Per-repo: <code>.git/glab-cli/config.yml</code>.</p>
+  <div class="cmds">
+    <div class="cmd" tabindex="0"><pre>glab config set editor "code --wait" <span class="f">-g</span></pre><span class="d">Editor for MR/issue descriptions (global)</span></div>
+    <div class="cmd" tabindex="0"><pre>glab config set browser firefox <span class="f">-g</span></pre><span class="d">Browser for <code>--web</code></span></div>
+    <div class="cmd" tabindex="0"><pre>glab config get git_protocol <span class="f">--host</span> gitlab.com</pre><span class="d">Read a single setting</span></div>
+    <div class="cmd" tabindex="0"><pre>glab config edit</pre><span class="d">Open config file in your editor</span></div>
+  </div>
+  <h3>Handy env vars</h3>
+  <div class="tags"><code>GLAB_CONFIG_DIR</code><code>NO_PROMPT=true</code><code>NO_COLOR</code><code>GLAB_PAGER</code><code>DEBUG=true</code></div>
+</section>
+
+<section class="card" id="repo">
+  <h2>Repositories <span class="k">repo</span></h2>
+  <p class="sub">Paths are <code>group/subgroup/project</code>.</p>
+  <div class="cmds">
+    <div class="cmd" tabindex="0"><pre>glab repo clone mygroup/api-service</pre><span class="d">Clone by path, uses your git_protocol</span></div>
+    <div class="cmd" tabindex="0"><pre>glab repo clone <span class="f">-g</span> mygroup <span class="f">--paginate</span></pre><span class="d">Clone every project in a group</span></div>
+    <div class="cmd" tabindex="0"><pre>glab repo create my-tool <span class="f">--group</span> mygroup <span class="f">--private</span></pre><span class="d">New project</span></div>
+    <div class="cmd" tabindex="0"><pre>glab repo fork upstream/project <span class="f">--clone</span></pre><span class="d">Fork and clone in one step</span></div>
+    <div class="cmd" tabindex="0"><pre>glab repo view <span class="f">--web</span></pre><span class="d">Open current project in the browser</span></div>
+    <div class="cmd" tabindex="0"><pre>glab repo list <span class="f">--member</span></pre><span class="d">Projects you belong to</span></div>
+    <div class="cmd" tabindex="0"><pre>glab repo search <span class="f">-s</span> "pipeline"</pre><span class="d">Find projects by name</span></div>
+  </div>
+</section>
+
+<section class="card" id="mr">
+  <h2>Merge requests <span class="k">mr</span></h2>
+  <p class="sub">Run inside the repo; glab infers project and branch.</p>
+  <h3>Create</h3>
+  <div class="cmds">
+    <div class="cmd" tabindex="0"><pre>glab mr create <span class="f">--fill</span></pre><span class="d">Title &amp; description from commits, push branch, open MR</span></div>
+    <div class="cmd" tabindex="0"><pre>glab mr create <span class="f">-t</span> "Add retry" <span class="f">-d</span> "Closes #42" <span class="f">-b</span> develop <span class="f">--draft</span></pre><span class="d">Explicit title, body, target branch, draft</span></div>
+    <div class="cmd" tabindex="0"><pre>glab mr create <span class="f">--reviewer</span> alice <span class="f">--assignee</span> @me <span class="f">-l</span> backend <span class="f">--remove-source-branch</span> <span class="f">--squash-before-merge</span></pre><span class="d">Reviewers, labels, merge options up front</span></div>
+  </div>
+  <h3>Find &amp; review</h3>
+  <div class="cmds">
+    <div class="cmd" tabindex="0"><pre>glab mr list <span class="f">--reviewer</span>=@me</pre><span class="d">Waiting on your review</span></div>
+    <div class="cmd" tabindex="0"><pre>glab mr list <span class="f">--assignee</span>=@me <span class="f">--draft</span></pre><span class="d">Your drafts</span></div>
+    <div class="cmd" tabindex="0"><pre>glab mr checkout 123</pre><span class="d">Check out MR !123 locally</span></div>
+    <div class="cmd" tabindex="0"><pre>glab mr diff 123</pre><span class="d">Show the diff</span></div>
+    <div class="cmd" tabindex="0"><pre>glab mr view 123 <span class="f">--comments</span></pre><span class="d">Details plus discussion</span></div>
+    <div class="cmd" tabindex="0"><pre>glab mr note 123 <span class="f">-m</span> "LGTM after tests"</pre><span class="d">Comment</span></div>
+    <div class="cmd" tabindex="0"><pre>glab mr approve 123</pre><span class="d">Approve (<code>glab mr revoke</code> to undo)</span></div>
+  </div>
+  <h3>Finish</h3>
+  <div class="cmds">
+    <div class="cmd" tabindex="0"><pre>glab mr update 123 <span class="f">--ready</span></pre><span class="d">Mark draft as ready</span></div>
+    <div class="cmd" tabindex="0"><pre>glab mr rebase 123</pre><span class="d">Server-side rebase onto target</span></div>
+    <div class="cmd" tabindex="0"><pre>glab mr merge 123 <span class="f">--squash</span> <span class="f">--remove-source-branch</span></pre><span class="d">Merge now</span></div>
+    <div class="cmd" tabindex="0"><pre>glab mr merge 123 <span class="f">--auto-merge</span></pre><span class="d">Merge when the pipeline succeeds</span></div>
+    <div class="cmd" tabindex="0"><pre>glab mr close 123   <span class="g">#</span> or reopen</pre><span class="d">Close without merging</span></div>
+  </div>
+</section>
+
+<section class="card" id="ci">
+  <h2>Pipelines &amp; jobs <span class="k">ci</span></h2>
+  <p class="sub"><code>glab ci</code> and <code>glab pipeline</code> are the same command.</p>
+  <div class="cmds">
+    <div class="cmd" tabindex="0"><pre>glab ci status <span class="f">--live</span></pre><span class="d">Current branch pipeline, refreshing until done</span></div>
+    <div class="cmd" tabindex="0"><pre>glab ci view</pre><span class="d">Interactive TUI: browse stages, read logs, retry or cancel jobs</span></div>
+    <div class="cmd" tabindex="0"><pre>glab ci list <span class="f">--status</span>=failed</pre><span class="d">Recent failed pipelines</span></div>
+    <div class="cmd" tabindex="0"><pre>glab ci run <span class="f">-b</span> main <span class="f">--variables</span> DEPLOY_ENV:staging</pre><span class="d">Trigger a pipeline with variables</span></div>
+    <div class="cmd" tabindex="0"><pre>glab ci trace</pre><span class="d">Pick a job and stream its log</span></div>
+    <div class="cmd" tabindex="0"><pre>glab ci retry 98765</pre><span class="d">Retry a job by ID</span></div>
+    <div class="cmd" tabindex="0"><pre>glab ci cancel pipeline 4567</pre><span class="d">Cancel a running pipeline</span></div>
+    <div class="cmd" tabindex="0"><pre>glab ci lint .gitlab-ci.yml</pre><span class="d">Validate CI config against the server before pushing</span></div>
+    <div class="cmd" tabindex="0"><pre>glab ci config compile</pre><span class="d">Show fully merged config with includes expanded</span></div>
+    <div class="cmd" tabindex="0"><pre>glab job artifact main build</pre><span class="d">Download artifacts from job "build" on main</span></div>
+  </div>
+  <h3>Schedules</h3>
+  <div class="cmds">
+    <div class="cmd" tabindex="0"><pre>glab schedule list</pre><span class="d">Scheduled pipelines</span></div>
+    <div class="cmd" tabindex="0"><pre>glab schedule create <span class="f">--cron</span> "0 6 * * 1-5" <span class="f">--ref</span> main <span class="f">--description</span> "Nightly"</pre><span class="d">New schedule</span></div>
+    <div class="cmd" tabindex="0"><pre>glab schedule run 12</pre><span class="d">Run a schedule now</span></div>
+  </div>
+</section>
+
+<section class="card" id="issues">
+  <h2>Issues <span class="k">issue</span></h2>
+  <div class="cmds">
+    <div class="cmd" tabindex="0"><pre>glab issue create <span class="f">-t</span> "Login times out" <span class="f">-l</span> bug,p2 <span class="f">-a</span> @me</pre><span class="d">New issue with labels and assignee</span></div>
+    <div class="cmd" tabindex="0"><pre>glab issue list <span class="f">--assignee</span>=@me</pre><span class="d">Your open issues</span></div>
+    <div class="cmd" tabindex="0"><pre>glab issue list <span class="f">-l</span> bug <span class="f">--milestone</span> "Sprint 14"</pre><span class="d">Filter by label and milestone</span></div>
+    <div class="cmd" tabindex="0"><pre>glab issue view 42 <span class="f">--comments</span></pre><span class="d">Read an issue and its thread</span></div>
+    <div class="cmd" tabindex="0"><pre>glab issue note 42 <span class="f">-m</span> "Repro on v2.3"</pre><span class="d">Comment</span></div>
+    <div class="cmd" tabindex="0"><pre>glab issue update 42 <span class="f">--label</span> in-progress <span class="f">--unlabel</span> todo</pre><span class="d">Move across a board</span></div>
+    <div class="cmd" tabindex="0"><pre>glab issue close 42</pre><span class="d">Close (<code>reopen</code> to reverse)</span></div>
+    <div class="cmd" tabindex="0"><pre>glab issue board view</pre><span class="d">Kanban board in the terminal</span></div>
+  </div>
+</section>
+
+<section class="card" id="vars">
+  <h2>CI/CD variables <span class="k">variable</span></h2>
+  <p class="sub">Project scope by default; add <code>-g group</code> for group variables.</p>
+  <div class="cmds">
+    <div class="cmd" tabindex="0"><pre>glab variable set API_KEY "s3cr3t" <span class="f">--masked</span> <span class="f">--protected</span></pre><span class="d">Hidden in logs, only on protected branches</span></div>
+    <div class="cmd" tabindex="0"><pre>glab variable set KUBECONFIG <span class="f">--type</span> file &lt; kubeconfig.yaml</pre><span class="d">File-type variable from stdin</span></div>
+    <div class="cmd" tabindex="0"><pre>glab variable set DB_HOST db.prod <span class="f">--scope</span> production</pre><span class="d">Limit to one environment</span></div>
+    <div class="cmd" tabindex="0"><pre>glab variable list</pre><span class="d">List names</span></div>
+    <div class="cmd" tabindex="0"><pre>glab variable get DB_HOST</pre><span class="d">Read a value</span></div>
+    <div class="cmd" tabindex="0"><pre>glab variable export</pre><span class="d">Dump all as JSON</span></div>
+    <div class="cmd" tabindex="0"><pre>glab variable delete OLD_KEY</pre><span class="d">Remove</span></div>
+  </div>
+</section>
+
+<section class="card" id="release">
+  <h2>Releases <span class="k">release</span></h2>
+  <div class="cmds">
+    <div class="cmd" tabindex="0"><pre>glab release create v1.4.0 ./dist/* <span class="f">--notes-file</span> CHANGELOG.md</pre><span class="d">Tag, notes, and attached assets</span></div>
+    <div class="cmd" tabindex="0"><pre>glab release create v1.4.1 <span class="f">--ref</span> main <span class="f">-n</span> "Hotfix for #42"</pre><span class="d">Create the tag from a branch</span></div>
+    <div class="cmd" tabindex="0"><pre>glab release list</pre><span class="d">All releases</span></div>
+    <div class="cmd" tabindex="0"><pre>glab release view v1.4.0</pre><span class="d">Notes and assets</span></div>
+    <div class="cmd" tabindex="0"><pre>glab release download v1.4.0 <span class="f">-D</span> ./out</pre><span class="d">Fetch release assets</span></div>
+    <div class="cmd" tabindex="0"><pre>glab release upload v1.4.0 ./extra.zip</pre><span class="d">Add assets later</span></div>
+  </div>
+</section>
+
+<section class="card" id="api">
+  <h2>Raw API <span class="k">api</span></h2>
+  <p class="sub">Authenticated calls to REST or GraphQL for anything glab lacks a command for.</p>
+  <div class="cmds">
+    <div class="cmd" tabindex="0"><pre>glab api projects/:id/merge_requests <span class="f">--paginate</span></pre><span class="d">REST GET; <code>:id</code> resolves to the current project</span></div>
+    <div class="cmd" tabindex="0"><pre>glab api <span class="f">-X</span> POST projects/:id/issues <span class="f">-f</span> title="From API"</pre><span class="d">POST with form fields</span></div>
+    <div class="cmd" tabindex="0"><pre>glab api projects/:fullpath/repository/branches | jq '.[].name'</pre><span class="d">Pipe JSON to jq</span></div>
+    <div class="cmd" tabindex="0"><pre>glab api graphql <span class="f">-f</span> query='{ currentUser { username } }'</pre><span class="d">GraphQL query</span></div>
+  </div>
+  <h3>Placeholders</h3>
+  <div class="tags"><code>:id</code><code>:fullpath</code><code>:repo</code><code>:namespace</code><code>:group</code><code>:branch</code><code>:user</code></div>
+</section>
+
+<section class="card" id="more">
+  <h2>More commands <span class="k">misc</span></h2>
+  <div class="cmds">
+    <div class="cmd" tabindex="0"><pre>glab label create <span class="f">-n</span> p1 <span class="f">-c</span> "#d9534f"</pre><span class="d">Project label</span></div>
+    <div class="cmd" tabindex="0"><pre>glab snippet create notes.md <span class="f">-t</span> "Runbook"</pre><span class="d">Share a snippet</span></div>
+    <div class="cmd" tabindex="0"><pre>glab changelog generate</pre><span class="d">Changelog from commit trailers</span></div>
+    <div class="cmd" tabindex="0"><pre>glab user events</pre><span class="d">Your recent activity</span></div>
+    <div class="cmd" tabindex="0"><pre>glab duo ask "undo my last pushed commit"</pre><span class="d">GitLab Duo suggests git commands (needs Duo license)</span></div>
+    <div class="cmd" tabindex="0"><pre>glab stack create my-feature</pre><span class="d">Stacked diffs (experimental)</span></div>
+  </div>
+</section>
+
+<section class="card" id="alias">
+  <h2>Aliases &amp; global flags <span class="k">alias</span></h2>
+  <div class="cmds">
+    <div class="cmd" tabindex="0"><pre>glab alias set mine 'mr list --assignee=@me'</pre><span class="d">Then run <code>glab mine</code></span></div>
+    <div class="cmd" tabindex="0"><pre>glab alias set bugs 'issue list -l bug --assignee=$1'</pre><span class="d">Positional args with <code>$1</code></span></div>
+    <div class="cmd" tabindex="0"><pre>glab alias set co '!git fetch &amp;&amp; glab mr checkout "$1"' <span class="f">--shell</span></pre><span class="d">Shell alias chaining other tools</span></div>
+    <div class="cmd" tabindex="0"><pre>glab alias list</pre><span class="d">Show aliases</span></div>
+  </div>
+  <h3>Flags that work almost everywhere</h3>
+  <div class="tbl"><table>
+    <tr><th>Flag</th><th>Does</th></tr>
+    <tr><td><code>-R group/proj</code></td><td>Target another repo (or <code>host/group/proj</code>)</td></tr>
+    <tr><td><code>-w, --web</code></td><td>Open the result in the browser</td></tr>
+    <tr><td><code>-F json</code></td><td>JSON output on list/view commands that support it</td></tr>
+    <tr><td><code>-P, --per-page</code></td><td>Page size for lists</td></tr>
+    <tr><td><code>@me</code></td><td>Shorthand for your username</td></tr>
+    <tr><td><code>-h, --help</code></td><td>Flags and examples for any command</td></tr>
+  </table></div>
+</section>
+
+<section class="card" id="concepts">
+  <h2>Key concepts <span class="k">model</span></h2>
+  <dl class="concepts">
+    <dt>Group</dt><dd>Namespace holding projects and subgroups; permissions and variables inherit downward.</dd>
+    <dt>Project</dt><dd>One git repo plus its issues, MRs, CI/CD, registry and wiki.</dd>
+    <dt>MR (!123)</dt><dd>Merge request: proposed change from a source to a target branch. Prefix <code>!</code>.</dd>
+    <dt>Issue (#42)</dt><dd>Tracked work item. "Closes #42" in an MR closes it on merge.</dd>
+    <dt>Pipeline</dt><dd>One run of <code>.gitlab-ci.yml</code>; made of stages, which contain jobs.</dd>
+    <dt>Job</dt><dd>A script executed by a runner; produces logs and artifacts.</dd>
+    <dt>Runner</dt><dd>Agent that executes jobs. Shared, group or project scoped; matched by tags.</dd>
+    <dt>Protected</dt><dd>Branches/tags with push and merge rules. Protected variables only reach these.</dd>
+    <dt>Masked</dt><dd>Variable value hidden as <code>[MASKED]</code> in job logs.</dd>
+    <dt>Environment</dt><dd>Deploy target (staging, prod) with history and scoped variables.</dd>
+    <dt>PAT</dt><dd>Personal access token; scoped, expiring. Project and group tokens exist for bots.</dd>
+    <dt>Draft</dt><dd>MR that can't be merged until marked ready.</dd>
+  </dl>
+</section>
+
+<section class="card" id="git">
+  <h2>Git companions <span class="k">git</span></h2>
+  <p class="sub">glab handles GitLab; git still moves the code.</p>
+  <div class="cmds">
+    <div class="cmd" tabindex="0"><pre>git switch <span class="f">-c</span> feat/retry</pre><span class="d">New branch</span></div>
+    <div class="cmd" tabindex="0"><pre>git push <span class="f">-u</span> origin HEAD</pre><span class="d">Push and track current branch</span></div>
+    <div class="cmd" tabindex="0"><pre>git push <span class="f">-o</span> merge_request.create <span class="f">-o</span> merge_request.target=main</pre><span class="d">GitLab push options: open an MR during push</span></div>
+    <div class="cmd" tabindex="0"><pre>git push <span class="f">-o</span> ci.skip</pre><span class="d">Push without running a pipeline</span></div>
+    <div class="cmd" tabindex="0"><pre>git fetch origin <span class="g">&amp;&amp;</span> git rebase origin/main</pre><span class="d">Catch up with main</span></div>
+    <div class="cmd" tabindex="0"><pre>git commit <span class="f">-m</span> "fix: timeout" <span class="f">-m</span> "Changelog: fixed"</pre><span class="d">Trailer read by <code>glab changelog</code></span></div>
+  </div>
+</section>
+
+<section class="card" id="trouble">
+  <h2>Troubleshooting <span class="k">fix</span></h2>
+  <div class="tbl"><table>
+    <tr><th>Symptom</th><th>Fix</th></tr>
+    <tr><td>x509: certificate signed by unknown authority</td><td>Set <code>ca_cert</code> for the host</td></tr>
+    <tr><td>401 Unauthorized</td><td>Token expired or wrong host: <code>glab auth status</code></td></tr>
+    <tr><td>403 Forbidden</td><td>Token missing <code>api</code> scope, or role too low</td></tr>
+    <tr><td>none of the git remotes… point to a known host</td><td>Log in to that host, or pass <code>-R</code></td></tr>
+    <tr><td>Wrong project picked</td><td>Multiple remotes: pass <code>-R group/project</code> explicitly</td></tr>
+    <tr><td>Need detail</td><td>Prefix with <code>DEBUG=true</code></td></tr>
+  </table></div>
+</section>
+
+</div>
+
+<footer>Commands reflect glab 1.x. Flags shift between releases, so run <code>glab &lt;cmd&gt; --help</code> to confirm. Reference: <a href="https://docs.gitlab.com/cli/" target="_blank" rel="noopener">docs.gitlab.com/cli</a></footer>
+</div>
+
+<script>
+(function(){
+  const cmds=[...document.querySelectorAll('.cmd')];
+  function copy(el){
+    const t=el.querySelector('pre').innerText;
+    const done=()=>{el.classList.add('copied');setTimeout(()=>el.classList.remove('copied'),1100)};
+    const fallback=()=>{const r=document.createRange();r.selectNodeContents(el.querySelector('pre'));const s=getSelection();s.removeAllRanges();s.addRange(r)};
+    try{navigator.clipboard.writeText(t).then(done,fallback)}catch(e){fallback()}
+  }
+  cmds.forEach(el=>{
+    el.addEventListener('click',()=>copy(el));
+    el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();copy(el)}});
+  });
+  const q=document.getElementById('q');
+  const cards=[...document.querySelectorAll('section.card')];
+  q.addEventListener('input',()=>{
+    const v=q.value.trim().toLowerCase();
+    cards.forEach(c=>{
+      if(!v){c.classList.remove('hide');c.querySelectorAll('.cmd').forEach(x=>x.classList.remove('hide'));return}
+      const head=c.querySelector('h2').innerText.toLowerCase().includes(v);
+      let any=false;
+      c.querySelectorAll('.cmd').forEach(x=>{const m=head||x.innerText.toLowerCase().includes(v);x.classList.toggle('hide',!m);any=any||m});
+      const textHit=c.innerText.toLowerCase().includes(v);
+      c.classList.toggle('hide',!(any||textHit));
+    });
+  });
+})();
+</script>
+
+</body></html>

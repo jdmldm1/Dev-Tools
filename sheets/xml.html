@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>XML, XPath &amp; XSD Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/theme.css"><link rel="stylesheet" href="../assets/sheet.css"></head>
+<body><div id="app"></div>
+<script type="text/plain" id="sheet-src">
+title: XML, XPath & XSD
+eyebrow: XML 1.0 · XPath 1.0 · XML Schema 1.0
+lede: Syntax, namespaces, XPath, schema building blocks, and the command-line, PowerShell, Python and .NET one-liners for validating and querying messages. Format, convert and explore schemas in the toolbox.
+footer: Browsers cannot validate against an XSD, so use xmllint, .NET or lxml (below) for schema validation.
+
+== XML syntax | well-formed rules
+<?xml version="1.0" encoding="UTF-8"?> ## Declaration (optional, must be first if present)
+<root><child attr="v">text</child></root> ## One root element; tags must nest and close
+<empty/> ## Self-closing element
+attr="value"  or  attr='value' ## Attribute values must be quoted; names are unique per element
+&lt; &gt; &amp; &quot; &apos; ## The five predefined entities
+&#169;  &#xA9; ## Numeric character references
+<![CDATA[ raw < & text ]]> ## Literal text, no escaping
+<!-- comment --> ## Comment (cannot contain --)
+<?target data?> ## Processing instruction
+xml:lang="en"  xml:space="preserve" ## Reserved attributes
+Names: letters, digits, . - _ : (not first) ## Case-sensitive; no spaces
+
+== Namespaces | xmlns
+xmlns="urn:example:msg" ## Default namespace: applies to unprefixed elements, not attributes
+xmlns:m="urn:example:msg" ## Prefix binding
+<m:Item/> ## Prefixed element
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ## Schema-instance namespace
+xsi:schemaLocation="urn:example:msg msg.xsd" ## Hint where the schema lives (namespace URI + location pairs)
+xsi:noNamespaceSchemaLocation="msg.xsd" ## Schema for no-namespace documents
+xsi:type="DerivedType" ## Pick a derived type at an element
+xsi:nil="true" ## Explicit null for a nillable element
+Prefixes are local; the namespace URI is the identity ## Different prefixes can mean the same namespace
+
+== XPath 1.0 | selecting
+/root/child ## Absolute path
+//item ## Any depth
+. ; .. ## Current / parent
+@attr ## Attribute of the current node
+//item[@id='7'] ## Predicate on an attribute
+//item[2] ; //item[last()] ; //item[position() < 3] ## By position (1-based)
+//item[price > 10 and qty = 1] ## Boolean logic in predicates
+//*[local-name()='UUID'] ## Match regardless of namespace prefix (use for default namespaces)
+//*[local-name()='A' and namespace-uri()='urn:x'] ## Exact namespace match
+//a/following-sibling::b ; //a/preceding-sibling::b ## Axes
+//a/ancestor::* ; //a/descendant::* ## More axes
+child::* ; attribute::* ; self::* ## Long-form axes
+//a | //b ## Union
+count(//item) ; sum(//qty) ## Aggregate functions
+string-length(.) ; substring(., 1, 3) ; concat(a, b) ## String functions
+contains(., 'x') ; starts-with(., 'x') ; normalize-space(.) ## Tests and cleanup
+translate(., 'abc', 'ABC') ## Character mapping (the XPath 1.0 way to change case)
+not(@x) ; boolean(x) ; number(x) ; string(x) ## Booleans and conversion
+
+== XML Schema (XSD) | structure
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:x" elementFormDefault="qualified"> ## Schema root
+<xs:element name="Msg" type="MsgType"/> ## Global element
+<xs:complexType name="MsgType"> ## Named complex type
+<xs:sequence> ## Children in order
+<xs:choice> ## Exactly one of the children
+<xs:all> ## Children in any order (each at most once in 1.0)
+<xs:element name="id" type="xs:string" minOccurs="0" maxOccurs="unbounded"/> ## Cardinality
+<xs:attribute name="v" type="xs:int" use="required"/> ## Attribute
+<xs:complexContent><xs:extension base="Base"> ## Derive by extension (add members)
+<xs:restriction base="Base"> ## Derive by restriction (narrow)
+abstract="true" ## Type or element cannot be used directly
+substitutionGroup="HeadElement" ## Element substitutable for another
+<xs:any namespace="##other" processContents="lax"/> ## Wildcard (extension point)
+<xs:import namespace="urn:y" schemaLocation="y.xsd"/> ## Another namespace's schema
+<xs:include schemaLocation="more.xsd"/> ## Same-namespace schema
+
+== XSD simple types & facets | restricting values
+<xs:simpleType name="Code"><xs:restriction base="xs:string"> ## Restrict a built-in type
+<xs:enumeration value="A"/> ## Allowed value
+<xs:pattern value="[A-Z]{3}"/> ## Regex (implicitly anchored)
+<xs:minLength value="1"/> ; <xs:maxLength value="64"/> ; <xs:length value="8"/> ## String length
+<xs:minInclusive value="0"/> ; <xs:maxInclusive value="100"/> ## Numeric bounds
+<xs:minExclusive value="0"/> ; <xs:maxExclusive value="1"/> ## Exclusive bounds
+<xs:totalDigits value="9"/> ; <xs:fractionDigits value="2"/> ## Decimal precision
+<xs:whiteSpace value="collapse"/> ## preserve | replace | collapse
+<xs:list itemType="xs:int"/> ## Space-separated list of values
+<xs:union memberTypes="A B"/> ## Value matches any member type
+|| Built-in type || Lexical form
+|| xs:string || any text
+|| xs:boolean || true, false, 1, 0
+|| xs:int / xs:long / xs:short / xs:byte || signed integers (32 / 64 / 16 / 8 bit)
+|| xs:unsignedInt / xs:unsignedLong || non-negative integers
+|| xs:integer / xs:decimal || unbounded integer / decimal
+|| xs:float / xs:double || IEEE 754; INF, -INF, NaN allowed
+|| xs:dateTime || 2026-10-24T14:30:00Z (or with offset)
+|| xs:date / xs:time / xs:duration || 2026-10-24 / 14:30:00 / PT1H30M
+|| xs:hexBinary / xs:base64Binary || 0FB7 / SGVsbG8=
+|| xs:anyURI / xs:token / xs:ID / xs:IDREF || URI / collapsed string / unique id / reference
+
+== Validate & query (CLI) | xmllint, xmlstarlet
+xmllint --noout msg.xml ## Well-formedness only
+xmllint --noout --schema schema.xsd msg.xml ## Validate against an XSD (resolves imports/includes)
+xmllint --format msg.xml ## Pretty-print
+xmllint --xpath "//*[local-name()='UUID']/text()" msg.xml ## XPath query
+xmllint --noout --schema schema.xsd *.xml ## Validate many files
+xmlstarlet sel -t -v "//item/@id" msg.xml ## Print values
+xmlstarlet ed -u "//item/@id" -v 9 msg.xml ## Edit in place with -L
+xmlstarlet val -s schema.xsd msg.xml ## Validate
+xsltproc style.xsl msg.xml ## Apply an XSLT 1.0 stylesheet
+
+== PowerShell | Windows
+[xml]$x = Get-Content msg.xml -Raw ## Parse into an XmlDocument
+$x.root.child ; $x.root.child.attr ## Dot navigation
+$x.SelectNodes("//*[local-name()='UUID']") ## XPath
+Select-Xml -Path msg.xml -XPath "//item" | % { $_.Node.InnerText } ## Select-Xml
+$x.Save("out.xml") ## Write back
+$s = New-Object System.Xml.Schema.XmlSchemaSet ; $s.Add($null, "schema.xsd") ; $x.Schemas = $s ; $x.Validate({ param($o,$e) Write-Host $e.Message }) ## Validate against an XSD
+([xml](Get-Content msg.xml -Raw)).OuterXml ## Normalize to one line
+
+== Python & .NET | validate in code
+from lxml import etree ; s = etree.XMLSchema(etree.parse("schema.xsd")) ## Load schema (lxml)
+doc = etree.parse("msg.xml") ; s.validate(doc) ; print(s.error_log) ## Validate and show errors
+doc.xpath("//*[local-name()='UUID']/text()") ## XPath
+import xml.etree.ElementTree as ET ; ET.parse("msg.xml").getroot() ## Stdlib parsing (no XSD validation)
+XDocument.Load("msg.xml") ## .NET: LINQ to XML
+var set = new XmlSchemaSet(); set.Add(null, "schema.xsd"); doc.Validate(set, (o, e) => Console.WriteLine(e.Message)); ## .NET: validate an XDocument
+xsd.exe schema.xsd /classes ## .NET: generate classes from a schema
+</script>
+<script src="../assets/sheet.js"></script></body></html>

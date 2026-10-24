@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>jq Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/theme.css"><link rel="stylesheet" href="../assets/sheet.css"></head>
+<body><div id="app"></div>
+<script type="text/plain" id="sheet-src">
+title: jq
+eyebrow: JSON on the command line · jq 1.6 / 1.7
+lede: Select, reshape, filter and summarize JSON. Filters compose with `|` like a shell pipeline. Examples assume `cat data.json | jq '...'` or `jq '...' data.json`.
+footer: Quote filters in single quotes on bash. On Windows PowerShell wrap in single quotes and escape inner double quotes, or put the filter in a file and use `jq -f filter.jq`.
+
+== Command-line flags | options
+jq . file.json ## Pretty-print
+jq -c . file.json ## Compact one-line output
+jq -r '.name' file.json ## Raw strings (no quotes)
+jq -e '.ok' file.json ## Exit status 1 if result is false or null
+jq -s . a.json b.json ## Slurp all inputs into one array
+jq -n '{a: 1}' ## No input: build from scratch
+jq --arg n "Ada" '.name == $n' ## Pass a string variable
+jq --argjson n 5 '.count > $n' ## Pass a JSON value variable
+jq --slurpfile cfg cfg.json '$cfg[0]' ## Load a file into a variable
+jq -S . file.json ## Sort object keys
+jq --tab . file.json ; jq --indent 4 . file.json ## Indentation
+jq -f filter.jq file.json ## Filter from a file
+jq -R . ; jq -Rs . ## Read raw lines / whole input as one string
+jq --stream . big.json ## Streaming parser for huge files
+
+== Selecting | paths
+. ## Identity (the whole input)
+.foo ; .foo.bar ; .["foo-bar"] ## Field access
+.foo? ## Suppress error if not an object
+.[0] ; .[-1] ## Array index; last element
+.[2:4] ; .[:3] ; .[-2:] ## Slice
+.[] ## Iterate array items / object values
+.users[].name ## Field from every element
+.. ## Recursive descent (every value)
+..|.id? ## Every `id` anywhere
+.a, .b ## Multiple outputs
+(.a, .b) ## Group
+.a // "default" ## Alternative if null or false
+.[] | select(.age > 30) ## Filter elements
+
+== Building values | construction
+{name: .n, id} ## New object (`id` is shorthand for id: .id)
+{(.key): .value} ## Computed key
+{a: .x} + {b: .y} ## Merge objects (right wins)
+. * {extra: true} ## Deep merge
+[.[] | .name] ## Collect results into an array
+[.items[] | select(.ok)] | length ## Count matches
+"Hello \(.name)" ## String interpolation
+.a + .b ; .a - .b ; .a * 2 ; .a / 2 ; .a % 3 ## Arithmetic (strings concatenate with +)
+[.a, .b] | add ## Sum or concatenate
+{} | .a.b.c = 1 ## Create nested paths
+
+== Core functions | transform
+length ## Length of string / array / object; abs of number
+keys ; keys_unsorted ; values ## Object keys
+has("k") ; in({"k":1}) ## Key membership
+map(.x) ; map(select(. > 1)) ## Transform / filter an array
+map_values(. + 1) ## Transform object values
+to_entries ; from_entries ; with_entries(.value += 1) ## Object <-> [{key,value}] pairs
+sort ; sort_by(.age) ; sort_by(.a, .b) ## Sorting
+group_by(.dept) ## Group into arrays
+unique ; unique_by(.id) ## De-duplicate
+min ; max ; min_by(.x) ; max_by(.x) ## Extremes
+reverse ; flatten ; flatten(1) ## Reverse; flatten arrays
+first ; last ; nth(2) ; limit(3; .[]) ## Pick items
+any ; all ; any(.x > 1) ; all(.x > 1) ## Boolean aggregates
+contains("sub") ; inside("string") ## Substring / subset check
+index("x") ; indices("x") ; ltrimstr("a") ; rtrimstr("z") ## String search / trim
+add / length ## Average
+range(5) ; range(2;8) ; [range(0;10;3)] ## Sequences
+input_line_number ; $__loc__ ; env.HOME ; $ENV.PATH ## Environment and debug
+
+== Strings & formats | text
+ascii_downcase ; ascii_upcase ## Case
+split(",") ; join(", ") ## Split / join
+test("^a.*z$") ; test("x"; "i") ## Regex match (flags: i, x, g...)
+match("(\\d+)") ; capture("(?<n>\\d+)") ## Regex details
+sub("a"; "b") ; gsub("a"; "b") ## Replace first / all
+tostring ; tonumber ; tojson ; fromjson ## Conversions
+@csv ; @tsv ## Row to CSV/TSV (use with -r)
+@base64 ; @base64d ## Base64
+@uri ; @html ; @sh ; @json ## Escape for URL / HTML / shell / JSON
+ltrimstr("v") | tonumber ## Strip prefix, parse
+todate ; fromdate ; now ; strftime("%Y-%m-%d") ## Time
+splits("\\s+") ; @text ## Split on a regex (emits each piece); format as text
+
+== Updating & deleting | modify
+.a = 1 ## Set a field
+.a |= . + 1 ## Update using the current value
+.a += 1 ; .tags += ["x"] ## Add to number or array
+del(.a) ; del(.[0]) ; del(.a, .b) ## Delete
+del(.[] | select(.id == 5)) ## Delete matching elements
+.users |= map(select(.active)) ## Filter a nested array in place
+map_values(select(. != null)) ## Remove null fields
+walk(if type == "string" then ascii_downcase else . end) ## Apply a change everywhere
+paths ; paths(type == "number") ; getpath(["a","b"]) ; setpath(["a","b"]; 1) ## Work with paths
+to_entries | map(select(.value != null)) | from_entries ## Drop nulls (older jq)
+reduce .[] as $x (0; . + $x.n) ## Fold
+foreach .[] as $x (0; . + $x; .) ## Running totals
+
+== Logic & control | flow
+if .a > 1 then "big" elif .a == 1 then "one" else "small" end ## Conditionals
+type ## "object", "array", "string", "number", "boolean", "null"
+select(type == "string") ## Filter by type
+try error("bad") catch . ## Error handling
+.a? // empty ## Skip missing values silently
+empty ## Produces no output
+error("message") ## Raise an error
+limit(5; repeat(1)) ; until(. > 100; . * 2) ## Loops
+def f(x): x + 1; f(.a) ## Define a function
+$ENV.HOME ; env.HOME ## Environment variables
+input ; inputs ## Read more inputs (use with -n)
+
+== Recipes | real world
+jq -r '.[] | [.id, .name] | @csv' ## JSON array to CSV rows
+jq -r '(.[0] | keys_unsorted) as $k | $k, (.[] | [.[$k[]]]) | @csv' ## CSV with header from first object
+jq 'map({(.id|tostring): .}) | add' ## Array to object keyed by id
+jq 'group_by(.dept) | map({dept: .[0].dept, n: length})' ## Counts per group
+jq '[.[] | .tags[]] | unique' ## Distinct values across nested arrays
+jq 'to_entries | sort_by(.value) | reverse | .[0:5] | from_entries' ## Top 5 by value
+jq -r '.items[] | "\(.name)\t\(.status)"' ## Tab-separated report
+jq -s 'add' a.json b.json ## Merge several JSON arrays/objects
+jq -s '.[0] * .[1]' a.json b.json ## Deep-merge two objects
+jq -r 'paths(scalars) as $p | "\($p|join(".")) = \(getpath($p))"' ## Flatten to dotted paths
+jq 'del(..|nulls)' ## Remove every null
+jq '.. | objects | select(has("id")) | .id' ## Find all ids anywhere
+kubectl get pods -o json | jq -r '.items[] | select(.status.phase!="Running") | .metadata.name' ## Pods that are not running
+curl -s URL | jq -r '.[] | .login' ## Process an API response
+</script>
+<script src="../assets/sheet.js"></script></body></html>

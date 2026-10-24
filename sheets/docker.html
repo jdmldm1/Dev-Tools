@@ -1,0 +1,436 @@
+<!doctype html><html data-theme="dark"><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body><div style="padding:8px 16px;font:600 12px ui-monospace,Consolas,monospace;letter-spacing:.04em"><a href="../index.html" style="color:inherit;opacity:.75;text-decoration:none">&larr; dev-tools</a></div>
+<title>Docker CLI Cheat Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: masthead with lifecycle diagram, then a masonry-style column flow of section "manifests", each a stack of command → meaning rows */
+:root{
+  --bg:#eef1f4; --panel:#ffffff; --ink:#15202b; --muted:#5a6878; --line:#d5dce4;
+  --code-bg:#f3f6f9; --accent:#0b62c4; --rust:#c2541b; --ok:#1d7a4f; --chip:#e3eaf2;
+  --f-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e1620; --panel:#152130; --ink:#e4ebf2; --muted:#93a3b5; --line:#26364a;
+  --code-bg:#0f1a26; --accent:#5aa7ff; --rust:#f08a4b; --ok:#4cc38a; --chip:#1d2c3e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1620; --panel:#152130; --ink:#e4ebf2; --muted:#93a3b5; --line:#26364a;
+  --code-bg:#0f1a26; --accent:#5aa7ff; --rust:#f08a4b; --ok:#4cc38a; --chip:#1d2c3e; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:1320px;margin:0 auto;padding-inline:clamp(16px,3vw,36px);padding-block:28px 64px}
+header.mast{display:grid;gap:18px;border-bottom:2px solid var(--ink);padding-bottom:22px;margin-bottom:22px}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--rust)}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(34px,6vw,64px);line-height:.95;margin:0;letter-spacing:-.02em;text-wrap:balance}
+h1 span{color:var(--accent)}
+.lede{max-width:68ch;color:var(--muted);margin:0}
+.syntax{font-family:var(--f-mono);font-size:14px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px 14px;overflow-x:auto;white-space:nowrap}
+.syntax b{color:var(--accent);font-weight:600}.syntax i{color:var(--rust);font-style:normal}.syntax em{color:var(--muted);font-style:normal}
+.tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+#q{flex:1 1 260px;min-width:0;font:inherit;font-family:var(--f-mono);font-size:14px;padding:10px 12px;border:1.5px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)}
+#q:focus{outline:2px solid var(--accent);outline-offset:1px}
+nav.jump{display:flex;flex-wrap:wrap;gap:6px}
+nav.jump a{font-family:var(--f-mono);font-size:12px;text-decoration:none;color:var(--ink);background:var(--chip);padding:5px 9px;border-radius:4px}
+nav.jump a:hover,nav.jump a:focus-visible{background:var(--accent);color:var(--panel)}
+h2{font-family:var(--f-display);font-weight:700;font-size:22px;margin:0;letter-spacing:-.01em}
+.secthead{display:flex;align-items:baseline;gap:10px;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:6px}
+.tag{font-family:var(--f-mono);font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+
+/* concepts */
+.concepts{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-block:8px 26px}
+.concept{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px 14px;display:grid;gap:4px;align-content:start}
+.concept h3{margin:0;font-family:var(--f-display);font-size:16px;display:flex;gap:8px;align-items:center}
+.concept h3::before{content:"";width:10px;height:10px;border-radius:2px;background:var(--rust);flex:none}
+.concept p{margin:0;font-size:14px;color:var(--muted)}
+.concept code{font-family:var(--f-mono);font-size:12.5px;color:var(--ink)}
+
+/* diagram */
+.diagram{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px;margin-bottom:26px}
+.diagram .scroll{overflow-x:auto}
+.diagram svg{display:block;min-width:760px;width:100%;height:auto}
+.dg-box{fill:var(--code-bg);stroke:var(--line);stroke-width:1.5}
+.dg-hot{fill:var(--accent)}
+.dg-t{fill:var(--ink);font-family:var(--f-display);font-weight:700;font-size:15px}
+.dg-tw{fill:#fff;font-family:var(--f-display);font-weight:700;font-size:15px}
+.dg-c{fill:var(--rust);font-family:var(--f-mono);font-size:11.5px}
+.dg-m{fill:var(--muted);font-family:var(--f-mono);font-size:11px}
+.dg-a{stroke:var(--muted);stroke-width:1.5;fill:none}
+.dg-ah{fill:var(--muted)}
+
+/* sections */
+.grid{columns:3 380px;column-gap:18px}
+section.card{break-inside:avoid;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px 14px 10px;margin-bottom:18px;display:block}
+.rows{display:grid}
+.row{display:grid;grid-template-columns:minmax(0,1fr);gap:2px;padding-block:7px;border-top:1px dashed var(--line)}
+.row:first-child{border-top:0}
+.cmdline{display:flex;gap:6px;align-items:flex-start;min-width:0}
+.cmd{flex:1;min-width:0;font-family:var(--f-mono);font-size:13px;background:var(--code-bg);border-radius:4px;padding:4px 7px;overflow-x:auto;white-space:pre;color:var(--ink)}
+.cmd .k{color:var(--accent);font-weight:600}
+.cmd .f{color:var(--rust)}
+.desc{font-size:13.5px;color:var(--muted);padding-left:2px}
+.cp{flex:none;font:600 11px var(--f-mono);border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:4px;padding:5px 7px;cursor:pointer}
+.cp:hover,.cp:focus-visible{color:var(--accent);border-color:var(--accent)}
+.cp.done{color:var(--ok);border-color:var(--ok)}
+.note{font-size:13px;color:var(--muted);border-left:3px solid var(--rust);padding:4px 10px;margin:8px 0 4px;background:var(--code-bg)}
+table.flags{width:100%;border-collapse:collapse;font-size:13px}
+table.flags td{padding:6px 4px;border-top:1px dashed var(--line);vertical-align:top}
+table.flags tr:first-child td{border-top:0}
+table.flags td:first-child{font-family:var(--f-mono);color:var(--rust);white-space:nowrap;padding-right:10px}
+table.flags td:last-child{color:var(--muted)}
+pre.file{font-family:var(--f-mono);font-size:12.5px;background:var(--code-bg);border-radius:4px;padding:10px 12px;overflow-x:auto;margin:6px 0 4px;line-height:1.55}
+pre.file .c{color:var(--muted)}pre.file .k{color:var(--accent);font-weight:600}
+.empty{display:none;padding:30px;text-align:center;color:var(--muted);font-family:var(--f-mono)}
+footer{margin-top:20px;font-size:12.5px;color:var(--muted);font-family:var(--f-mono)}
+mark{background:color-mix(in srgb,var(--rust) 30%,transparent);color:inherit;border-radius:2px}
+@media (max-width:520px){.grid{columns:1}h2{font-size:20px}}
+@media (prefers-reduced-motion:no-preference){.cp{transition:color .15s,border-color .15s}}
+</style>
+
+<div class="wrap">
+<header class="mast">
+  <div class="eyebrow">Reference · Docker Engine CLI + Compose v2 + Buildx</div>
+  <h1>Docker CLI <span>Cheat Sheet</span></h1>
+  <p class="lede">Core concepts, the container lifecycle, and the commands you reach for daily. Tap <b>copy</b> on any line, or filter everything with the search box.</p>
+  <div class="syntax"><b>docker</b> <i>[OBJECT]</i> <b>COMMAND</b> <em>[OPTIONS]</em> <i>[ARGS]</i> &nbsp;&nbsp;<em>→</em>&nbsp; docker <i>container</i> <b>ls</b> <em>-a</em> &nbsp;≡&nbsp; docker <b>ps</b> <em>-a</em></div>
+  <div class="tools">
+    <input id="q" type="search" placeholder="Filter commands… e.g. logs, prune, -p, volume" aria-label="Filter commands">
+  </div>
+  <nav class="jump" id="jump" aria-label="Sections"></nav>
+</header>
+
+<div class="secthead"><h2 id="concepts">Key concepts</h2><span class="tag">mental model</span></div>
+<div class="concepts">
+  <div class="concept"><h3>Image</h3><p>Read-only template: a stack of filesystem layers plus metadata (entrypoint, env, ports). Built from a Dockerfile. Identified by <code>repo:tag</code> or <code>@sha256:digest</code>.</p></div>
+  <div class="concept"><h3>Container</h3><p>A running (or stopped) instance of an image: image layers + a thin writable layer, isolated by Linux namespaces and limited by cgroups. Disposable by design.</p></div>
+  <div class="concept"><h3>Layer</h3><p>Each filesystem-changing Dockerfile step (<code>RUN</code>, <code>COPY</code>, <code>ADD</code>) adds a cached layer. Order steps least- to most-frequently-changed to keep builds fast.</p></div>
+  <div class="concept"><h3>Registry &amp; Repository</h3><p>A registry (Docker Hub, GHCR, ECR, Harbor, a local <code>registry:2</code>) hosts repositories; a repository holds tagged versions of one image.</p></div>
+  <div class="concept"><h3>Tag vs Digest</h3><p>Tags (<code>:1.27</code>, <code>:latest</code>) are movable labels. Digests (<code>@sha256:…</code>) are immutable content hashes. Pin digests for reproducible deploys.</p></div>
+  <div class="concept"><h3>Volume</h3><p>Docker-managed persistent storage that outlives containers. Use for databases and state. Bind mounts map a host path instead; tmpfs lives in memory.</p></div>
+  <div class="concept"><h3>Network</h3><p>User-defined <code>bridge</code> networks give containers DNS by name. <code>host</code> shares the host stack; <code>none</code> isolates. Publish ports with <code>-p</code> to reach from outside.</p></div>
+  <div class="concept"><h3>Dockerfile &amp; Build context</h3><p>Dockerfile = recipe. Context = the directory sent to the builder (trim with <code>.dockerignore</code>). BuildKit is the default builder.</p></div>
+  <div class="concept"><h3>Compose</h3><p>Declarative multi-container apps in <code>compose.yaml</code>: services, networks, volumes. Run with <code>docker compose</code> (v2 plugin, space not hyphen).</p></div>
+  <div class="concept"><h3>Context</h3><p>Which Docker daemon the CLI talks to: local socket, remote over SSH, etc. Switch with <code>docker context use</code>.</p></div>
+  <div class="concept"><h3>Entrypoint vs CMD</h3><p><code>ENTRYPOINT</code> is the executable; <code>CMD</code> supplies default args. Args after the image in <code>docker run</code> replace CMD.</p></div>
+  <div class="concept"><h3>PID 1 &amp; signals</h3><p>The main process is PID 1; the container lives while it runs. <code>stop</code> sends SIGTERM, then SIGKILL after a timeout (default 10s).</p></div>
+</div>
+
+<div class="secthead"><h2 id="lifecycle">Container lifecycle</h2><span class="tag">states &amp; transitions</span></div>
+<div class="diagram"><div class="scroll">
+<svg viewBox="0 0 900 250" role="img" aria-label="Container lifecycle: image to created to running, which can pause or stop, then removed">
+  <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="dg-ah"/></marker></defs>
+  <!-- boxes -->
+  <rect x="10" y="95" width="120" height="50" rx="6" class="dg-box"/><text x="70" y="125" text-anchor="middle" class="dg-t">IMAGE</text>
+  <rect x="200" y="95" width="120" height="50" rx="6" class="dg-box"/><text x="260" y="125" text-anchor="middle" class="dg-t">CREATED</text>
+  <rect x="400" y="95" width="130" height="50" rx="6" class="dg-hot"/><text x="465" y="125" text-anchor="middle" class="dg-tw">RUNNING</text>
+  <rect x="405" y="10" width="120" height="44" rx="6" class="dg-box"/><text x="465" y="37" text-anchor="middle" class="dg-t">PAUSED</text>
+  <rect x="610" y="95" width="130" height="50" rx="6" class="dg-box"/><text x="675" y="118" text-anchor="middle" class="dg-t">EXITED</text><text x="675" y="135" text-anchor="middle" class="dg-m">(stopped)</text>
+  <rect x="790" y="95" width="100" height="50" rx="6" class="dg-box"/><text x="840" y="125" text-anchor="middle" class="dg-t">REMOVED</text>
+  <!-- arrows -->
+  <path d="M130 120 H196" class="dg-a" marker-end="url(#ah)"/><text x="163" y="112" text-anchor="middle" class="dg-c">create</text>
+  <path d="M320 120 H396" class="dg-a" marker-end="url(#ah)"/><text x="358" y="112" text-anchor="middle" class="dg-c">start</text>
+  <path d="M70 145 V205 H465 V149" class="dg-a" marker-end="url(#ah)"/><text x="268" y="222" text-anchor="middle" class="dg-c">run = create + start</text>
+  <path d="M445 95 V58" class="dg-a" marker-end="url(#ah)"/><text x="438" y="80" text-anchor="end" class="dg-c">pause</text>
+  <path d="M485 54 V91" class="dg-a" marker-end="url(#ah)"/><text x="492" y="80" class="dg-c">unpause</text>
+  <path d="M530 112 H606" class="dg-a" marker-end="url(#ah)"/><text x="568" y="104" text-anchor="middle" class="dg-c">stop / kill</text>
+  <path d="M610 132 H534" class="dg-a" marker-end="url(#ah)"/><text x="572" y="150" text-anchor="middle" class="dg-c">start</text>
+  <path d="M740 120 H786" class="dg-a" marker-end="url(#ah)"/><text x="763" y="112" text-anchor="middle" class="dg-c">rm</text>
+  <path d="M530 140 C600 200 760 205 835 149" class="dg-a" marker-end="url(#ah)"/><text x="690" y="215" text-anchor="middle" class="dg-c">rm -f (force)</text>
+  <text x="675" y="75" text-anchor="middle" class="dg-m">restart = stop + start</text>
+</svg></div></div>
+
+<div class="secthead"><h2 id="commands">Commands</h2><span class="tag" id="count"></span></div>
+<div class="grid" id="grid"></div>
+<div class="empty" id="empty">No commands match that filter.</div>
+
+<footer>Covers Docker Engine 27+/28 CLI, Compose v2, and Buildx. Run <b>docker &lt;cmd&gt; --help</b> for every flag.</footer>
+</div>
+
+<script>
+/* Data: [command, description]. Strings beginning with "!" are notes. */
+const S = [
+ {id:"images", t:"Images", tag:"build · pull · ship", rows:[
+  ["docker pull nginx:1.27-alpine","Download an image (tag defaults to :latest)"],
+  ["docker images","List local images (alias: docker image ls)"],
+  ["docker images -f dangling=true","Untagged leftover images"],
+  ["docker build -t myapp:1.0 .","Build from ./Dockerfile with current dir as context"],
+  ["docker build -f build/Dockerfile.prod -t myapp:prod .","Use a different Dockerfile"],
+  ["docker build --no-cache --pull -t myapp .","Fresh build, re-pull base images"],
+  ["docker build --build-arg VERSION=1.2 --target runtime -t myapp .","Pass ARG values; stop at a named stage"],
+  ["docker tag myapp:1.0 ghcr.io/me/myapp:1.0","Add a registry/repo tag to an image"],
+  ["docker push ghcr.io/me/myapp:1.0","Upload to the registry"],
+  ["docker image inspect myapp:1.0","Full JSON metadata"],
+  ["docker history myapp:1.0","Layers and the step that made each, with sizes"],
+  ["docker rmi myapp:1.0","Remove an image (alias: docker image rm)"],
+  ["docker save -o myapp.tar myapp:1.0 redis:7","Export images to a tarball (offline / air-gapped transfer)"],
+  ["docker load -i myapp.tar","Import images from a tarball"],
+ ]},
+ {id:"run", t:"docker run", tag:"create + start", rows:[
+  ["docker run -d --name web -p 8080:80 nginx","Detached, named, host 8080 → container 80"],
+  ["docker run -it --rm alpine sh","Interactive shell, auto-delete on exit"],
+  ["docker run --rm -v \"$PWD\":/src -w /src golang:1.23 go test ./...","One-off tool run against your code"],
+  ["docker run -d -e POSTGRES_PASSWORD=secret -v pgdata:/var/lib/postgresql/data postgres:16","Env var + named volume for persistence"],
+  ["docker run --env-file .env myapp","Load env vars from a file"],
+  ["docker run -d --restart unless-stopped myapp","Restart policy: no | on-failure[:N] | always | unless-stopped"],
+  ["docker run --memory 512m --cpus 1.5 myapp","Resource limits (cgroups)"],
+  ["docker run --entrypoint sh -it myapp","Override ENTRYPOINT to poke around"],
+  ["docker run --network appnet --name api myapp","Attach to a user network (reachable as \"api\")"],
+  ["docker run -u 1000:1000 --read-only --cap-drop ALL myapp","Hardening: non-root, read-only rootfs, no capabilities"],
+  ["docker create --name job myapp","Create without starting"],
+ ]},
+ {id:"flags", t:"run flags", tag:"quick reference", table:[
+  ["-d, --detach","Run in background, print container ID"],
+  ["-i / -t","Keep STDIN open / allocate a TTY (use together: -it)"],
+  ["--name","Human-friendly name (also its DNS name on user networks)"],
+  ["-p H:C","Publish port; -p 127.0.0.1:5432:5432 binds localhost only; -P publishes all EXPOSEd"],
+  ["-v SRC:DST[:ro]","Named volume or bind mount; :ro = read-only"],
+  ["--mount","Explicit form: type=bind|volume|tmpfs,src=…,dst=…"],
+  ["-e, --env-file","Set environment variables"],
+  ["--rm","Delete container when it exits"],
+  ["-w","Working directory inside the container"],
+  ["-u","User[:group] to run as"],
+  ["--network","bridge (default) | host | none | <name>"],
+  ["--restart","Restart policy"],
+  ["--memory / --cpus","Resource limits"],
+  ["--entrypoint","Override image ENTRYPOINT"],
+  ["--platform","e.g. linux/arm64 (emulated if needed)"],
+  ["--health-cmd","Define a healthcheck at runtime"],
+  ["--add-host","Extra /etc/hosts entry, e.g. host.docker.internal:host-gateway"],
+ ]},
+ {id:"containers", t:"Manage containers", tag:"lifecycle", rows:[
+  ["docker ps","Running containers (alias: docker container ls)"],
+  ["docker ps -a","Include stopped containers"],
+  ["docker ps -q","IDs only, handy for scripting"],
+  ["docker start web","Start a stopped container"],
+  ["docker stop web","Graceful stop (SIGTERM, then SIGKILL after 10s)"],
+  ["docker stop -t 30 web","Give it 30s to shut down"],
+  ["docker restart web","Stop then start"],
+  ["docker kill web","Immediate SIGKILL (or -s SIGHUP for a specific signal)"],
+  ["docker pause web && docker unpause web","Freeze / thaw all processes"],
+  ["docker rm web","Remove a stopped container"],
+  ["docker rm -f web","Force-remove a running container"],
+  ["docker rename web web-old","Rename"],
+  ["docker update --restart always --memory 1g web","Change limits/policy on a live container"],
+  ["docker wait job","Block until exit, print exit code"],
+ ]},
+ {id:"inspect", t:"Inspect & debug", tag:"see inside", rows:[
+  ["docker logs -f --tail 100 web","Follow the last 100 log lines"],
+  ["docker logs --since 15m -t web","Logs from the last 15 minutes, with timestamps"],
+  ["docker exec -it web sh","Shell inside a running container (try bash first)"],
+  ["docker exec -u root web id","Run one command as a specific user"],
+  ["docker exec -e DEBUG=1 web env","Run with extra env vars"],
+  ["docker inspect web","Full JSON: config, mounts, network, state"],
+  ["docker inspect -f '{{.State.Status}} {{.State.ExitCode}}' web","Extract fields with Go templates"],
+  ["docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' web","Container IP address"],
+  ["docker port web","Show published port mappings"],
+  ["docker top web","Processes running inside"],
+  ["docker stats","Live CPU / memory / net / IO per container"],
+  ["docker stats --no-stream","One snapshot instead of live view"],
+  ["docker diff web","Files changed vs. the image (A/C/D)"],
+  ["docker cp web:/etc/nginx/nginx.conf ./","Copy file out of a container"],
+  ["docker cp ./site web:/usr/share/nginx/html","Copy into a container"],
+  ["docker events --filter container=web","Stream daemon events"],
+  ["docker attach web","Attach to main process I/O (detach: Ctrl-P Ctrl-Q)"],
+ ]},
+ {id:"volumes", t:"Volumes & mounts", tag:"persistent data", rows:[
+  ["docker volume create pgdata","Create a named volume"],
+  ["docker volume ls","List volumes"],
+  ["docker volume inspect pgdata","Mountpoint, driver, labels"],
+  ["docker volume rm pgdata","Delete a volume (data is gone)"],
+  ["docker volume prune -a","Remove all unused volumes"],
+  ["docker run -v pgdata:/data …","Named volume (Docker-managed)"],
+  ["docker run -v \"$PWD\"/conf:/etc/app:ro …","Bind mount a host path, read-only"],
+  ["docker run --mount type=tmpfs,dst=/tmp …","In-memory scratch space"],
+  ["docker run --rm -v pgdata:/v -v \"$PWD\":/b alpine tar czf /b/pgdata.tgz -C /v .","Back up a volume to a tarball"],
+  ["!Volumes survive docker rm. Use docker rm -v to also drop a container's anonymous volumes."],
+ ]},
+ {id:"networks", t:"Networks", tag:"connectivity", rows:[
+  ["docker network ls","List networks (bridge, host, none + yours)"],
+  ["docker network create appnet","User-defined bridge with built-in DNS"],
+  ["docker network create --subnet 172.30.0.0/24 appnet","Pick the subnet"],
+  ["docker network connect appnet web","Attach a running container"],
+  ["docker network disconnect appnet web","Detach it"],
+  ["docker network inspect appnet","Members, IPs, config"],
+  ["docker network rm appnet","Remove"],
+  ["docker network prune","Remove unused networks"],
+  ["!On a user network, containers reach each other by name: http://api:8080. The default bridge has no DNS."],
+ ]},
+ {id:"dockerfile", t:"Dockerfile", tag:"instructions", table:[
+  ["FROM","Base image; FROM golang:1.23 AS build starts a named stage"],
+  ["WORKDIR","Set the working dir (creates it)"],
+  ["COPY / ADD","Copy files from context; COPY --from=build pulls from a stage. Prefer COPY"],
+  ["RUN","Execute at build time, creates a layer"],
+  ["ENV / ARG","Runtime env var / build-time variable"],
+  ["EXPOSE","Documents a port (does not publish it)"],
+  ["USER","Drop to a non-root user"],
+  ["VOLUME","Declare a mount point"],
+  ["ENTRYPOINT / CMD","Executable / default args. Use JSON form [\"app\",\"--flag\"]"],
+  ["HEALTHCHECK","Command Docker runs to judge health"],
+  ["LABEL","Metadata, e.g. org.opencontainers.image.source"],
+ ], file:
+`<span class="c"># syntax=docker/dockerfile:1
+# Multi-stage: build in a fat image, ship a tiny one</span>
+<span class="k">FROM</span> golang:1.23 AS build
+<span class="k">WORKDIR</span> /src
+<span class="k">COPY</span> go.mod go.sum ./
+<span class="k">RUN</span> --mount=type=cache,target=/go/pkg/mod go mod download
+<span class="k">COPY</span> . .
+<span class="k">RUN</span> CGO_ENABLED=0 go build -o /out/app ./cmd/app
+
+<span class="k">FROM</span> gcr.io/distroless/static:nonroot
+<span class="k">COPY</span> --from=build /out/app /app
+<span class="k">USER</span> nonroot
+<span class="k">EXPOSE</span> 8080
+<span class="k">ENTRYPOINT</span> ["/app"]`,
+ note:"Add a .dockerignore (.git, node_modules, bin/, *.log) to shrink the context and avoid cache busts."},
+ {id:"compose", t:"Docker Compose", tag:"multi-container", rows:[
+  ["docker compose up -d","Create and start everything in compose.yaml"],
+  ["docker compose up -d --build","Rebuild images first"],
+  ["docker compose down","Stop and remove containers + networks"],
+  ["docker compose down -v","…and named volumes too"],
+  ["docker compose ps","Status of this project's services"],
+  ["docker compose logs -f api","Follow one service's logs"],
+  ["docker compose exec api sh","Shell into a running service"],
+  ["docker compose run --rm api go test ./...","One-off command in a new service container"],
+  ["docker compose restart api","Restart a service"],
+  ["docker compose pull","Pull newer images"],
+  ["docker compose config","Render the merged, interpolated config"],
+  ["docker compose -f compose.yaml -f compose.prod.yaml up -d","Layer override files"],
+  ["docker compose watch","Sync / rebuild on file changes (develop.watch)"],
+ ], file:
+`<span class="k">services:</span>
+  api:
+    build: .
+    ports: ["8080:8080"]
+    environment:
+      DB_URL: postgres://app:secret@db:5432/app
+    depends_on:
+      db: { condition: service_healthy }
+  db:
+    image: postgres:16
+    environment: { POSTGRES_USER: app, POSTGRES_PASSWORD: secret }
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app"]
+      interval: 5s
+<span class="k">volumes:</span>
+  pgdata:`},
+ {id:"registry", t:"Registries & auth", tag:"push · pull", rows:[
+  ["docker login","Log in to Docker Hub"],
+  ["docker login ghcr.io -u me --password-stdin < token.txt","Non-interactive login (keeps secrets out of history)"],
+  ["docker logout ghcr.io","Remove stored credentials"],
+  ["docker search postgres","Search Docker Hub"],
+  ["docker run -d -p 5000:5000 --name registry registry:2","Run a local private registry"],
+  ["docker tag myapp localhost:5000/myapp && docker push localhost:5000/myapp","Push to it"],
+  ["docker pull nginx@sha256:<digest>","Pull an exact, immutable image"],
+ ]},
+ {id:"buildx", t:"Buildx & multi-arch", tag:"BuildKit", rows:[
+  ["docker buildx ls","List builders and supported platforms"],
+  ["docker buildx create --use --name multi","Create a builder that can do multi-platform"],
+  ["docker buildx build --platform linux/amd64,linux/arm64 -t me/app:1.0 --push .","Build and push a multi-arch image"],
+  ["docker buildx build --load -t app .","Load the result into the local image store"],
+  ["docker buildx build --cache-to type=registry,ref=me/app:cache --cache-from type=registry,ref=me/app:cache .","Share build cache via a registry"],
+  ["docker build --secret id=npmrc,src=$HOME/.npmrc .","Pass secrets without baking them into layers"],
+  ["docker buildx imagetools inspect me/app:1.0","Show the manifest list per platform"],
+  ["docker buildx prune","Clear build cache"],
+ ]},
+ {id:"cleanup", t:"Cleanup & disk", tag:"reclaim space", rows:[
+  ["docker system df","Disk used by images, containers, volumes, cache"],
+  ["docker system df -v","Per-object breakdown"],
+  ["docker container prune","Remove all stopped containers"],
+  ["docker image prune","Remove dangling images"],
+  ["docker image prune -a","Remove every image not used by a container"],
+  ["docker builder prune","Remove build cache"],
+  ["docker system prune","Stopped containers, unused networks, dangling images, cache"],
+  ["docker system prune -a --volumes","Everything unused, including volumes. Careful"],
+  ["docker image prune -a --filter \"until=168h\"","Only prune images older than 7 days"],
+ ]},
+ {id:"format", t:"Filter & format", tag:"scripting", rows:[
+  ["docker ps --filter status=exited","Filter by state (also: name=, label=, ancestor=)"],
+  ["docker ps --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}'","Custom table columns"],
+  ["docker ps --format json","One JSON object per line (pipe to jq)"],
+  ["docker images --format '{{.Repository}}:{{.Tag}} {{.Size}}'","Compact image listing"],
+  ["docker rm $(docker ps -aq -f status=exited)","Remove all exited containers"],
+  ["docker stop $(docker ps -q)","Stop everything running"],
+  ["docker logs web 2>&1 | grep -i error","Logs go to stdout + stderr; merge before grepping"],
+ ]},
+ {id:"system", t:"System & contexts", tag:"daemon", rows:[
+  ["docker version","Client and server versions"],
+  ["docker info","Daemon config: storage driver, cgroup, root dir, counts"],
+  ["docker context ls","Available daemons/endpoints"],
+  ["docker context create prod --docker host=ssh://me@prod-host","Point the CLI at a remote host over SSH"],
+  ["docker context use prod","Switch active context"],
+  ["DOCKER_HOST=ssh://me@host docker ps","One-off remote command"],
+  ["docker commit web myapp:debug","Snapshot a container as an image (debugging only)"],
+  ["docker export web -o fs.tar","Flatten a container's filesystem to tar"],
+ ]},
+ {id:"recipes", t:"Everyday recipes", tag:"copy-paste", rows:[
+  ["docker run --rm -it --network container:web nicolaka/netshoot","Network debugging toolbox inside another container's netns"],
+  ["docker run --rm -it -v /:/host alpine chroot /host","Root shell on the host (shows why docker group = root)"],
+  ["docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=dev postgres:16","Throwaway Postgres for local dev"],
+  ["docker run --rm -p 8000:80 -v \"$PWD\":/usr/share/nginx/html:ro nginx","Serve the current folder over HTTP"],
+  ["docker exec -it db psql -U postgres","Open a DB client inside a container"],
+  ["docker inspect --format '{{json .State.Health}}' api | jq","Why is it unhealthy?"],
+  ["docker logs web --details 2>&1 | tail -50","Find why a container exited"],
+ ]},
+];
+
+const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+function hl(cmd){
+  let h = esc(cmd);
+  h = h.replace(/^(docker(?: compose| buildx| container| image| volume| network| system| context| builder)?)\b/, '<span class="k">$1</span>');
+  h = h.replace(/(\s)(--?[a-zA-Z][\w-]*)/g, '$1<span class="f">$2</span>');
+  return h;
+}
+const grid = document.getElementById("grid"), jump = document.getElementById("jump");
+jump.innerHTML = '<a href="#concepts">concepts</a><a href="#lifecycle">lifecycle</a>' + S.map(s=>`<a href="#${s.id}">${esc(s.t)}</a>`).join("");
+let total = 0;
+grid.innerHTML = S.map(s=>{
+  let body = "";
+  if (s.rows){
+    body += '<div class="rows">' + s.rows.map(([c,d])=>{
+      if (c.startsWith("!")) return `<div class="note" data-txt="${esc(c.slice(1).toLowerCase())}">${esc(c.slice(1))}</div>`;
+      total++;
+      return `<div class="row" data-txt="${esc((c+" "+d).toLowerCase())}"><div class="cmdline"><code class="cmd">${hl(c)}</code><button class="cp" type="button" data-c="${esc(c)}" aria-label="Copy command">copy</button></div><div class="desc">${esc(d)}</div></div>`;
+    }).join("") + '</div>';
+  }
+  if (s.table){
+    total += s.table.length;
+    body += '<table class="flags"><tbody>' + s.table.map(([a,b])=>`<tr class="row-t" data-txt="${esc((a+" "+b).toLowerCase())}"><td>${esc(a)}</td><td>${esc(b)}</td></tr>`).join("") + '</tbody></table>';
+  }
+  if (s.file) body += `<pre class="file">${s.file}</pre>`;
+  if (s.note) body += `<div class="note" data-txt="${esc(s.note.toLowerCase())}">${esc(s.note)}</div>`;
+  return `<section class="card" id="${s.id}" data-sec="${esc((s.t+" "+s.tag).toLowerCase())}"><div class="secthead"><h2>${esc(s.t)}</h2><span class="tag">${esc(s.tag)}</span></div>${body}</section>`;
+}).join("");
+document.getElementById("count").textContent = total + " entries";
+
+grid.addEventListener("click", async e=>{
+  const b = e.target.closest(".cp"); if(!b) return;
+  const txt = b.dataset.c;
+  try { await navigator.clipboard.writeText(txt); }
+  catch { const r=document.createRange(); r.selectNodeContents(b.previousElementSibling); const sel=getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+  b.textContent="copied"; b.classList.add("done");
+  setTimeout(()=>{b.textContent="copy"; b.classList.remove("done");},1400);
+});
+
+const q = document.getElementById("q");
+q.addEventListener("input", ()=>{
+  const v = q.value.trim().toLowerCase(); let any=false;
+  grid.querySelectorAll("section.card").forEach(sec=>{
+    const secHit = v && sec.dataset.sec.includes(v);
+    let hits=0;
+    sec.querySelectorAll("[data-txt]").forEach(r=>{
+      const ok = !v || secHit || r.dataset.txt.includes(v);
+      r.hidden = !ok; if(ok) hits++;
+    });
+    const pre = sec.querySelector("pre.file"); if(pre) pre.hidden = !!v && !secHit && !pre.textContent.toLowerCase().includes(v);
+    sec.hidden = !!v && hits===0 && (!pre || pre.hidden);
+    if(!sec.hidden) any=true;
+  });
+  document.getElementById("empty").style.display = any ? "none" : "block";
+});
+</script>
+
+</body></html>

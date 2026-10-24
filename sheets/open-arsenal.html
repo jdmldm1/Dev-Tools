@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>UCI, OMS &amp; AMS GRA Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/theme.css"><link rel="stylesheet" href="../assets/sheet.css"></head>
+<body><div id="app"></div>
+<script type="text/plain" id="sheet-src">
+title: UCI, OMS & AMS GRA
+eyebrow: Open Arsenal · open mission systems standards
+lede: A pointer sheet for the public github.com/open-arsenal repositories: what each one is, its layout, the concepts the READMEs name, and which dev-tools tool helps with which task. Summarized from the public repo landing pages on 2026-10-24, so confirm details against the repos themselves.
+footer: The repository sections record what the public landing pages state. The "UCI 2.6 schema at a glance" section was read from the release XSDs (Distribution A, "not intended for operational use") with the XSD Schema Explorer; load your own copy there to browse everything.
+
+== Repositories | github.com/open-arsenal
+|| Repo || What it is (per its description)
+|| uci || Universal C2 Interface (UCI)
+|| oms || Open Mission Systems (OMS)
+|| ams-gra || Agile Mission Suite Government Reference Architecture (AMS GRA)
+|| a-gra || Autonomy Government Reference Architecture (A-GRA)
+|| wosa || Weapon Open System Architecture (WOSA)
+|| ams-gra-hello-world-sk || AMS GRA hello-world starter (no description listed)
+|| ams-gra-hello-world-sk-getting-started || No description listed; language shown: Shell
+|| ams-gra-hello-world-sk-infra-sleet || No description listed; language shown: Rust
+|| ams-gra-hello-world-sk-interfaces-common-mel || No description listed; language shown: C++
+|| ams-gra-hello-world-sk-interfaces-ir-mel || No description listed; language shown: C++
+|| ams-gra-hello-world-sk-interfaces-rf-mel || No description listed; language shown: C++
+note: The organization lists 23 repositories; only the ones above were visible on its first page. Org tagline: "Open by Design • Agile by Default."
+https://github.com/open-arsenal ## Organization
+https://github.com/open-arsenal/repositories ## Full repository list
+
+== UCI | Universal C2 Interface
+|| Item || Detail
+|| Version || README says 2.6 (released 8 July 2026); the header badge said 2.5 when checked
+|| Purpose || A common message definition for performing mission operations
+|| Four parts || Message definitions (UCI Schema), interaction patterns (Normalized Interface Specification), schema design rules (Schema Style & Design Specification), compliance expectations
+|| Technology || Agnostic: no prescribed hardware, OS, encoding or transport
+|| Governance || Open Architecture Collaborative Working Group (OACWG)
+|| Related || OMS builds on UCI
+UCI Release Documentation - Standards Documents/ ## Folder: the standards documents
+UCI Release Documentation - UCI Schema/ ## Folder: the schema release (core schema referenced as 03_UCI-STD-002_Rev6_UCI_Schema_v2_6-CDRL.zip)
+UCI Starter Kit - Tools/ ## Folder: starter tooling (contents not described on the landing page)
+UCI-NSC-001_Rev1_Intro_To_3.0_NOSC-1.docx ## Introduction to UCI 3.0 document at the repo root
+Prisma ## Schema visualization tool named in the README
+note: Example "hello world" software is described as forthcoming in the UCI and OMS READMEs.
+
+== OMS | Open Mission Systems
+|| Item || Detail
+|| Version || 2.5, released January 22, 2026 (the Definition & Documentation set)
+|| Mission Package || Platforms, subsystems, services and isolators
+|| Units of Replaceability (UoRs) || Modular components: hardware subsystems and software services
+|| Data exchanges || OMS Messaging, Data Transfer, Special Signals, Security Information Exchanges
+|| Compliance || Tiered: Tier 1 through Tier 3
+|| Documents || Standards, specifications, guides, templates, instructions and checklists (for example Mission Package Worksheets and the Critical Abstraction Layer specification)
+|| Governance || OACWG
+docs_official/ ## Official documents
+docs_markdown_unofficial/ ## Unofficial Markdown renderings of the documents
+images/ ## Logo and overview graphic
+
+== AMS GRA | Agile Mission Suite
+|| Item || Detail
+|| Description || Agile Mission Suite Government Reference Architecture
+|| Top-level folders || Architecture_Volumes, Compliance_Artifacts, Interface_Description_Documents
+|| Top-level files || Executive_Summary.pdf, Glossary.pdf
+|| Hello-world series || Starter repos in Shell, Rust and C++ (common, IR and RF interface sets, the "mel" suffix)
+note: The AMS GRA README and folder contents were not visible on the landing page, so how it relates to UCI and OMS is not recorded here.
+
+== UCI 2.6 schema at a glance | read from the release files
+|| Item || What the files show
+|| Release || 002.6.0, dated 2026-07-08 (VDD.txt); every file carries version="002.6.0"
+|| Files || UCI_MessageDefinitions_v2_6_0.xsd (about 8 MB, includes the next file), UCI_SecurityMarkings_v2_6_0.xsd (24 types), UCI_Versioning_v2_6_0.xsd (one type, VersionType, in the .../oam/version namespace)
+|| Namespace || https://www.vdl.afrl.af.mil/programs/oam with elementFormDefault="qualified", so every element must be in it (use a default xmlns)
+|| Messages || 725 global elements; each has type <Name>MT, which extends MessageType and adds MessageData of type <Name>MDT
+|| MessageType || SecurityInformation, then MessageHeader (SystemID, Timestamp, SchemaVersion, Mode, optional ServiceID and MissionID); each MT adds an optional ObjectState (NEW, UPDATED, REMOVED) and MessageData
+|| Header Mode || LIVE, EXERCISE, SIMULATION, NONEXERCISE_SIMULATION
+|| Size || 5,571 types: 4,636 complex, 935 simple, 710 enumerations; the deepest inheritance chain is 5 levels
+|| Constructs used || sequences, choices and extension/restriction with enumerations, patterns, length and range facets; no attributes, groups, lists or unions
+|| Message families by name || ...Status 294, ...Command 99, ...Request 78, ...Capability 33, ...Activity 31, ...Report 25, ...Plan 18
+|| Timestamps || DateTimeType requires a trailing Z (pattern ".+Z"), so times are UTC
+|| Units || SI throughout: angles in radians (latitude in [-π/2, π/2], longitude in [-π, π)), altitude in meters (default reference: WGS-84 ellipsoid), speed in m/s, distance in meters. The Coordinates tool converts degrees, DMS, knots, feet and flight levels to these
+|| Identifiers || UUID-based ID types (the pattern accepts the nil UUID or a version 1-5 UUID)
+|| Naming || ...Enum (710), ...ID_Type (278), ...ChoiceType (131), ...BaseType and ...PET (abstract), ...MDT / ...MT (725 each)
+|| Documentation || every message, type and member carries documentation, and each component has a uci:version attribute recording its structural version
+NIL UUID: 00000000-0000-0000-0000-000000000000 ## Valid per the UUID pattern but a placeholder; the sample generator uses a documentation-style UUID instead
+
+== Which tool for which task | dev-tools
+Toolbox: XSD Schema Explorer & Validator ## Search a whole schema release, read member documentation, trace which messages use a type or enum, generate valid sample messages and validate XML against it. Select all the .xsd files at once so includes resolve
+Toolbox: XML Format, Validate & Convert ## Check a message is well-formed (line + column), pretty-print, minify, XML ⇄ JSON, list path = value, XPath
+Toolbox: UUID, ULID & Password Generator ## UUIDs for identifiers in test messages
+Toolbox: Timestamp Converter ## Epoch / ISO 8601 / time zones for message timestamps
+Toolbox: Coordinates, Distance & Units ## Degrees, DMS and radians; distance and bearing; knots, nmi, feet and flight levels
+Toolbox: Bytes: Hex, Base64, Checksums ## Hex dumps, endianness, floats, CRC-16 / CRC-32 for framing and transport debugging
+Toolbox: Text Diff ## Compare two messages or two schema versions (format both first)
+Toolbox: JSON ⇄ YAML / CSV ⇄ JSON ## Move data between a mission-planning spreadsheet and XML/JSON test data
+Cheat sheet: XML, XPath & XSD ## Syntax, namespaces, schema building blocks, xmllint / PowerShell / lxml / .NET validation one-liners
+
+== Working with a schema release | workflow
+Load all .xsd files from the schema zip into the XSD Schema Explorer ## See what the schema defines without any other tooling; the Schema info tab flags any missing include
+xmllint --noout --schema <root>.xsd message.xml ## Validate a message against the release schema (CLI)
+xmllint --format message.xml ## Normalize before diffing two messages
+Format both versions, then Text Diff ## Spot changes between two schema or message revisions
+Compare enumerations in two schema versions ## Use "copy values" on an enumeration in each version, then paste both into Text Diff
+Check a message before it ships ## Paste it into the Explorer's Validate tab for errors with line, column and path; confirm formally with xmllint or .NET (see the XML cheat sheet)
+</script>
+<script src="../assets/sheet.js"></script></body></html>

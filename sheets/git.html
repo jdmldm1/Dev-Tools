@@ -1,0 +1,369 @@
+<!doctype html><html data-theme="dark"><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body><div style="padding:8px 16px;font:600 12px ui-monospace,Consolas,monospace;letter-spacing:.04em"><a href="../index.html" style="color:inherit;opacity:.75;text-decoration:none">&larr; dev-tools</a></div>
+<title>Git CLI Cheat Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: commit-graph spine down the left of each section; cards flow in a responsive grid */
+:root{
+  --bg:#eef1f4; --surface:#ffffff; --ink:#18212b; --muted:#5a6774; --line:#d3dae1;
+  --accent:#d2522a; --lane1:#1f8a7a; --lane2:#6b4fc4; --lane3:#c48a12; --codebg:#f3f5f8;
+  --danger:#c0362c; --danger-bg:#fbe9e7;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12171d; --surface:#1a2129; --ink:#e4e9ee; --muted:#93a1ae; --line:#2c3640;
+  --accent:#f0794f; --lane1:#3cc2ad; --lane2:#a28bf0; --lane3:#e6b13d; --codebg:#121820;
+  --danger:#ff8a7d; --danger-bg:#3a1f1c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12171d; --surface:#1a2129; --ink:#e4e9ee; --muted:#93a1ae; --line:#2c3640;
+  --accent:#f0794f; --lane1:#3cc2ad; --lane2:#a28bf0; --lane3:#e6b13d; --codebg:#121820;
+  --danger:#ff8a7d; --danger-bg:#3a1f1c; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 var(--f-body);margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:clamp(16px,4vw,40px);padding-block:28px 64px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0}
+code,kbd,.mono{font-family:var(--f-mono)}
+
+/* Header */
+header{display:grid;gap:14px;padding-bottom:22px;border-bottom:1px solid var(--line)}
+.eyebrow{font:600 12px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+h1{font-size:clamp(34px,7vw,64px);font-weight:800;line-height:1;letter-spacing:-.02em}
+h1 span{color:var(--accent)}
+.lede{color:var(--muted);max-width:62ch;margin:0}
+.tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+#q{flex:1 1 260px;min-width:0;font:15px var(--f-mono);padding:11px 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+#q:focus{outline:2px solid var(--accent);outline-offset:1px}
+.hint{font-size:13px;color:var(--muted)}
+nav.toc{display:flex;flex-wrap:wrap;gap:6px}
+nav.toc a{font:500 13px var(--f-mono);color:var(--ink);text-decoration:none;padding:5px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
+nav.toc a:hover,nav.toc a:focus-visible{border-color:var(--accent);color:var(--accent)}
+
+/* Sections with graph spine */
+section{position:relative;padding:34px 0 0 28px}
+section::before{content:"";position:absolute;left:7px;top:0;bottom:0;width:2px;background:var(--line)}
+section>h2{position:relative;font-size:clamp(22px,3.4vw,30px);font-weight:800;margin-bottom:6px}
+section>h2::before{content:"";position:absolute;left:-28px;top:.32em;width:16px;height:16px;border-radius:50%;background:var(--bg);border:3px solid var(--c,var(--accent))}
+section>p.sub{margin:0 0 16px;color:var(--muted);max-width:70ch}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0;display:flex;flex-direction:column;gap:10px}
+.card h3{font-size:17px;font-weight:600;display:flex;align-items:center;gap:8px}
+.card h3 i{width:9px;height:9px;border-radius:50%;background:var(--c,var(--accent));flex:none}
+.cmds{display:flex;flex-direction:column;gap:8px}
+.cmd{display:grid;gap:3px;min-width:0}
+.cmd button{all:unset;cursor:pointer;font:13.5px/1.45 var(--f-mono);background:var(--codebg);border:1px solid var(--line);border-radius:6px;padding:6px 9px;overflow-x:auto;white-space:pre;color:var(--ink);display:block;max-width:100%;box-sizing:border-box}
+.cmd button:hover{border-color:var(--c,var(--accent))}
+.cmd button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.cmd button.ok{border-color:var(--lane1)}
+.cmd button .ph{color:var(--accent)}
+.cmd span{font-size:13.5px;color:var(--muted)}
+.cmd.warn span::before{content:"Destructive · ";color:var(--danger);font-weight:600}
+.hidden{display:none!important}
+
+/* Concepts */
+.concepts{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:12px}
+.term{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px}
+.term dt{font:600 14px var(--f-mono);color:var(--accent);margin-bottom:4px}
+.term dd{margin:0;font-size:14px}
+.figure{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+.scroll{overflow-x:auto}
+.figure svg{display:block;width:100%;min-width:640px;height:auto}
+.figure figcaption{font-size:13px;color:var(--muted);margin-top:8px}
+svg text{font-family:var(--f-mono)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:14px}
+.two .figure svg{min-width:360px}
+
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:520px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:600 12px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+td code{font-size:13px;background:var(--codebg);padding:1px 5px;border-radius:4px}
+.y{color:var(--lane1);font-weight:600}.n{color:var(--muted)}.x{color:var(--danger);font-weight:600}
+
+.recipe ol{margin:0;padding-left:20px;display:grid;gap:6px}
+.recipe li{font-size:14px}
+.recipe li code{font-size:13px;background:var(--codebg);padding:1px 5px;border-radius:4px;word-break:break-word}
+
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);font:500 13px var(--f-mono);padding:8px 14px;border-radius:999px;opacity:0;transition:opacity .2s;pointer-events:none}
+#toast.show{opacity:1}
+footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){#toast{transition:none}}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">git version 2.x · command line</div>
+  <h1>Git CLI <span>Cheat Sheet</span></h1>
+  <p class="lede">Core concepts, the commands you reach for every day, and recipes for getting out of trouble. Tap any command to copy it. Values in <span class="mono" style="color:var(--accent)">&lt;angle brackets&gt;</span> are placeholders.</p>
+  <div class="tools">
+    <input id="q" type="search" placeholder="Filter commands… e.g. rebase, undo, tag" autocomplete="off" aria-label="Filter commands">
+    <span class="hint" id="count"></span>
+  </div>
+  <nav class="toc" aria-label="Sections">
+    <a href="#concepts">Concepts</a><a href="#setup">Setup</a><a href="#basics">Snapshot</a><a href="#inspect">Inspect</a><a href="#branch">Branch</a><a href="#merge">Merge &amp; Rebase</a><a href="#remote">Remotes</a><a href="#undo">Undo</a><a href="#stash">Stash &amp; Tags</a><a href="#advanced">Advanced</a><a href="#refs">Refs &amp; Ignore</a><a href="#recipes">Recipes</a>
+  </nav>
+</header>
+
+<!-- CONCEPTS -->
+<section id="concepts" style="--c:var(--accent)">
+  <h2>Key concepts</h2>
+  <p class="sub">Git tracks snapshots, not diffs. Every commit points to a full tree of your files plus its parent commit(s). Branches and tags are just names pointing at commits.</p>
+
+  <figure class="figure" style="margin-inline:0">
+    <div class="scroll">
+    <svg viewBox="0 0 800 300" role="img" aria-label="The four areas of Git and the commands that move changes between them">
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--ink)"/></marker>
+        <marker id="ahA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker>
+        <marker id="ahL" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--lane2)"/></marker>
+      </defs>
+      <g font-size="13" font-weight="600" text-anchor="middle">
+        <rect x="10" y="20" width="160" height="70" rx="8" fill="var(--codebg)" stroke="var(--lane1)" stroke-width="2"/>
+        <text x="90" y="50" fill="var(--ink)">Working</text><text x="90" y="68" fill="var(--ink)">Directory</text>
+        <rect x="220" y="20" width="160" height="70" rx="8" fill="var(--codebg)" stroke="var(--lane3)" stroke-width="2"/>
+        <text x="300" y="50" fill="var(--ink)">Staging Area</text><text x="300" y="68" fill="var(--muted)" font-weight="400">(index)</text>
+        <rect x="430" y="20" width="160" height="70" rx="8" fill="var(--codebg)" stroke="var(--lane2)" stroke-width="2"/>
+        <text x="510" y="50" fill="var(--ink)">Local Repo</text><text x="510" y="68" fill="var(--muted)" font-weight="400">(.git, HEAD)</text>
+        <rect x="630" y="20" width="160" height="70" rx="8" fill="var(--codebg)" stroke="var(--accent)" stroke-width="2"/>
+        <text x="710" y="50" fill="var(--ink)">Remote Repo</text><text x="710" y="68" fill="var(--muted)" font-weight="400">(origin)</text>
+      </g>
+      <g font-size="12.5" fill="var(--ink)" text-anchor="middle">
+        <!-- forward -->
+        <line x1="170" y1="120" x2="218" y2="120" stroke="var(--ink)" stroke-width="1.6" marker-end="url(#ah)"/>
+        <text x="195" y="112">add</text>
+        <line x1="380" y1="120" x2="428" y2="120" stroke="var(--ink)" stroke-width="1.6" marker-end="url(#ah)"/>
+        <text x="405" y="112">commit</text>
+        <line x1="590" y1="120" x2="628" y2="120" stroke="var(--ink)" stroke-width="1.6" marker-end="url(#ah)"/>
+        <text x="610" y="112">push</text>
+        <!-- commit -a -->
+        <path d="M90 92 V150 H505 V92" fill="none" stroke="var(--lane1)" stroke-width="1.6" marker-end="url(#ahA)" stroke-dasharray="5 4"/>
+        <text x="300" y="144" fill="var(--lane1)">commit -a  (tracked files only)</text>
+        <!-- backward -->
+        <path d="M710 92 V186 H516" fill="none" stroke="var(--lane2)" stroke-width="1.6" marker-end="url(#ahL)"/>
+        <text x="615" y="180" fill="var(--lane2)">fetch</text>
+        <path d="M720 92 V222 H96 V94" fill="none" stroke="var(--accent)" stroke-width="1.6" marker-end="url(#ahA)"/>
+        <text x="410" y="216" fill="var(--accent)">pull  =  fetch + merge (or rebase)</text>
+        <path d="M300 92 V246 H84 V94" fill="none" stroke="var(--muted)" stroke-width="1.4" marker-end="url(#ah)"/>
+        <text x="192" y="240" fill="var(--muted)">restore --staged</text>
+        <path d="M500 92 V272 H78 V94" fill="none" stroke="var(--muted)" stroke-width="1.4" marker-end="url(#ah)" stroke-dasharray="2 3"/>
+        <text x="300" y="266" fill="var(--muted)">switch / restore --source / reset --hard</text>
+      </g>
+    </svg>
+    </div>
+    <figcaption>The four places a change can live, and the commands that move it between them. On a phone, swipe the diagram sideways.</figcaption>
+  </figure>
+
+  <dl class="concepts">
+    <div class="term"><dt>Repository</dt><dd>The <code>.git</code> folder: every commit, branch, and tag for the project. Clone it and you have the full history locally.</dd></div>
+    <div class="term"><dt>Commit</dt><dd>A snapshot of the staged tree with author, message, and parent pointer(s). Identified by a SHA hash like <code>a1b2c3d</code>.</dd></div>
+    <div class="term"><dt>Staging area (index)</dt><dd>The draft of your next commit. <code>git add</code> copies changes into it; <code>git commit</code> saves exactly what's there.</dd></div>
+    <div class="term"><dt>Branch</dt><dd>A movable pointer to a commit. Committing on a branch moves the pointer forward. Cheap to create and delete.</dd></div>
+    <div class="term"><dt>HEAD</dt><dd>Which commit you have checked out, usually via a branch name. <em>Detached HEAD</em> means it points straight at a commit.</dd></div>
+    <div class="term"><dt>Remote</dt><dd>A named URL for another copy of the repo. <code>origin</code> is the default name for the one you cloned from.</dd></div>
+    <div class="term"><dt>Tracking branch</dt><dd><code>origin/main</code> is your local record of where <code>main</code> was on the remote at the last fetch. Shown as <code>@{u}</code> (upstream).</dd></div>
+    <div class="term"><dt>Merge vs. rebase</dt><dd>Merge joins histories with a merge commit. Rebase replays your commits on top of another base, giving a straight line but new SHAs.</dd></div>
+    <div class="term"><dt>Fast-forward</dt><dd>When the target has no new commits, merging just slides the branch pointer forward. No merge commit is made.</dd></div>
+    <div class="term"><dt>Stash</dt><dd>A shelf for uncommitted changes so you can switch tasks with a clean working tree.</dd></div>
+    <div class="term"><dt>Tag</dt><dd>A fixed name for a commit, usually a release like <code>v1.4.0</code>. Annotated tags carry a message and author.</dd></div>
+    <div class="term"><dt>Reflog</dt><dd>A local log of everywhere HEAD has been. Your safety net for recovering "lost" commits after a reset or rebase.</dd></div>
+  </dl>
+</section>
+
+<div id="cmdSections"></div>
+
+<!-- MERGE/REBASE FIGURE goes into merge section via JS placeholder -->
+<template id="mergeFig">
+  <div class="two">
+    <figure class="figure" style="margin:0">
+      <div class="scroll"><svg viewBox="0 0 400 150" role="img" aria-label="Merge creates a merge commit joining two lines">
+        <text x="10" y="20" font-size="13" font-weight="600" fill="var(--ink)">git merge feature</text>
+        <line x1="40" y1="100" x2="340" y2="100" stroke="var(--lane1)" stroke-width="3"/>
+        <path d="M100 100 Q130 55 160 55 L250 55 Q300 55 340 100" fill="none" stroke="var(--lane2)" stroke-width="3"/>
+        <g stroke="var(--surface)" stroke-width="2">
+          <circle cx="40" cy="100" r="9" fill="var(--lane1)"/><circle cx="100" cy="100" r="9" fill="var(--lane1)"/><circle cx="200" cy="100" r="9" fill="var(--lane1)"/>
+          <circle cx="160" cy="55" r="9" fill="var(--lane2)"/><circle cx="250" cy="55" r="9" fill="var(--lane2)"/>
+          <circle cx="340" cy="100" r="11" fill="var(--accent)"/>
+        </g>
+        <text x="340" y="130" font-size="11.5" text-anchor="middle" fill="var(--accent)">merge commit</text>
+        <text x="40" y="130" font-size="11.5" fill="var(--lane1)">main</text>
+        <text x="250" y="35" font-size="11.5" text-anchor="middle" fill="var(--lane2)">feature</text>
+      </svg></div>
+      <figcaption>Keeps true history. Safe on shared branches.</figcaption>
+    </figure>
+    <figure class="figure" style="margin:0">
+      <div class="scroll"><svg viewBox="0 0 400 150" role="img" aria-label="Rebase replays feature commits on top of main in a straight line">
+        <text x="10" y="20" font-size="13" font-weight="600" fill="var(--ink)">git rebase main  (on feature)</text>
+        <line x1="40" y1="100" x2="200" y2="100" stroke="var(--lane1)" stroke-width="3"/>
+        <line x1="200" y1="100" x2="340" y2="100" stroke="var(--lane2)" stroke-width="3"/>
+        <path d="M100 100 Q130 55 160 55" fill="none" stroke="var(--line)" stroke-width="2" stroke-dasharray="4 4"/>
+        <g stroke="var(--surface)" stroke-width="2">
+          <circle cx="40" cy="100" r="9" fill="var(--lane1)"/><circle cx="100" cy="100" r="9" fill="var(--lane1)"/><circle cx="200" cy="100" r="9" fill="var(--lane1)"/>
+          <circle cx="160" cy="55" r="8" fill="var(--line)"/>
+          <circle cx="270" cy="100" r="9" fill="var(--lane2)"/><circle cx="340" cy="100" r="9" fill="var(--lane2)"/>
+        </g>
+        <text x="305" y="130" font-size="11.5" text-anchor="middle" fill="var(--lane2)">replayed (new SHAs)</text>
+        <text x="40" y="130" font-size="11.5" fill="var(--lane1)">main</text>
+        <text x="160" y="35" font-size="11.5" text-anchor="middle" fill="var(--muted)">old commits</text>
+      </svg></div>
+      <figcaption>Linear history. Never rebase commits others have already pulled.</figcaption>
+    </figure>
+  </div>
+</template>
+
+<template id="resetTable">
+  <div class="figure scroll" style="padding:6px 10px">
+    <table>
+      <thead><tr><th>Command</th><th>Moves branch</th><th>Staging area</th><th>Working files</th><th>Use when</th></tr></thead>
+      <tbody>
+        <tr><td><code>reset --soft HEAD~1</code></td><td class="y">yes</td><td class="y">kept (staged)</td><td class="y">kept</td><td>Redo the last commit with changes still staged</td></tr>
+        <tr><td><code>reset HEAD~1</code> <span class="n">(mixed)</span></td><td class="y">yes</td><td class="n">reset</td><td class="y">kept</td><td>Uncommit and unstage, keep edits</td></tr>
+        <tr><td><code>reset --hard HEAD~1</code></td><td class="y">yes</td><td class="x">reset</td><td class="x">discarded</td><td>Throw away the commit and edits</td></tr>
+        <tr><td><code>revert &lt;sha&gt;</code></td><td class="n">no, adds commit</td><td class="n">—</td><td class="n">—</td><td>Undo a commit already pushed/shared</td></tr>
+        <tr><td><code>restore &lt;file&gt;</code></td><td class="n">no</td><td class="n">—</td><td class="x">discarded</td><td>Drop unstaged edits to one file</td></tr>
+      </tbody>
+    </table>
+  </div>
+</template>
+
+<section id="recipes" style="--c:var(--lane1)">
+  <h2>Recipes</h2>
+  <p class="sub">Common multi-step workflows, in order.</p>
+  <div class="grid">
+    <div class="card recipe" style="--c:var(--lane1)"><h3><i></i>Feature branch to pull request</h3><ol>
+      <li><code>git switch main &amp;&amp; git pull</code></li>
+      <li><code>git switch -c feature/login</code></li>
+      <li>Edit, then <code>git add -p</code> and <code>git commit -m "Add login form"</code></li>
+      <li><code>git push -u origin feature/login</code></li>
+      <li>Open the PR on GitHub/GitLab. After merge: <code>git switch main &amp;&amp; git pull &amp;&amp; git branch -d feature/login</code></li></ol></div>
+    <div class="card recipe" style="--c:var(--lane2)"><h3><i></i>Update your branch with latest main</h3><ol>
+      <li><code>git fetch origin</code></li>
+      <li><code>git rebase origin/main</code> (or <code>git merge origin/main</code>)</li>
+      <li>On conflict: fix files, <code>git add &lt;file&gt;</code>, <code>git rebase --continue</code></li>
+      <li>If you rebased a pushed branch: <code>git push --force-with-lease</code></li></ol></div>
+    <div class="card recipe" style="--c:var(--lane3)"><h3><i></i>Resolve a merge conflict</h3><ol>
+      <li><code>git status</code> lists files marked "both modified"</li>
+      <li>Edit each file; remove the <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code> <code>=======</code> <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code> markers</li>
+      <li><code>git add &lt;file&gt;</code> for each resolved file</li>
+      <li><code>git commit</code> (merge) or <code>git rebase --continue</code></li>
+      <li>Bail out any time: <code>git merge --abort</code> / <code>git rebase --abort</code></li></ol></div>
+    <div class="card recipe" style="--c:var(--accent)"><h3><i></i>Committed to the wrong branch</h3><ol>
+      <li><code>git branch feature/fix</code> (save the commit on a new branch)</li>
+      <li><code>git reset --hard HEAD~1</code> (remove it from the current branch)</li>
+      <li><code>git switch feature/fix</code></li></ol></div>
+    <div class="card recipe" style="--c:var(--lane2)"><h3><i></i>Recover a "lost" commit</h3><ol>
+      <li><code>git reflog</code> and find the SHA before the bad reset/rebase</li>
+      <li><code>git switch -c rescue &lt;sha&gt;</code> or <code>git reset --hard &lt;sha&gt;</code></li></ol></div>
+    <div class="card recipe" style="--c:var(--lane1)"><h3><i></i>Squash commits before a PR</h3><ol>
+      <li><code>git rebase -i HEAD~4</code></li>
+      <li>Keep the first line as <code>pick</code>, change the rest to <code>squash</code> (or <code>fixup</code>)</li>
+      <li>Save, edit the combined message, then <code>git push --force-with-lease</code></li></ol></div>
+    <div class="card recipe" style="--c:var(--lane3)"><h3><i></i>Keep a fork in sync</h3><ol>
+      <li><code>git remote add upstream &lt;original-url&gt;</code></li>
+      <li><code>git fetch upstream</code></li>
+      <li><code>git switch main &amp;&amp; git merge upstream/main</code></li>
+      <li><code>git push origin main</code></li></ol></div>
+    <div class="card recipe" style="--c:var(--accent)"><h3><i></i>Stop tracking a file you meant to ignore</h3><ol>
+      <li>Add the pattern to <code>.gitignore</code></li>
+      <li><code>git rm --cached &lt;file&gt;</code> (keeps it on disk)</li>
+      <li><code>git commit -m "Stop tracking &lt;file&gt;"</code></li></ol></div>
+  </div>
+</section>
+
+<footer>Tip: <code>git help &lt;command&gt;</code> opens the full manual, and <code>git &lt;command&gt; -h</code> prints a short usage summary.</footer>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const S=[
+{id:"setup",t:"Setup & config",c:"--lane3",sub:"One-time setup per machine. --global writes to ~/.gitconfig; drop it to set a value for one repo only.",cards:[
+ ["Identity",[["git config --global user.name \"<name>\"","Name stamped on your commits"],["git config --global user.email \"<email>\"","Email stamped on your commits"],["git config --list --show-origin","Show every setting and the file it came from"]]],
+ ["Sensible defaults",[["git config --global init.defaultBranch main","New repos start on main"],["git config --global pull.rebase true","Pull rebases instead of making merge commits"],["git config --global core.editor \"code --wait\"","Use VS Code for commit messages"],["git config --global core.autocrlf input","Normalize line endings (use true on Windows)"]]],
+ ["Aliases",[["git config --global alias.st status","git st → git status"],["git config --global alias.lg \"log --oneline --graph --all\"","git lg → compact branch graph"]]]
+]},
+{id:"basics",t:"Create & snapshot",c:"--lane1",sub:"Start a repo, stage changes, and commit them.",cards:[
+ ["Start a repository",[["git init","Turn the current folder into a repo"],["git clone <url>","Copy a remote repo, history and all"],["git clone <url> <dir>","Clone into a specific folder"],["git clone --depth 1 <url>","Shallow clone: latest commit only"]]],
+ ["Stage changes",[["git add <file>","Stage one file"],["git add .","Stage everything in this folder and below"],["git add -p","Pick hunks interactively"],["git rm <file>","Delete a file and stage the removal"],["git mv <old> <new>","Rename and stage"]]],
+ ["Commit",[["git commit -m \"<message>\"","Commit what's staged"],["git commit -am \"<message>\"","Stage tracked edits and commit in one step"],["git commit --amend","Rewrite the last commit (message or content)"],["git commit --amend --no-edit","Add staged changes to the last commit, same message"]]]
+]},
+{id:"inspect",t:"Inspect & compare",c:"--lane2",sub:"See what changed, where, and who changed it.",cards:[
+ ["Status & diffs",[["git status -sb","Short status with branch info"],["git diff","Unstaged changes"],["git diff --staged","What will go into the next commit"],["git diff main..feature","Compare two branches"],["git diff --stat","Summary: files and line counts"]]],
+ ["History",[["git log --oneline --graph --all","Compact graph of every branch"],["git log -p <file>","Every change to one file, with diffs"],["git log --author=\"<name>\" --since=\"2 weeks ago\"","Filter by author and date"],["git log -S \"<text>\"","Commits that added or removed some text"],["git show <sha>","Full details of one commit"]]],
+ ["Who & what",[["git blame <file>","Last commit to touch each line"],["git blame -L 10,30 <file>","Blame a line range"],["git shortlog -sn","Commit counts per author"],["git grep \"<text>\"","Search tracked files fast"]]]
+]},
+{id:"branch",t:"Branching",c:"--lane1",sub:"Branches are pointers. switch is the modern verb for changing branches; checkout still works.",cards:[
+ ["List & create",[["git branch","List local branches (* = current)"],["git branch -a","Include remote-tracking branches"],["git branch -vv","Show upstream and ahead/behind counts"],["git switch -c <branch>","Create and switch to a new branch"],["git switch -c <branch> origin/<branch>","Start from a remote branch"]]],
+ ["Move around",[["git switch <branch>","Switch to an existing branch"],["git switch -","Jump back to the previous branch"],["git switch --detach <sha>","Look at an old commit (detached HEAD)"],["git checkout <branch>","Older equivalent of switch"]]],
+ ["Rename & delete",[["git branch -m <new-name>","Rename the current branch"],["git branch -d <branch>","Delete a merged branch"],["git branch -D <branch>","Force-delete, even if unmerged",1],["git push origin --delete <branch>","Delete the branch on the remote"]]]
+]},
+{id:"merge",t:"Merge & rebase",c:"--lane2",sub:"Two ways to combine work. Merge preserves history; rebase rewrites it into a straight line.",fig:"mergeFig",cards:[
+ ["Merge",[["git merge <branch>","Merge branch into the current one"],["git merge --no-ff <branch>","Always create a merge commit"],["git merge --squash <branch>","Stage all changes as one commit, no merge link"],["git merge --abort","Cancel a conflicted merge"]]],
+ ["Rebase",[["git rebase main","Replay current branch on top of main"],["git rebase -i HEAD~3","Edit, reorder, squash the last 3 commits"],["git rebase --continue","Resume after fixing a conflict"],["git rebase --abort","Return to how things were before"],["git rebase --onto <new> <old> <branch>","Move a branch to a different base"]]],
+ ["Pick specific commits",[["git cherry-pick <sha>","Copy one commit onto the current branch"],["git cherry-pick A^..B","Copy a range, A through B"],["git cherry-pick --abort","Cancel a conflicted cherry-pick"]]]
+]},
+{id:"remote",t:"Remotes & sync",c:"--accent",sub:"fetch is always safe: it downloads but never changes your files. pull changes your branch.",cards:[
+ ["Manage remotes",[["git remote -v","List remotes and their URLs"],["git remote add <name> <url>","Add a remote"],["git remote set-url origin <url>","Change a remote's URL"],["git remote prune origin","Remove stale remote-tracking branches"]]],
+ ["Download",[["git fetch","Update remote-tracking branches"],["git fetch --all --prune","All remotes, drop deleted branches"],["git pull","Fetch and integrate into current branch"],["git pull --rebase","Fetch and rebase your local commits on top"]]],
+ ["Upload",[["git push","Push current branch to its upstream"],["git push -u origin <branch>","First push: set upstream too"],["git push --force-with-lease","Force push only if no one else pushed",1],["git push --tags","Push all local tags"]]]
+]},
+{id:"undo",t:"Undo & fix",c:"--accent",sub:"Pick the gentlest tool that works. If the commit is already pushed, prefer revert.",fig:"resetTable",cards:[
+ ["Working files & staging",[["git restore <file>","Discard unstaged edits to a file",1],["git restore --staged <file>","Unstage, keep the edits"],["git restore --source=<sha> <file>","Restore a file as it was in a commit"],["git clean -n","Preview untracked files that would be deleted"],["git clean -fd","Delete untracked files and folders",1]]],
+ ["Commits",[["git commit --amend","Fix the last commit message or contents"],["git reset --soft HEAD~1","Uncommit, keep changes staged"],["git reset HEAD~1","Uncommit and unstage, keep edits"],["git reset --hard HEAD~1","Delete the last commit and its changes",1],["git revert <sha>","New commit that undoes an old one"]]],
+ ["Safety net",[["git reflog","Every position HEAD has been in"],["git reset --hard HEAD@{2}","Go back to a reflog entry",1],["git fsck --lost-found","Find dangling commits"]]]
+]},
+{id:"stash",t:"Stash & tags",c:"--lane3",sub:"Shelve work in progress; label releases.",cards:[
+ ["Stash",[["git stash","Shelve tracked changes"],["git stash -u -m \"<note>\"","Include untracked files, add a note"],["git stash list","Show the shelf"],["git stash pop","Reapply the newest stash and drop it"],["git stash apply stash@{1}","Reapply a specific stash, keep it"],["git stash drop stash@{0}","Delete one stash"]]],
+ ["Tags",[["git tag","List tags"],["git tag -a v1.2.0 -m \"<message>\"","Create an annotated tag"],["git tag v1.2.0 <sha>","Tag an older commit"],["git push origin v1.2.0","Push one tag"],["git tag -d v1.2.0","Delete a local tag"],["git push origin --delete v1.2.0","Delete a tag on the remote"]]]
+]},
+{id:"advanced",t:"Advanced tools",c:"--lane2",sub:"Less frequent, very handy when you need them.",cards:[
+ ["Find a bad commit",[["git bisect start","Begin a binary search"],["git bisect bad","Mark current commit as broken"],["git bisect good <sha>","Mark a known-good commit"],["git bisect run <test-cmd>","Automate with a script (exit 0 = good)"],["git bisect reset","Finish and return to where you were"]]],
+ ["Worktrees",[["git worktree add ../hotfix <branch>","Check out a second branch in another folder"],["git worktree list","Show all worktrees"],["git worktree remove ../hotfix","Remove one"]]],
+ ["Submodules & misc",[["git submodule update --init --recursive","Fetch submodules after cloning"],["git archive -o release.zip HEAD","Export a snapshot as a zip"],["git rev-parse --show-toplevel","Print the repo root path"],["git maintenance start","Background repo optimization"]]]
+]},
+{id:"refs",t:"Ref syntax & .gitignore",c:"--lane1",sub:"Ways to name a commit, and patterns to keep files out of the repo.",cards:[
+ ["Naming commits",[["HEAD~1","Parent of HEAD (HEAD~3 = three back)"],["HEAD^2","Second parent of a merge commit"],["@{u}","Upstream of the current branch"],["main..feature","Commits in feature not in main"],["main...feature","Commits in either, not both"],["HEAD@{yesterday}","Where HEAD was yesterday (reflog)"]]],
+ [".gitignore patterns",[["*.log","Ignore all .log files"],["build/","Ignore a folder anywhere"],["/secrets.env","Only at the repo root"],["!keep.log","Exception: do track this one"],["**/tmp","tmp folder at any depth"],["git check-ignore -v <file>","Which rule ignores a file"]]]
+]}
+];
+const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const hl=s=>esc(s).replace(/&lt;[^&]*?&gt;/g,m=>`<span class="ph">${m}</span>`);
+const root=document.getElementById("cmdSections");
+const recipes=document.getElementById("recipes");
+S.forEach(sec=>{
+  const el=document.createElement("section");el.id=sec.id;el.style.setProperty("--c",`var(${sec.c})`);
+  el.innerHTML=`<h2>${esc(sec.t)}</h2><p class="sub">${esc(sec.sub)}</p>`;
+  if(sec.fig){el.appendChild(document.getElementById(sec.fig).content.cloneNode(true));}
+  const g=document.createElement("div");g.className="grid";
+  if(sec.fig) g.style.marginTop="14px";
+  sec.cards.forEach(([h,cmds],i)=>{
+    const lanes=["--lane1","--lane2","--lane3","--accent"];
+    const c=document.createElement("div");c.className="card";c.style.setProperty("--c",`var(${lanes[(i+S.indexOf(sec))%4]})`);
+    c.innerHTML=`<h3><i></i>${esc(h)}</h3><div class="cmds">`+cmds.map(([k,d,w])=>`<div class="cmd${w?" warn":""}" data-k="${esc((k+" "+d+" "+h+" "+sec.t).toLowerCase())}"><button type="button" data-copy="${esc(k)}" aria-label="Copy ${esc(k)}">${hl(k)}</button><span>${esc(d)}</span></div>`).join("")+`</div>`;
+    g.appendChild(c);
+  });
+  el.appendChild(g);
+  root.appendChild(el);
+});
+const toast=document.getElementById("toast");let tt;
+function show(m){toast.textContent=m;toast.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>toast.classList.remove("show"),1400);}
+document.addEventListener("click",e=>{
+  const b=e.target.closest("button[data-copy]");if(!b)return;
+  const txt=b.dataset.copy;
+  const fallback=()=>{const r=document.createRange();r.selectNodeContents(b);const s=getSelection();s.removeAllRanges();s.addRange(r);show("Selected. Copy with your device");};
+  try{navigator.clipboard.writeText(txt).then(()=>{show("Copied");b.classList.add("ok");setTimeout(()=>b.classList.remove("ok"),900);},fallback);}catch(err){fallback();}
+});
+const q=document.getElementById("q"),count=document.getElementById("count");
+const all=[...document.querySelectorAll(".cmd")];
+function filter(){
+  const v=q.value.trim().toLowerCase();let n=0;
+  all.forEach(c=>{const m=!v||c.dataset.k.includes(v);c.classList.toggle("hidden",!m);if(m)n++;});
+  document.querySelectorAll("#cmdSections .card").forEach(c=>c.classList.toggle("hidden",!c.querySelector(".cmd:not(.hidden)")));
+  document.querySelectorAll("#cmdSections section").forEach(s=>{const has=s.querySelector(".card:not(.hidden)");s.classList.toggle("hidden",!has);});
+  ["concepts","recipes"].forEach(id=>document.getElementById(id).classList.toggle("hidden",!!v));
+  count.textContent=v?`${n} match${n===1?"":"es"}`:`${all.length} commands`;
+}
+q.addEventListener("input",filter);filter();
+</script>
+
+</body></html>

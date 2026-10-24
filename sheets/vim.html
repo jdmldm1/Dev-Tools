@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vim Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/theme.css"><link rel="stylesheet" href="../assets/sheet.css"></head>
+<body><div id="app"></div>
+<script type="text/plain" id="sheet-src">
+title: Vim
+eyebrow: Vim / Neovim · modal editing
+lede: Modes, motions, operators, text objects, search and replace, registers, macros and windows. Commands combine as operator + motion, for example `d` + `w` deletes a word.
+footer: `:help <topic>` is excellent. Run `vimtutor` once if you have never used Vim.
+
+== Survival | get out
+i ## Insert before cursor
+Esc  or  Ctrl-[ ## Back to normal mode
+:w ## Save
+:q ## Quit
+:wq  or  ZZ ## Save and quit
+:q! ## Quit without saving
+:e file ## Open a file
+:w !sudo tee % ## Save a root-owned file you opened without sudo
+u ## Undo
+Ctrl-r ## Redo
+. ## Repeat last change
+
+== Modes | switching
+i  a ## Insert before / after cursor
+I  A ## Insert at line start / end
+o  O ## New line below / above
+v ## Visual (characters)
+V ## Visual (lines)
+Ctrl-v ## Visual block (columns)
+R ## Replace mode
+: ## Command line
+gi ## Insert where you last stopped inserting
+
+== Movement | motions
+h  j  k  l ## Left, down, up, right
+w  b  e ## Next word start / previous word start / word end
+W  B  E ## Same, for space-separated WORDS
+0  ^  $ ## Line start / first non-blank / line end
+gg  G  42G ## First line / last line / line 42
+%  ## Matching bracket
+{  } ## Previous / next paragraph
+(  ) ## Previous / next sentence
+f<c>  F<c>  t<c>  T<c> ## Jump to / before character on the line
+;  , ## Repeat / reverse last f/t
+Ctrl-d  Ctrl-u ## Half page down / up
+Ctrl-f  Ctrl-b ## Page down / up
+H  M  L ## Top / middle / bottom of screen
+zz  zt  zb ## Center / top / bottom the cursor line
+Ctrl-o  Ctrl-i ## Jump back / forward through jump list
+*  # ## Search word under cursor forward / backward
+gd ## Go to definition (local)
+
+== Edit | operators
+x  X ## Delete char under / before cursor
+dd  D ## Delete line / to end of line
+dw  d$  d0 ## Delete word / to end / to start
+cc  C  cw ## Change line / to end / word
+yy  Y ## Yank (copy) line
+p  P ## Paste after / before
+J ## Join lines
+~ ## Toggle case of character
+gUU  guu ## Uppercase / lowercase line
+>>  << ## Indent / outdent line
+==  gg=G ## Auto-indent line / whole file
+r<c> ## Replace one character
+Ctrl-a  Ctrl-x ## Increment / decrement number
+3dd  5x  2dw ## Counts multiply any command
+"+y  "+p ## Copy to / paste from system clipboard
+
+== Text objects | i = inner, a = around
+diw  ciw  yiw ## Word
+di"  ci"  da" ## Inside / around double quotes
+di(  ci(  dib ## Inside parentheses
+di{  ci{  diB ## Inside braces
+di[  ci[ ## Inside brackets
+dit  cit  dat ## Inside / around HTML tag
+dip  dap ## Paragraph
+dis  das ## Sentence
+vi{  va{ ## Select inside / around braces in visual mode
+ggVG ## Select the whole file
+
+== Visual mode | selection
+v  then motion, then d / y / c ## Select, then act
+> ## Indent selection
+: ## Start an ex command on the selection (shows `:'<,'>`)
+o ## Jump to other end of selection
+gv ## Reselect last selection
+I  (in block mode) ## Insert on every line of a column; Esc to apply
+A  (in block mode) ## Append at end of every line of the block
+J ## Join selected lines
+u  U ## Lowercase / uppercase selection
+
+== Search & replace | / and :s
+/pattern ## Search forward
+?pattern ## Search backward
+n  N ## Next / previous match
+:noh ## Clear search highlight
+:%s/old/new/g ## Replace in whole file
+:%s/old/new/gc ## ...asking for confirmation
+:s/old/new/ ## Current line only
+:5,20s/old/new/g ## Lines 5-20
+:'<,'>s/old/new/g ## Visual selection
+:%s/\<word\>/new/g ## Whole word only
+:%s/\s\+$//e ## Trim trailing whitespace
+:g/pattern/d ## Delete all lines matching
+:v/pattern/d ## Delete all lines NOT matching
+:g/pattern/normal Atext ## Run a normal-mode command on matching lines
+:%!sort -u ## Pipe the buffer through a shell command
+:r !date ## Insert command output
+
+== Registers, marks, macros | automation
+"ayy  "ap ## Yank into / paste from register a
+:reg ## List registers
+"0p ## Paste the last yank (not overwritten by deletes)
+ma  `a  'a ## Set mark a / jump to exact spot / jump to line
+``  '' ## Jump back to previous position
+qa ... q ## Record macro into register a
+@a  @@ ## Play macro / repeat last macro
+5@a ## Play macro 5 times
+:%norm @a ## Run macro on every line
+Ctrl-r a (insert mode) ## Insert register contents
+:let @a='text' ## Set a register
+
+== Buffers, windows, tabs | layout
+:ls ## List buffers
+:b2  :bn  :bp ## Go to buffer 2 / next / previous
+:bd ## Close buffer
+:sp file  :vsp file ## Split horizontal / vertical
+Ctrl-w h/j/k/l ## Move between windows
+Ctrl-w =  Ctrl-w _  Ctrl-w | ## Equalize / maximize height / maximize width
+Ctrl-w c  Ctrl-w o ## Close window / keep only this one
+:tabnew file ## New tab
+gt  gT ## Next / previous tab
+:Ex  :Vex ## File explorer (netrw)
+
+== Settings & help | config
+:set number relativenumber ## Line numbers
+:set ignorecase smartcase ## Case-insensitive unless you type capitals
+:set tabstop=4 shiftwidth=4 expandtab ## Spaces for indentation
+:set hlsearch incsearch ## Highlight and search as you type
+:set wrap! ## Toggle wrapping
+:syntax on ## Syntax highlighting
+:set paste ## Paste without auto-indent mangling
+:help :s ## Help on a topic
+~/.vimrc  or  ~/.config/nvim/init.lua ## Config files
+</script>
+<script src="../assets/sheet.js"></script></body></html>

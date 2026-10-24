@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Linux Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/theme.css"><link rel="stylesheet" href="../assets/sheet.css"></head>
+<body><div id="app"></div>
+<script type="text/plain" id="sheet-src">
+title: Linux
+eyebrow: Linux · sysadmin and SSH
+lede: Files, permissions, processes, systemd, networking, packages, SSH and tmux — the commands you need when you land on a box.
+footer: `man <cmd>` and `<cmd> --help` are the source of truth. Prefer `ss` over `netstat` and `ip` over `ifconfig` on modern systems.
+
+== Files & disk | filesystem
+ls -lah ## Long list, hidden files, human sizes
+cp -a src/ dst/ ## Copy preserving permissions and symlinks
+mv old new ; rm -rf dir ## Move/rename ; delete recursively (no undo)
+ln -s target linkname ## Symlink
+find / -name "*.conf" 2>/dev/null ## Find by name, hide permission errors
+find . -type f -size +100M ## Files over 100 MB
+du -sh * | sort -h ## Size of each item, smallest to largest
+df -h ## Free space per mount
+lsblk -f ## Block devices and filesystems
+stat file ## Size, perms, timestamps
+file thing ; head -c 64 thing | xxd ## What is this file?
+tree -L 2 ## Directory tree two levels deep
+mktemp -d ## Make a temp directory
+readlink -f path ## Resolve to absolute real path
+
+== Permissions | chmod, chown
+chmod 644 file ; chmod 755 script ## Owner rw / owner rwx, others rx
+chmod +x script ; chmod u+rw,go-w file ## Symbolic mode
+chmod -R g+rX dir ## Recursive; capital X = execute only on dirs
+chown user:group file ; chown -R user: dir ## Change owner
+umask 022 ## Default perms mask for new files
+|| Octal || Perm || Meaning
+|| 7 || rwx || read, write, execute
+|| 6 || rw- || read, write
+|| 5 || r-x || read, execute
+|| 4 || r-- || read only
+|| 0 || --- || none
+chmod u+s file ; chmod g+s dir ; chmod +t dir ## setuid, setgid, sticky bit
+getfacl file ; setfacl -m u:alice:rw file ## ACLs
+
+== Processes | ps, kill
+ps aux | grep nginx ## Find a process
+ps -eo pid,ppid,%cpu,%mem,cmd --sort=-%mem | head ## Top memory users
+top ; htop ## Live view
+pgrep -af python ## PIDs and full command lines
+kill PID ; kill -9 PID ## Ask to stop / force kill
+pkill -f "my-script" ## Kill by pattern
+lsof -i :8080 ## What is using port 8080
+lsof +D /path ## Who has files open in a dir
+nice -n 10 cmd ; renice 5 -p PID ## Priorities
+nohup cmd > out.log 2>&1 & ## Run detached
+uptime ; free -h ; vmstat 1 5 ## Load, memory, activity
+
+== systemd & logs | services
+systemctl status nginx ## State and recent log lines
+systemctl start|stop|restart|reload nginx ## Control
+systemctl enable --now nginx ## Start at boot and now
+systemctl list-units --failed ## What is broken
+systemctl daemon-reload ## After editing unit files
+systemctl cat nginx ## Show the unit file
+journalctl -u nginx -f ## Follow a service's logs
+journalctl -u nginx --since "1 hour ago" ## Time window
+journalctl -p err -b ## Errors since boot
+journalctl --disk-usage ; journalctl --vacuum-time=7d ## Log size and cleanup
+systemctl list-timers ## Scheduled timers
+crontab -e ; crontab -l ## Edit / list user cron jobs
+
+== Networking | ip, ss, dig
+ip -br a ## Interfaces and addresses (brief)
+ip route ## Routing table
+ss -tulpn ## Listening TCP/UDP sockets with processes
+ss -tn state established ## Active TCP connections
+ping -c 4 host ; mtr host ## Reachability and path
+dig +short example.com ; dig example.com MX ## DNS lookups
+dig @8.8.8.8 example.com ## Ask a specific resolver
+nc -zv host 443 ## Is the port open?
+curl -I https://example.com ## Headers only
+curl -s ifconfig.me ## Public IP
+tcpdump -i any port 53 -nn ## Packet capture
+ufw allow 22/tcp ; ufw status ## Simple firewall (Ubuntu)
+firewall-cmd --add-service=https --permanent ; firewall-cmd --reload ## firewalld (RHEL)
+
+== Users & sudo | accounts
+id ; whoami ; groups ## Who am I
+sudo -l ## What can I run with sudo
+useradd -m -s /bin/bash alice ## Create user with home
+usermod -aG docker alice ## Add to a group (log out/in)
+passwd alice ## Set password
+userdel -r alice ## Delete user and home
+last -n 10 ; w ## Recent logins / who is on now
+visudo ## Safely edit sudoers
+
+== Packages | apt, dnf, apk
+|| Task || Debian/Ubuntu || RHEL/Fedora || Alpine
+|| Update index || `apt update` || `dnf check-update` || `apk update`
+|| Upgrade all || `apt upgrade` || `dnf upgrade` || `apk upgrade`
+|| Install || `apt install pkg` || `dnf install pkg` || `apk add pkg`
+|| Remove || `apt remove pkg` || `dnf remove pkg` || `apk del pkg`
+|| Search || `apt search term` || `dnf search term` || `apk search term`
+|| Which pkg owns file || `dpkg -S /path` || `rpm -qf /path` || `apk info -W /path`
+|| List installed || `dpkg -l` || `rpm -qa` || `apk info`
+
+== Archives & transfer | tar, rsync
+tar czf out.tar.gz dir/ ## Create gzip tarball
+tar xzf in.tar.gz -C /dest ## Extract to a folder
+tar tf in.tar.gz ## List contents
+zip -r out.zip dir ; unzip in.zip ## Zip
+rsync -avz --progress src/ user@host:/dst/ ## Sync (trailing slash matters)
+rsync -avz --delete src/ dst/ ## Mirror, removing extras
+scp file user@host:/path ## Copy over SSH
+sha256sum file ; sha256sum -c SHA256SUMS ## Checksums
+base64 file ; base64 -d <<< "aGk=" ## Encode / decode
+
+== SSH | remote access
+ssh-keygen -t ed25519 -C "me@laptop" ## New key pair
+ssh-copy-id user@host ## Install your public key
+ssh user@host ; ssh -p 2222 user@host ## Connect
+ssh -i ~/.ssh/key user@host ## Specific key
+ssh -L 8080:localhost:80 user@host ## Local forward: localhost:8080 -> host:80
+ssh -R 9000:localhost:3000 user@host ## Remote forward: host:9000 -> your :3000
+ssh -D 1080 user@host ## SOCKS proxy
+ssh -J jump@bastion user@internal ## Jump through a bastion
+ssh user@host 'cmd' ## Run one command
+ssh -N -f -L 5432:db:5432 user@host ## Background tunnel only
+ssh-add ~/.ssh/id_ed25519 ; ssh -A user@host ## Agent and agent forwarding
+ssh-keyscan host >> ~/.ssh/known_hosts ## Trust a host key
+ssh-keygen -R host ## Remove an old host key
+Host prod ## ~/.ssh/config entry:
+  HostName 10.0.0.5 ## ...address
+  User deploy ## ...user
+  IdentityFile ~/.ssh/prod_ed25519 ## ...key
+  ProxyJump bastion ## ...optional jump host
+
+== tmux | persistent sessions
+tmux new -s work ## New named session
+tmux ls ; tmux attach -t work ## List / reattach
+Ctrl-b d ## Detach
+Ctrl-b c ; Ctrl-b n ; Ctrl-b p ## New window / next / previous
+Ctrl-b % ; Ctrl-b " ## Split vertical / horizontal
+Ctrl-b arrow ## Move between panes
+Ctrl-b z ## Zoom pane
+Ctrl-b [ ## Scroll mode (q to quit)
+tmux kill-session -t work ## Close a session
+</script>
+<script src="../assets/sheet.js"></script></body></html>

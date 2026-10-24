@@ -1,0 +1,414 @@
+<!doctype html><html data-theme="dark"><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body><div style="padding:8px 16px;font:600 12px ui-monospace,Consolas,monospace;letter-spacing:.04em"><a href="../index.html" style="color:inherit;opacity:.75;text-decoration:none">&larr; dev-tools</a></div>
+<title>kubectl Cheat Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: harbor-manifest sheet — sticky search bar, concept diagram up top, then a multi-column field of command cards */
+:root{
+  --bg:#eef1f4; --panel:#ffffff; --ink:#14202c; --muted:#5a6b7b; --line:#d3dbe3;
+  --accent:#c94a17; --accent-soft:#fbe7dc; --code-bg:#f5f7f9; --code-ink:#1b2a38; --cmt:#7a8a99;
+  --kw:#1f5fa8; --ok:#2d7d46; --warn:#a66a00; --bad:#b3261e;
+  --f-display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e141a; --panel:#151d25; --ink:#e3e9ef; --muted:#93a3b2; --line:#26323e;
+  --accent:#f07a45; --accent-soft:#3a2117; --code-bg:#0b1016; --code-ink:#d8e2ea; --cmt:#6f8293;
+  --kw:#7fb0ea; --ok:#5cc07c; --warn:#e0a640; --bad:#f07068; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e141a; --panel:#151d25; --ink:#e3e9ef; --muted:#93a3b2; --line:#26323e;
+  --accent:#f07a45; --accent-soft:#3a2117; --code-bg:#0b1016; --code-ink:#d8e2ea; --cmt:#6f8293;
+  --kw:#7fb0ea; --ok:#5cc07c; --warn:#e0a640; --bad:#f07068; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:1320px;margin:0 auto;padding-inline:16px;padding-block:0 48px}
+header.hero{padding-block:28px 18px;display:grid;gap:10px}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+h1{font-family:var(--f-display);font-stretch:75%;font-weight:800;font-size:clamp(40px,8vw,76px);line-height:.92;margin:0;letter-spacing:-.01em;text-wrap:balance}
+h1 span{color:var(--accent)}
+.lede{max-width:64ch;color:var(--muted);margin:0}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:10px;border-bottom:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.bar input{flex:1 1 240px;min-width:0;font:inherit;font-family:var(--f-mono);font-size:14px;padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)}
+.bar input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-family:var(--f-mono);font-size:12px;padding:6px 10px;border:1px solid var(--line);border-radius:99px;background:var(--panel);color:var(--muted);cursor:pointer;text-decoration:none}
+.chip:hover,.chip:focus-visible{color:var(--accent);border-color:var(--accent);outline:none}
+h2{font-family:var(--f-display);font-stretch:80%;font-weight:700;font-size:26px;margin:36px 0 14px;display:flex;align-items:baseline;gap:10px;text-wrap:balance}
+h2 small{font-family:var(--f-mono);font-size:12px;font-weight:400;color:var(--muted);letter-spacing:.04em}
+/* anatomy */
+.anatomy{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;overflow-x:auto}
+.anat{display:flex;gap:4px;font-family:var(--f-mono);font-size:clamp(14px,2.4vw,20px);white-space:nowrap;min-width:max-content}
+.anat div{display:grid;gap:6px;justify-items:start}
+.anat b{font-weight:600;padding:4px 8px;border-radius:4px}
+.anat i{font-style:normal;font-family:var(--f-body);font-size:12px;color:var(--muted);padding-left:8px}
+.a1 b{background:var(--ink);color:var(--bg)} .a2 b{background:var(--accent-soft);color:var(--accent)}
+.a3 b{border:1px solid var(--kw);color:var(--kw)} .a4 b{border:1px dashed var(--muted)} .a5 b{color:var(--muted)}
+/* concepts */
+.concept-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px}
+@media (max-width:900px){.concept-grid{grid-template-columns:minmax(0,1fr)}}
+.diagram{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;overflow-x:auto}
+.diagram svg{display:block;width:100%;min-width:560px;height:auto}
+.diagram svg text{font-family:var(--f-mono);fill:var(--ink)}
+.terms{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;align-content:start}
+.term{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 12px}
+.term h4{margin:0 0 2px;font-family:var(--f-mono);font-size:13px;color:var(--accent);font-weight:600}
+.term h4 em{font-style:normal;color:var(--muted);font-weight:400}
+.term p{margin:0;font-size:13.5px;color:var(--ink)}
+/* command cards */
+.cards{columns:3 380px;column-gap:16px}
+.card{break-inside:avoid;background:var(--panel);border:1px solid var(--line);border-radius:8px;margin:0 0 16px;overflow:hidden}
+.card h3{margin:0;padding:10px 14px;font-family:var(--f-display);font-stretch:85%;font-size:17px;font-weight:700;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.card h3 .tag{font-family:var(--f-mono);font-size:11px;font-weight:400;color:var(--muted)}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;padding:8px 14px;border-top:1px dashed var(--line);align-items:start}
+.row:first-of-type{border-top:0}
+.row .d{grid-column:1/-1;font-size:12.5px;color:var(--muted)}
+.row code{font-family:var(--f-mono);font-size:12.5px;color:var(--code-ink);background:var(--code-bg);padding:5px 8px;border-radius:4px;display:block;overflow-x:auto;white-space:pre}
+.row code .k{color:var(--kw);font-weight:600}
+.row code .f{color:var(--accent)}
+.cp{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:4px;padding:5px 7px;cursor:pointer;align-self:center}
+.cp:hover,.cp:focus-visible{color:var(--accent);border-color:var(--accent);outline:none}
+.cp.done{color:var(--ok);border-color:var(--ok)}
+.empty{color:var(--muted);font-family:var(--f-mono);padding:20px 0}
+/* tables */
+.tbl{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--f-mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+tr:last-child td{border-bottom:0}
+td code{font-family:var(--f-mono);font-size:12.5px;color:var(--code-ink);background:var(--code-bg);padding:1px 5px;border-radius:3px;white-space:nowrap}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:16px}
+.pill{font-family:var(--f-mono);font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;white-space:nowrap;border:1px solid currentColor}
+.p-bad{color:var(--bad)} .p-warn{color:var(--warn)} .p-ok{color:var(--ok)}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-family:var(--f-mono);font-size:12.5px;margin:0 0 12px}
+.flow span{background:var(--panel);border:1px solid var(--line);padding:5px 9px;border-radius:4px}
+.flow b{color:var(--accent);font-weight:400}
+footer{margin-top:40px;color:var(--muted);font-size:12.5px;border-top:1px solid var(--line);padding-top:14px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+html{scroll-behavior:smooth}
+</style>
+
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">Kubernetes · kubectl reference</div>
+  <h1>kubectl <span>Cheat Sheet</span></h1>
+  <p class="lede">The concepts that make kubectl make sense, then the commands you actually type, grouped by job. Search filters every card; tap <b>copy</b> on any line.</p>
+</header>
+
+<div class="bar">
+  <input id="q" type="search" placeholder="Filter commands… (logs, rollout, -o jsonpath, drain)" aria-label="Filter commands">
+  <nav class="chips" aria-label="Jump to section">
+    <a class="chip" href="#concepts">concepts</a>
+    <a class="chip" href="#commands">commands</a>
+    <a class="chip" href="#outputs">output</a>
+    <a class="chip" href="#troubleshoot">troubleshoot</a>
+    <a class="chip" href="#types">shortnames</a>
+  </nav>
+</div>
+
+<h2>Command anatomy <small>every call follows this shape</small></h2>
+<div class="anatomy">
+  <div class="anat">
+    <div class="a1"><b>kubectl</b><i>the CLI</i></div>
+    <div class="a2"><b>get</b><i>verb / action</i></div>
+    <div class="a3"><b>pods</b><i>resource type</i></div>
+    <div class="a4"><b>web-7d9f</b><i>name (optional)</i></div>
+    <div class="a5"><b>-n prod -o wide</b><i>flags</i></div>
+  </div>
+</div>
+
+<h2 id="concepts">Key concepts <small>how the pieces fit</small></h2>
+<div class="concept-grid">
+  <div class="diagram" role="img" aria-label="Cluster diagram: kubectl talks to the API server in the control plane; worker nodes run kubelet and pods; a Service routes traffic to pods selected by label; a Deployment manages a ReplicaSet which manages pods.">
+    <svg viewBox="0 0 640 430" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--accent)"/></marker></defs>
+      <!-- kubectl -->
+      <rect x="14" y="20" width="110" height="44" rx="6" style="fill:var(--ink)"/>
+      <text x="69" y="47" text-anchor="middle" font-size="14" font-weight="600" style="fill:var(--bg)">kubectl</text>
+      <text x="69" y="84" text-anchor="middle" font-size="10" style="fill:var(--muted)">~/.kube/config</text>
+      <line x1="124" y1="42" x2="176" y2="42" style="stroke:var(--accent);stroke-width:2" marker-end="url(#ar)"/>
+      <text x="150" y="34" text-anchor="middle" font-size="9" style="fill:var(--accent)">HTTPS</text>
+      <!-- control plane -->
+      <rect x="180" y="10" width="446" height="88" rx="8" style="fill:var(--accent-soft);stroke:var(--accent)"/>
+      <text x="192" y="28" font-size="11" font-weight="600" style="fill:var(--accent)">CONTROL PLANE</text>
+      <g font-size="11">
+        <rect x="192" y="38" width="96" height="46" rx="4" style="fill:var(--panel);stroke:var(--line)"/><text x="240" y="65" text-anchor="middle">kube-apiserver</text>
+        <rect x="298" y="38" width="70" height="46" rx="4" style="fill:var(--panel);stroke:var(--line)"/><text x="333" y="65" text-anchor="middle">etcd</text>
+        <rect x="378" y="38" width="96" height="46" rx="4" style="fill:var(--panel);stroke:var(--line)"/><text x="426" y="65" text-anchor="middle">scheduler</text>
+        <rect x="484" y="38" width="130" height="46" rx="4" style="fill:var(--panel);stroke:var(--line)"/><text x="549" y="65" text-anchor="middle">controller-mgr</text>
+      </g>
+      <line x1="240" y1="98" x2="240" y2="128" style="stroke:var(--accent);stroke-width:2" marker-end="url(#ar)"/>
+      <!-- namespace -->
+      <rect x="14" y="132" width="612" height="284" rx="8" style="fill:none;stroke:var(--muted);stroke-dasharray:5 4"/>
+      <text x="26" y="150" font-size="11" font-weight="600" style="fill:var(--muted)">NAMESPACE: prod</text>
+      <!-- deployment chain -->
+      <rect x="26" y="162" width="150" height="36" rx="4" style="fill:var(--panel);stroke:var(--kw)"/><text x="101" y="185" text-anchor="middle" font-size="12" style="fill:var(--kw)">Deployment web</text>
+      <line x1="101" y1="198" x2="101" y2="216" style="stroke:var(--kw)" marker-end="url(#ar)"/>
+      <rect x="26" y="220" width="150" height="36" rx="4" style="fill:var(--panel);stroke:var(--kw)"/><text x="101" y="243" text-anchor="middle" font-size="12" style="fill:var(--kw)">ReplicaSet (3)</text>
+      <text x="101" y="276" text-anchor="middle" font-size="10" style="fill:var(--muted)">keeps 3 pods alive</text>
+      <!-- service -->
+      <rect x="26" y="300" width="150" height="36" rx="4" style="fill:var(--panel);stroke:var(--ok)"/><text x="101" y="323" text-anchor="middle" font-size="12" style="fill:var(--ok)">Service web</text>
+      <text x="101" y="354" text-anchor="middle" font-size="10" style="fill:var(--muted)">selector: app=web</text>
+      <rect x="26" y="366" width="150" height="36" rx="4" style="fill:var(--panel);stroke:var(--ok)"/><text x="101" y="389" text-anchor="middle" font-size="12" style="fill:var(--ok)">Ingress</text>
+      <line x1="101" y1="366" x2="101" y2="340" style="stroke:var(--ok)" marker-end="url(#ar)"/>
+      <!-- nodes -->
+      <g font-size="11">
+        <rect x="206" y="162" width="200" height="240" rx="6" style="fill:var(--panel);stroke:var(--line)"/>
+        <text x="218" y="180" font-weight="600">node-1</text><text x="394" y="180" text-anchor="end" font-size="9" style="fill:var(--muted)">kubelet · runtime</text>
+        <rect x="406" y="162" width="0" height="0"/>
+        <rect x="420" y="162" width="200" height="240" rx="6" style="fill:var(--panel);stroke:var(--line)"/>
+        <text x="432" y="180" font-weight="600">node-2</text><text x="608" y="180" text-anchor="end" font-size="9" style="fill:var(--muted)">kubelet · runtime</text>
+        <!-- pods -->
+        <rect x="218" y="196" width="176" height="70" rx="4" style="fill:var(--code-bg);stroke:var(--kw)"/>
+        <text x="228" y="214" style="fill:var(--kw)">pod web-a  app=web</text>
+        <rect x="228" y="224" width="74" height="32" rx="3" style="fill:var(--panel);stroke:var(--line)"/><text x="265" y="244" text-anchor="middle" font-size="10">container</text>
+        <rect x="310" y="224" width="74" height="32" rx="3" style="fill:var(--panel);stroke:var(--line)"/><text x="347" y="244" text-anchor="middle" font-size="10">sidecar</text>
+        <rect x="218" y="278" width="176" height="44" rx="4" style="fill:var(--code-bg);stroke:var(--kw)"/>
+        <text x="228" y="304" style="fill:var(--kw)">pod web-b  app=web</text>
+        <rect x="218" y="334" width="176" height="56" rx="4" style="fill:var(--code-bg);stroke:var(--muted);stroke-dasharray:3 3"/>
+        <text x="228" y="354" style="fill:var(--muted)">pod db-0 (StatefulSet)</text>
+        <text x="228" y="374" font-size="10" style="fill:var(--muted)">↳ PVC → PersistentVolume</text>
+        <rect x="432" y="196" width="176" height="44" rx="4" style="fill:var(--code-bg);stroke:var(--kw)"/>
+        <text x="442" y="222" style="fill:var(--kw)">pod web-c  app=web</text>
+        <rect x="432" y="252" width="176" height="44" rx="4" style="fill:var(--code-bg);stroke:var(--muted);stroke-dasharray:3 3"/>
+        <text x="442" y="278" style="fill:var(--muted)">pod log-agent (DaemonSet)</text>
+        <rect x="432" y="308" width="176" height="82" rx="4" style="fill:none;stroke:var(--line)"/>
+        <text x="442" y="328" font-size="10" style="fill:var(--muted)">ConfigMap / Secret</text>
+        <text x="442" y="346" font-size="10" style="fill:var(--muted)">→ mounted as env or files</text>
+        <text x="442" y="370" font-size="10" style="fill:var(--muted)">Job / CronJob pods run</text>
+        <text x="442" y="384" font-size="10" style="fill:var(--muted)">to completion, then stop</text>
+      </g>
+      <!-- service routes -->
+      <path d="M176 318 C 196 318, 196 300, 218 300" style="fill:none;stroke:var(--ok);stroke-width:1.5" marker-end="url(#ar)"/>
+      <path d="M176 312 C 200 300, 200 232, 218 232" style="fill:none;stroke:var(--ok);stroke-width:1.5" marker-end="url(#ar)"/>
+      <path d="M176 324 C 300 420, 410 230, 432 220" style="fill:none;stroke:var(--ok);stroke-width:1.5;stroke-dasharray:4 3" marker-end="url(#ar)"/>
+    </svg>
+  </div>
+  <div class="terms" id="terms"></div>
+</div>
+
+<h2 id="commands">Commands <small>grouped by what you're trying to do</small></h2>
+<div class="cards" id="cards"></div>
+<p class="empty" id="empty" hidden>No commands match that filter.</p>
+
+<h2 id="outputs">Output &amp; flags <small>shape what comes back</small></h2>
+<div class="two">
+  <div class="tbl"><table>
+    <thead><tr><th>Output flag</th><th>What you get</th></tr></thead>
+    <tbody>
+      <tr><td><code>-o wide</code></td><td>Extra columns: node, pod IP, images</td></tr>
+      <tr><td><code>-o yaml</code> / <code>-o json</code></td><td>Full object, including status</td></tr>
+      <tr><td><code>-o name</code></td><td><code>pod/web-a</code> style, good for piping</td></tr>
+      <tr><td><code>-o jsonpath='{.items[*].metadata.name}'</code></td><td>Pull exact fields</td></tr>
+      <tr><td><code>-o custom-columns=NAME:.metadata.name,IP:.status.podIP</code></td><td>Your own table</td></tr>
+      <tr><td><code>--show-labels</code></td><td>Labels as a column</td></tr>
+      <tr><td><code>-L app,tier</code></td><td>Chosen labels as columns</td></tr>
+      <tr><td><code>--sort-by=.metadata.creationTimestamp</code></td><td>Sort rows by any field</td></tr>
+    </tbody></table></div>
+  <div class="tbl"><table>
+    <thead><tr><th>Global flag</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>-n &lt;ns&gt;</code></td><td>Target namespace</td></tr>
+      <tr><td><code>-A</code></td><td>All namespaces</td></tr>
+      <tr><td><code>-l app=web</code></td><td>Label selector (<code>!=</code>, <code>in (a,b)</code>, <code>!key</code> work too)</td></tr>
+      <tr><td><code>--field-selector status.phase=Running</code></td><td>Filter by object fields</td></tr>
+      <tr><td><code>-w</code></td><td>Watch for changes</td></tr>
+      <tr><td><code>--dry-run=client -o yaml</code></td><td>Print the manifest, change nothing</td></tr>
+      <tr><td><code>--context &lt;name&gt;</code></td><td>One-off cluster switch</td></tr>
+      <tr><td><code>-v=6</code></td><td>Show API calls (up to 9 for full detail)</td></tr>
+    </tbody></table></div>
+</div>
+
+<h2 id="troubleshoot">Troubleshooting <small>pod status → what to run</small></h2>
+<div class="flow"><span>get pods</span><b>→</b><span>describe pod</span><b>→</b><span>logs (--previous)</span><b>→</b><span>get events</span><b>→</b><span>exec / debug</span></div>
+<div class="tbl"><table>
+  <thead><tr><th>Status</th><th>Usual cause</th><th>Check with</th></tr></thead>
+  <tbody>
+    <tr><td><span class="pill p-warn">Pending</span></td><td>No node fits: CPU/memory requests, taints, nodeSelector, or an unbound PVC</td><td><code>kubectl describe pod &lt;p&gt;</code> → Events</td></tr>
+    <tr><td><span class="pill p-bad">ImagePullBackOff</span></td><td>Wrong image name or tag, private registry without <code>imagePullSecrets</code></td><td><code>kubectl describe pod &lt;p&gt;</code></td></tr>
+    <tr><td><span class="pill p-bad">CrashLoopBackOff</span></td><td>App exits on start: bad config, missing env, failing command</td><td><code>kubectl logs &lt;p&gt; --previous</code></td></tr>
+    <tr><td><span class="pill p-bad">OOMKilled</span></td><td>Container went over its memory limit</td><td><code>kubectl describe pod</code> → Last State; <code>kubectl top pod</code></td></tr>
+    <tr><td><span class="pill p-warn">CreateContainerConfigError</span></td><td>Referenced ConfigMap or Secret key is missing</td><td><code>kubectl get cm,secret</code></td></tr>
+    <tr><td><span class="pill p-warn">Running, 0/1 Ready</span></td><td>Readiness probe failing; Service sends no traffic</td><td><code>kubectl describe pod</code>; <code>kubectl get endpoints &lt;svc&gt;</code></td></tr>
+    <tr><td><span class="pill p-warn">Terminating (stuck)</span></td><td>Finalizer or unreachable node</td><td><code>kubectl get pod &lt;p&gt; -o yaml | grep -A3 finalizers</code></td></tr>
+    <tr><td><span class="pill p-ok">Completed</span></td><td>Normal for Job/CronJob pods</td><td><code>kubectl logs job/&lt;job&gt;</code></td></tr>
+  </tbody></table></div>
+
+<h2 id="types">Resource shortnames <small>type less</small></h2>
+<div class="tbl"><table>
+  <thead><tr><th>Short</th><th>Resource</th><th>Short</th><th>Resource</th><th>Short</th><th>Resource</th></tr></thead>
+  <tbody>
+    <tr><td><code>po</code></td><td>pods</td><td><code>deploy</code></td><td>deployments</td><td><code>svc</code></td><td>services</td></tr>
+    <tr><td><code>rs</code></td><td>replicasets</td><td><code>sts</code></td><td>statefulsets</td><td><code>ds</code></td><td>daemonsets</td></tr>
+    <tr><td><code>cj</code></td><td>cronjobs</td><td><code>ing</code></td><td>ingresses</td><td><code>ep</code></td><td>endpoints</td></tr>
+    <tr><td><code>cm</code></td><td>configmaps</td><td><code>sa</code></td><td>serviceaccounts</td><td><code>ns</code></td><td>namespaces</td></tr>
+    <tr><td><code>no</code></td><td>nodes</td><td><code>pv</code></td><td>persistentvolumes</td><td><code>pvc</code></td><td>persistentvolumeclaims</td></tr>
+    <tr><td><code>hpa</code></td><td>horizontalpodautoscalers</td><td><code>netpol</code></td><td>networkpolicies</td><td><code>sc</code></td><td>storageclasses</td></tr>
+    <tr><td><code>crd</code></td><td>customresourcedefinitions</td><td><code>ev</code></td><td>events</td><td><code>quota</code></td><td>resourcequotas</td></tr>
+  </tbody></table></div>
+
+<footer>Run <code>kubectl api-resources</code> for every type and shortname your cluster supports, and <code>kubectl explain &lt;type&gt;.spec</code> for field docs. Commands target current kubectl (v1.30+); <code>&lt;angle&gt;</code> values are placeholders.</footer>
+</div>
+
+<script>
+const TERMS=[
+ ["Cluster","","A control plane plus worker nodes. kubectl talks only to the API server."],
+ ["Node","no","A machine (VM or physical) that runs pods via the kubelet."],
+ ["Pod","po","Smallest deployable unit: one or more containers sharing an IP and volumes."],
+ ["Deployment","deploy","Declares desired pods; handles rolling updates and rollbacks through ReplicaSets."],
+ ["ReplicaSet","rs","Keeps N identical pods running. Usually managed by a Deployment."],
+ ["StatefulSet","sts","Pods with stable names (db-0, db-1) and their own persistent storage."],
+ ["DaemonSet","ds","One pod per node, for agents like log shippers or monitoring."],
+ ["Job / CronJob","job / cj","Run pods to completion, once or on a cron schedule."],
+ ["Service","svc","Stable virtual IP and DNS name that load-balances to pods matched by labels. Types: ClusterIP, NodePort, LoadBalancer."],
+ ["Ingress","ing","HTTP(S) routing from outside the cluster to Services by host and path."],
+ ["ConfigMap / Secret","cm / secret","Config and credentials injected as env vars or mounted files. Secrets are base64, not encrypted."],
+ ["Namespace","ns","Virtual partition for names, quotas and RBAC (default, kube-system, prod…)."],
+ ["PV / PVC","pv / pvc","PersistentVolume is storage; a claim requests it for a pod."],
+ ["Labels & selectors","-l","Key/value tags (app=web) that Services, Deployments and kubectl use to find objects."],
+ ["Context","","kubeconfig entry = cluster + user + default namespace."],
+ ["Declarative vs imperative","","apply -f manifest.yaml (desired state, versioned) vs create/run/scale (one-off commands)."]
+];
+const CARDS=[
+ ["Config & context","kubeconfig",[
+  ["kubectl config get-contexts","List clusters you can target"],
+  ["kubectl config current-context","Show the active context"],
+  ["kubectl config use-context <name>","Switch cluster"],
+  ["kubectl config set-context --current --namespace=<ns>","Set a default namespace"],
+  ["kubectl config view --minify","Show config for the current context only"],
+  ["KUBECONFIG=~/.kube/a:~/.kube/b kubectl config view --flatten > merged","Merge kubeconfig files"],
+  ["kubectl cluster-info","API server and core service URLs"],
+  ["kubectl version","Client and server versions"]]],
+ ["Viewing resources","get · describe",[
+  ["kubectl get pods","Pods in the current namespace"],
+  ["kubectl get pods -A -o wide","All namespaces, with node and IP"],
+  ["kubectl get all -n <ns>","Common workload objects in a namespace"],
+  ["kubectl get deploy,svc,ing","Several types at once"],
+  ["kubectl get pods -l app=web --show-labels","Filter by label"],
+  ["kubectl get pods --field-selector status.phase!=Running","Find unhealthy pods"],
+  ["kubectl describe pod <pod>","Full detail plus recent events"],
+  ["kubectl get events --sort-by=.lastTimestamp","Recent cluster events, oldest first"],
+  ["kubectl get pods -w","Watch changes live"],
+  ["kubectl explain deployment.spec.strategy","Built-in field documentation"]]],
+ ["Create & apply","declarative",[
+  ["kubectl apply -f app.yaml","Create or update from a manifest"],
+  ["kubectl apply -f ./k8s/ -R","Apply a whole directory, recursively"],
+  ["kubectl apply -k ./overlays/prod","Apply a Kustomize overlay"],
+  ["kubectl diff -f app.yaml","Preview what apply would change"],
+  ["kubectl create deploy web --image=nginx:1.27 --replicas=3","Quick deployment"],
+  ["kubectl create deploy web --image=nginx --dry-run=client -o yaml > web.yaml","Generate a starter manifest"],
+  ["kubectl run tmp --image=busybox -it --rm -- sh","Throwaway interactive pod"],
+  ["kubectl create ns <ns>","Create a namespace"],
+  ["kubectl edit deploy/web","Edit the live object in $EDITOR"]]],
+ ["Deployments & rollouts","rollout",[
+  ["kubectl set image deploy/web web=nginx:1.27.1","Update a container image"],
+  ["kubectl rollout status deploy/web","Wait for the rollout to finish"],
+  ["kubectl rollout history deploy/web","List revisions"],
+  ["kubectl rollout undo deploy/web","Roll back one revision"],
+  ["kubectl rollout undo deploy/web --to-revision=3","Roll back to a specific revision"],
+  ["kubectl rollout restart deploy/web","Restart all pods (picks up new config)"],
+  ["kubectl rollout pause deploy/web","Pause to batch several changes"],
+  ["kubectl annotate deploy/web kubernetes.io/change-cause=\"bump to 1.27.1\"","Label the revision in history"]]],
+ ["Scaling","replicas · hpa",[
+  ["kubectl scale deploy/web --replicas=5","Set replica count"],
+  ["kubectl scale deploy/web --replicas=0","Stop a workload but keep it defined"],
+  ["kubectl autoscale deploy/web --min=2 --max=10 --cpu-percent=70","Create an autoscaler"],
+  ["kubectl get hpa","Autoscaler targets and current load"],
+  ["kubectl top pods --sort-by=memory","Live usage (needs metrics-server)"],
+  ["kubectl top nodes","Node CPU and memory"]]],
+ ["Logs & shell access","debug pods",[
+  ["kubectl logs <pod>","Container logs"],
+  ["kubectl logs -f <pod> -c <container>","Follow one container in a multi-container pod"],
+  ["kubectl logs <pod> --previous","Logs from the crashed instance"],
+  ["kubectl logs deploy/web --since=1h --tail=200","Recent lines from a deployment's pod"],
+  ["kubectl logs -l app=web --all-containers --prefix","Logs across all matching pods"],
+  ["kubectl exec -it <pod> -- sh","Shell into a container"],
+  ["kubectl exec <pod> -- env","Run one command"],
+  ["kubectl debug -it <pod> --image=busybox --target=<container>","Attach a debug container (distroless images)"],
+  ["kubectl debug node/<node> -it --image=ubuntu","Shell on a node's host filesystem"]]],
+ ["Networking & services","svc · port-forward",[
+  ["kubectl expose deploy/web --port=80 --target-port=8080","Create a ClusterIP Service"],
+  ["kubectl expose deploy/web --type=NodePort --port=80","Expose on every node's port"],
+  ["kubectl get svc,endpoints web","Check which pods back a Service"],
+  ["kubectl port-forward svc/web 8080:80","Reach a Service on localhost:8080"],
+  ["kubectl port-forward pod/<pod> 5432","Tunnel straight to a pod"],
+  ["kubectl run curl --image=curlimages/curl -it --rm -- curl http://web.<ns>.svc.cluster.local","Test in-cluster DNS"],
+  ["kubectl get ingress -A","All ingress routes"],
+  ["kubectl get netpol -n <ns>","Network policies"]]],
+ ["ConfigMaps & Secrets","config",[
+  ["kubectl create cm app-cfg --from-literal=LOG_LEVEL=debug","ConfigMap from key/value"],
+  ["kubectl create cm app-cfg --from-file=config.json","ConfigMap from a file"],
+  ["kubectl create secret generic db --from-literal=password=s3cr3t","Generic Secret"],
+  ["kubectl create secret docker-registry regcred --docker-server=<reg> --docker-username=<u> --docker-password=<p>","Image pull secret"],
+  ["kubectl create secret tls web-tls --cert=tls.crt --key=tls.key","TLS Secret"],
+  ["kubectl get secret db -o jsonpath='{.data.password}' | base64 -d","Decode a secret value"],
+  ["kubectl set env deploy/web --from=configmap/app-cfg","Load a ConfigMap as env vars"]]],
+ ["Labels, annotations, patch","metadata",[
+  ["kubectl label pod <pod> tier=frontend","Add a label"],
+  ["kubectl label pod <pod> tier-","Remove a label"],
+  ["kubectl label pod <pod> tier=backend --overwrite","Change a label"],
+  ["kubectl annotate pod <pod> owner=jeff","Add an annotation"],
+  ["kubectl patch deploy/web -p '{\"spec\":{\"replicas\":4}}'","Strategic merge patch"],
+  ["kubectl patch deploy/web --type=json -p '[{\"op\":\"replace\",\"path\":\"/spec/replicas\",\"value\":2}]'","JSON patch"]]],
+ ["Nodes & maintenance","ops",[
+  ["kubectl get nodes -o wide","Nodes with versions and IPs"],
+  ["kubectl describe node <node>","Capacity, allocations, conditions"],
+  ["kubectl cordon <node>","Stop new pods landing here"],
+  ["kubectl drain <node> --ignore-daemonsets --delete-emptydir-data","Evict pods before maintenance"],
+  ["kubectl uncordon <node>","Put the node back in service"],
+  ["kubectl taint nodes <node> dedicated=gpu:NoSchedule","Reserve a node"],
+  ["kubectl taint nodes <node> dedicated=gpu:NoSchedule-","Remove the taint"]]],
+ ["Delete & clean up","careful",[
+  ["kubectl delete -f app.yaml","Delete what a manifest created"],
+  ["kubectl delete pod <pod>","Delete a pod (its controller replaces it)"],
+  ["kubectl delete pods -l app=web","Delete by label"],
+  ["kubectl delete pod <pod> --grace-period=0 --force","Force-remove a stuck pod"],
+  ["kubectl delete pods --field-selector status.phase=Failed -A","Clear failed pods everywhere"],
+  ["kubectl delete ns <ns>","Delete a namespace and everything in it"]]],
+ ["Files, RBAC & access","cp · auth",[
+  ["kubectl cp <pod>:/var/log/app.log ./app.log","Copy a file out of a pod"],
+  ["kubectl cp ./seed.sql <ns>/<pod>:/tmp/seed.sql","Copy a file into a pod"],
+  ["kubectl auth can-i create deployments -n <ns>","Check your own permissions"],
+  ["kubectl auth can-i --list --as=system:serviceaccount:<ns>:<sa>","What a service account can do"],
+  ["kubectl create rolebinding dev-view --clusterrole=view --user=<u> -n <ns>","Grant read-only access"],
+  ["kubectl create token <sa>","Short-lived token for a service account"]]],
+ ["Handy one-liners","shell",[
+  ["alias k=kubectl; source <(kubectl completion bash); complete -o default -F __start_kubectl k","Alias plus tab completion (bash)"],
+  ["kubectl get pods -o custom-columns=NAME:.metadata.name,NODE:.spec.nodeName,STATUS:.status.phase","Custom table"],
+  ["kubectl get pods -A -o jsonpath='{range .items[*]}{.spec.containers[*].image}{\"\\n\"}{end}' | sort -u","Every image in the cluster"],
+  ["kubectl get pods -A --sort-by='.status.containerStatuses[0].restartCount'","Most-restarted pods last"],
+  ["kubectl wait --for=condition=ready pod -l app=web --timeout=120s","Block until pods are ready"],
+  ["kubectl api-resources --namespaced=true","Every namespaced type"],
+  ["kubectl get deploy web -o yaml | kubectl neat","Clean export (needs the neat plugin)"]]]
+];
+const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+function hl(c){
+  let h=esc(c);
+  h=h.replace(/^kubectl (\S+)/,'kubectl <span class="k">$1</span>');
+  h=h.replace(/(\s)(--?[a-zA-Z][\w-]*)/g,'$1<span class="f">$2</span>');
+  return h;
+}
+document.getElementById("terms").innerHTML=TERMS.map(([n,s,d])=>`<div class="term"><h4>${n}${s?` <em>${s}</em>`:""}</h4><p>${esc(d)}</p></div>`).join("");
+const cardsEl=document.getElementById("cards");
+cardsEl.innerHTML=CARDS.map(([t,tag,rows],ci)=>`<section class="card" data-ci="${ci}"><h3>${t}<span class="tag">${tag}</span></h3>${rows.map(([c,d])=>`<div class="row" data-s="${esc((c+" "+d+" "+t).toLowerCase())}"><code>${hl(c)}</code><button class="cp" type="button" data-c="${esc(c)}">copy</button><div class="d">${esc(d)}</div></div>`).join("")}</section>`).join("");
+cardsEl.addEventListener("click",async e=>{
+  const b=e.target.closest(".cp"); if(!b) return;
+  const txt=b.dataset.c;
+  try{await navigator.clipboard.writeText(txt);b.textContent="copied";b.classList.add("done");}
+  catch(_){const code=b.previousElementSibling;const r=document.createRange();r.selectNodeContents(code);const s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent="selected";}
+  setTimeout(()=>{b.textContent="copy";b.classList.remove("done")},1400);
+});
+const q=document.getElementById("q"),empty=document.getElementById("empty");
+q.addEventListener("input",()=>{
+  const v=q.value.trim().toLowerCase();let any=false;
+  cardsEl.querySelectorAll(".card").forEach(card=>{
+    let shown=0;
+    card.querySelectorAll(".row").forEach(r=>{const m=!v||r.dataset.s.includes(v);r.hidden=!m;if(m)shown++;});
+    card.hidden=!shown; if(shown) any=true;
+  });
+  empty.hidden=any;
+  if(v) document.getElementById("commands").scrollIntoView({block:"start"});
+});
+</script>
+
+</body></html>

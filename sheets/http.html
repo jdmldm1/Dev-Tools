@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HTTP Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/theme.css"><link rel="stylesheet" href="../assets/sheet.css"></head>
+<body><div id="app"></div>
+<script type="text/plain" id="sheet-src">
+title: HTTP
+eyebrow: Status codes · methods · headers · caching · CORS
+lede: What the numbers and headers mean, and which one to pick when you are building or debugging an API.
+footer: Authoritative definitions live in RFC 9110 (semantics) and RFC 9111 (caching).
+
+== 2xx Success | it worked
+|| Code || Name || Use it for
+|| 200 || OK || Standard success with a body
+|| 201 || Created || Resource created; send `Location` header
+|| 202 || Accepted || Queued for async processing
+|| 204 || No Content || Success, nothing to return (DELETE, PUT)
+|| 206 || Partial Content || Range request answered
+
+== 3xx Redirection | go elsewhere
+|| Code || Name || Notes
+|| 301 || Moved Permanently || Cached; clients may switch POST to GET
+|| 302 || Found || Temporary; clients may switch POST to GET
+|| 303 || See Other || After a POST, GET the `Location`
+|| 304 || Not Modified || Conditional GET matched (ETag / If-Modified-Since)
+|| 307 || Temporary Redirect || Temporary, method and body preserved
+|| 308 || Permanent Redirect || Permanent, method and body preserved
+
+== 4xx Client errors | your request is wrong
+|| Code || Name || Typical cause
+|| 400 || Bad Request || Malformed syntax or validation failure
+|| 401 || Unauthorized || Missing or invalid credentials (means unauthenticated)
+|| 403 || Forbidden || Authenticated but not allowed
+|| 404 || Not Found || No such resource (also used to hide existence)
+|| 405 || Method Not Allowed || Send `Allow` header
+|| 406 || Not Acceptable || Cannot produce an `Accept`ed type
+|| 408 || Request Timeout || Client was too slow
+|| 409 || Conflict || State conflict, duplicate, version mismatch
+|| 410 || Gone || Removed permanently
+|| 413 || Content Too Large || Body over the limit
+|| 415 || Unsupported Media Type || Wrong `Content-Type`
+|| 418 || I'm a teapot || Joke status, sometimes used for blocks
+|| 422 || Unprocessable Content || Syntax fine, semantics invalid
+|| 429 || Too Many Requests || Rate limited; send `Retry-After`
+
+== 5xx Server errors | the server failed
+|| Code || Name || Typical cause
+|| 500 || Internal Server Error || Unhandled exception
+|| 501 || Not Implemented || Method or feature not supported
+|| 502 || Bad Gateway || Upstream returned garbage or closed the connection
+|| 503 || Service Unavailable || Overloaded or down for maintenance; send `Retry-After`
+|| 504 || Gateway Timeout || Upstream took too long
+|| 507 || Insufficient Storage || WebDAV; out of space
+
+== 1xx Informational | interim
+|| Code || Name || Notes
+|| 100 || Continue || Client may send the body after `Expect: 100-continue`
+|| 101 || Switching Protocols || WebSocket / HTTP upgrade accepted
+|| 103 || Early Hints || Preload hints before the final response
+
+== Methods | semantics
+|| Method || Safe || Idempotent || Body || Purpose
+|| GET || yes || yes || no || Read a resource
+|| HEAD || yes || yes || no || GET without the body
+|| OPTIONS || yes || yes || no || Discover capabilities; CORS preflight
+|| POST || no || no || yes || Create or run an action
+|| PUT || no || yes || yes || Replace a resource
+|| PATCH || no || no* || yes || Partial update (*can be made idempotent)
+|| DELETE || no || yes || no || Remove a resource
+
+== Request headers | what you send
+|| Header || Example || Purpose
+|| Host || `api.example.com` || Virtual host (required in HTTP/1.1)
+|| Accept || `application/json` || Preferred response types
+|| Content-Type || `application/json` || Format of the request body
+|| Authorization || `Bearer <token>` || Credentials
+|| User-Agent || `my-app/1.0` || Client identifier
+|| If-None-Match || `"abc123"` || Conditional GET with ETag
+|| If-Modified-Since || `Wed, 21 Oct 2026 07:28:00 GMT` || Conditional GET with date
+|| Range || `bytes=0-1023` || Partial content
+|| Origin || `https://app.example.com` || Set by browsers for CORS
+|| X-Forwarded-For || `203.0.113.5` || Original client IP behind a proxy
+|| Cookie || `sid=abc` || Stored cookies
+
+== Response headers | what you get back
+|| Header || Example || Purpose
+|| Content-Type || `application/json; charset=utf-8` || Body format
+|| Content-Length || `348` || Body size in bytes
+|| Location || `/items/42` || New resource / redirect target
+|| ETag || `"abc123"` || Version fingerprint
+|| Cache-Control || `max-age=3600` || Caching rules
+|| Set-Cookie || `sid=abc; HttpOnly; Secure; SameSite=Lax` || Store a cookie
+|| Retry-After || `120` || Seconds (or date) to wait
+|| WWW-Authenticate || `Bearer realm="api"` || How to authenticate (sent with 401)
+|| Strict-Transport-Security || `max-age=31536000; includeSubDomains` || HTTPS only (HSTS)
+|| Content-Security-Policy || `default-src 'self'` || Restrict content sources
+|| X-Content-Type-Options || `nosniff` || Disable MIME sniffing
+|| Link || `<...>; rel="next"` || Pagination and relations
+
+== Cache-Control | caching
+|| Directive || Meaning
+|| max-age=N || Fresh for N seconds
+|| s-maxage=N || Same, for shared caches/CDNs
+|| no-cache || Store, but revalidate before use
+|| no-store || Never store
+|| private || Browser only, not shared caches
+|| public || Any cache may store
+|| immutable || Will never change during max-age (fingerprinted assets)
+|| must-revalidate || Do not serve stale
+|| stale-while-revalidate=N || Serve stale while refreshing in the background
+Cache-Control: public, max-age=31536000, immutable ## Fingerprinted static assets
+Cache-Control: no-cache ## HTML shells and APIs that need freshness
+Cache-Control: no-store ## Sensitive data
+
+== CORS | cross-origin
+|| Header || Direction || Meaning
+|| Origin || request || Where the page came from
+|| Access-Control-Allow-Origin || response || Allowed origin (`*` or exact origin)
+|| Access-Control-Allow-Methods || response || Allowed methods for preflight
+|| Access-Control-Allow-Headers || response || Allowed request headers
+|| Access-Control-Allow-Credentials || response || Allow cookies (`true`; origin cannot be `*`)
+|| Access-Control-Max-Age || response || Seconds to cache preflight
+|| Access-Control-Expose-Headers || response || Response headers JS may read
+note: A preflight `OPTIONS` is sent first for non-simple requests (custom headers, JSON `Content-Type`, methods other than GET/POST/HEAD).
+
+== Content types | MIME
+|| Type || Use
+|| application/json || JSON
+|| application/x-www-form-urlencoded || HTML form default
+|| multipart/form-data || File uploads
+|| text/plain ; text/html ; text/css || Text, pages, styles
+|| text/javascript || JavaScript
+|| application/octet-stream || Arbitrary bytes
+|| application/pdf ; image/png ; image/jpeg ; image/svg+xml || Documents and images
+|| application/problem+json || RFC 9457 error details
+|| text/event-stream || Server-sent events
+|| application/x-ndjson || Newline-delimited JSON
+
+== Auth schemes | Authorization header
+Authorization: Basic base64(user:pass) ## Basic
+Authorization: Bearer <token> ## OAuth 2 / JWT
+Authorization: Digest ... ## Digest (rare)
+X-API-Key: <key> ## Common API key header (non-standard)
+Cookie: session=<id> ## Session cookies
+</script>
+<script src="../assets/sheet.js"></script></body></html>

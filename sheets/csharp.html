@@ -1,0 +1,787 @@
+<!doctype html><html data-theme="dark"><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body><div style="padding:8px 16px;font:600 12px ui-monospace,Consolas,monospace;letter-spacing:.04em"><a href="../index.html" style="color:inherit;opacity:.75;text-decoration:none">&larr; dev-tools</a></div>
+<title>C# Cheat Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: compact header + sticky filter bar, then a masonry of reference cards grouped by topic */
+:root{
+  --bg:#eceef3; --surface:#ffffff; --ink:#1a1c29; --muted:#5b5f74; --line:#d6d9e3;
+  --accent:#6b2fb9; --accent-soft:#efe7fb; --code-bg:#f6f5fa;
+  --tk-kw:#7a2fc4; --tk-str:#0b7a62; --tk-com:#8b8fa3; --tk-num:#b4520e; --tk-type:#1f63b8; --tk-fn:#a3266a; --tk-op:#4a4e63;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111219; --surface:#1a1c27; --ink:#e8e9f0; --muted:#9a9db2; --line:#2c2f3d;
+  --accent:#b994ff; --accent-soft:#2a2340; --code-bg:#14151e;
+  --tk-kw:#c79bff; --tk-str:#5fd3ad; --tk-com:#6f7389; --tk-num:#f0a35e; --tk-type:#7cb4ff; --tk-fn:#ff8cc6; --tk-op:#b6b9c9;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111219; --surface:#1a1c27; --ink:#e8e9f0; --muted:#9a9db2; --line:#2c2f3d;
+  --accent:#b994ff; --accent-soft:#2a2340; --code-bg:#14151e;
+  --tk-kw:#c79bff; --tk-str:#5fd3ad; --tk-com:#6f7389; --tk-num:#f0a35e; --tk-type:#7cb4ff; --tk-fn:#ff8cc6; --tk-op:#b6b9c9;
+  color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;padding-inline:16px;padding-block:0 48px}
+.wrap{max-width:1500px;margin:0 auto}
+header.top{padding-block:28px 18px;display:grid;gap:18px;grid-template-columns:1fr;align-items:end}
+@media (min-width:860px){header.top{grid-template-columns:1.1fr 1fr}}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(40px,7vw,76px);line-height:.95;margin:6px 0 10px;letter-spacing:-.02em;text-wrap:balance}
+h1 .hash{color:var(--accent)}
+.lede{color:var(--muted);max-width:60ch;margin:0}
+.hello{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.hello .bar{display:flex;justify-content:space-between;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.hello pre{margin:0}
+
+.controls{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;border-bottom:1px solid var(--line);margin-bottom:18px}
+.search{flex:1 1 220px;min-width:0;max-width:360px;font:inherit;padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.search:focus-visible,.chip:focus-visible,.copy:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:500 13px var(--f-body);padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.count{font-family:var(--f-mono);font-size:12px;color:var(--muted);margin-left:auto}
+
+.grid{columns:380px;column-gap:16px}
+.card{break-inside:avoid;background:var(--surface);border:1px solid var(--line);border-radius:10px;margin:0 0 16px;padding:16px 16px 14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.card h2{font-family:var(--f-display);font-weight:700;font-size:21px;line-height:1.15;margin:0;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.card h2 .tag{font:600 11px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);padding:2px 7px;border-radius:4px}
+.card p{margin:0;color:var(--muted);font-size:14px}
+.card p code,.card li code,td code{font-family:var(--f-mono);font-size:12.5px;color:var(--ink);background:var(--code-bg);padding:1px 5px;border-radius:4px}
+.card ul{margin:0;padding-left:18px;color:var(--muted);font-size:14px;display:grid;gap:4px}
+.snip{position:relative;min-width:0}
+.snip .label{font:600 11px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+pre{margin:0;background:var(--code-bg);border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow-x:auto;font-family:var(--f-mono);font-size:12.8px;line-height:1.55;tab-size:4}
+pre code{font-family:inherit;color:var(--ink);white-space:pre}
+.copy{position:absolute;right:6px;top:22px;font:600 11px var(--f-mono);padding:3px 8px;border-radius:5px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer;opacity:.85}
+.snip:not(:has(.label)) .copy{top:6px}
+.copy:hover{color:var(--accent);opacity:1}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:600 11px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--code-bg)}
+tr:last-child td{border-bottom:0}
+td:first-child{white-space:nowrap}
+
+.diagram svg{width:100%;height:auto;display:block}
+.group-head{column-span:all;font-family:var(--f-display);font-weight:700;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:6px 0 12px;display:flex;align-items:center;gap:10px}
+.group-head::after{content:"";flex:1;height:1px;background:var(--line)}
+.empty{color:var(--muted);padding:24px 0}
+footer{color:var(--muted);font-size:13px;margin-top:20px}
+
+/* Prism tokens */
+.token.comment,.token.prolog,.token.doctype{color:var(--tk-com);font-style:italic}
+.token.keyword,.token.boolean,.token.null,.token.contextual-keyword{color:var(--tk-kw);font-weight:600}
+.token.string,.token.char,.token.interpolation-string,.token.verbatim-string{color:var(--tk-str)}
+.token.number{color:var(--tk-num)}
+.token.class-name,.token.type-expression,.token.return-type,.token.namespace{color:var(--tk-type)}
+.token.function{color:var(--tk-fn)}
+.token.operator,.token.punctuation{color:var(--tk-op)}
+.token.interpolation .token.punctuation{color:var(--tk-kw)}
+.token.attribute{color:var(--tk-num)}
+.token.preprocessor{color:var(--tk-com)}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">C# 14 · .NET 10 · quick reference</div>
+      <h1><span class="hash">C#</span> Cheat Sheet</h1>
+      <p class="lede">Syntax, idioms and core concepts on one page. Every snippet compiles in a modern SDK-style project with nullable reference types on. Filter by topic or search for a keyword like <code>record</code>, <code>async</code> or <code>LINQ</code>.</p>
+    </div>
+    <div class="hello">
+      <div class="bar"><span>Program.cs</span><span>dotnet run</span></div>
+      <pre><code class="language-csharp">// Top-level statements: no Main, no class needed
+using System.Text.Json;
+
+var people = new List&lt;Person&gt; { new("Ada", 36), new("Linus", 28) };
+
+foreach (var p in people.Where(p =&gt; p.Age &gt; 30))
+    Console.WriteLine($"{p.Name} is {p.Age}");
+
+Console.WriteLine(JsonSerializer.Serialize(people));
+
+record Person(string Name, int Age);</code></pre>
+    </div>
+  </header>
+
+  <div class="controls">
+    <input id="q" class="search" type="search" placeholder="Search syntax, e.g. switch, Span, yield" aria-label="Search the cheat sheet">
+    <div class="chips" id="chips" role="group" aria-label="Filter by topic"></div>
+    <span class="count" id="count"></span>
+  </div>
+
+  <main class="grid" id="grid"></main>
+  <p class="empty" id="empty" hidden>No cards match that search. Try a shorter keyword.</p>
+  <footer>Language versions noted in tags: C# 12 (.NET 8), C# 13 (.NET 9), C# 14 (.NET 10).</footer>
+</div>
+
+<script>window.Prism = window.Prism || {}; window.Prism.manual = true;</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-csharp.min.js"></script>
+<script>
+const GROUPS = ["Basics","Types & OOP","Functional & Data","Async & Errors","Toolbox"];
+
+const STACK_HEAP = `<div class="diagram"><svg viewBox="0 0 360 150" role="img" aria-label="Value types live inline on the stack; reference types store a pointer to an object on the heap">
+<text x="10" y="16" font-family="JetBrains Mono, monospace" font-size="11" fill="var(--muted)">STACK</text>
+<text x="200" y="16" font-family="JetBrains Mono, monospace" font-size="11" fill="var(--muted)">HEAP (GC managed)</text>
+<rect x="10" y="24" width="150" height="34" rx="5" fill="var(--code-bg)" stroke="var(--line)"/>
+<text x="20" y="45" font-family="JetBrains Mono, monospace" font-size="12" fill="var(--ink)">int x = 42</text>
+<rect x="10" y="64" width="150" height="34" rx="5" fill="var(--code-bg)" stroke="var(--line)"/>
+<text x="20" y="85" font-family="JetBrains Mono, monospace" font-size="12" fill="var(--ink)">Point p {1,2}</text>
+<rect x="10" y="104" width="150" height="34" rx="5" fill="var(--code-bg)" stroke="var(--accent)"/>
+<text x="20" y="125" font-family="JetBrains Mono, monospace" font-size="12" fill="var(--ink)">Person a = ref</text>
+<rect x="200" y="84" width="150" height="54" rx="5" fill="var(--accent-soft)" stroke="var(--accent)"/>
+<text x="210" y="106" font-family="JetBrains Mono, monospace" font-size="12" fill="var(--ink)">Person object</text>
+<text x="210" y="124" font-family="JetBrains Mono, monospace" font-size="11" fill="var(--muted)">Name="Ada" Age=36</text>
+<line x1="160" y1="121" x2="196" y2="114" stroke="var(--accent)" stroke-width="1.6"/>
+<polygon points="196,110 200,114 195,118" fill="var(--accent)"/>
+<text x="200" y="44" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="var(--muted)">struct / int / bool: copied by value</text>
+<text x="200" y="62" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="var(--muted)">class / array / string: copied by ref</text>
+</svg></div>`;
+
+const CARDS = [
+/* ───────── BASICS ───────── */
+{g:"Basics", t:"Variables & built-in types", body:[
+ {p:"<code>var</code> infers the type at compile time. The type is still static. <code>const</code> is compile-time; <code>readonly</code> is set once at runtime."},
+ {c:`int count = 10;           // 32-bit signed
+long big = 9_000_000_000L; // digit separators
+double ratio = 0.75;       // 64-bit float
+decimal price = 19.99m;    // money: base-10, exact
+float f = 1.5f;
+bool done = false;
+char letter = 'A';
+string name = "Jeff";
+var list = new List<int>(); // inferred
+const double Pi = 3.14159;
+object anything = 42;      // boxing`},
+ {tbl:[["Alias","Type","Size / range"],["byte","System.Byte","0 to 255"],["short","Int16","±32K"],["int","Int32","±2.1 billion"],["long","Int64","±9.2×10¹⁸"],["float","Single","~7 digits"],["double","Double","~15–16 digits"],["decimal","Decimal","28–29 digits"],["nint","IntPtr","native size"]]}
+]},
+{g:"Basics", t:"Strings", body:[
+ {c:`string a = $"Hi {name}, total {price:C2}";  // interpolation + format
+string path = @"C:\\logs\\app.txt";            // verbatim: no escapes
+string json = """
+    { "id": 1, "name": "Ada" }
+    """;                                      // raw literal (C# 11)
+string tmpl = $$"""{ "name": "{{name}}" }"""; // raw + interpolation
+
+name.Length; name.ToUpper(); name.Trim();
+name.Contains("ef"); name.StartsWith("J");
+name.Split(','); string.Join(", ", items);
+name[0]; name[^1]; name[1..3];               // index & range
+string.IsNullOrWhiteSpace(input);
+
+var sb = new StringBuilder();                 // many appends in a loop
+sb.Append("x").AppendLine("y");
+string result = sb.ToString();`},
+ {p:"Strings are immutable. Every edit makes a new string, so use <code>StringBuilder</code> inside loops."}
+]},
+{g:"Basics", t:"Operators", body:[
+ {c:`x += 1; x++; --x;               // arithmetic & increment
+a == b; a != b; a && b; a || b; !a;
+int r = 7 / 2;   // 3 (integer division)
+int m = 7 % 2;   // 1 (remainder)
+var v = cond ? "yes" : "no";    // ternary
+
+string s = input ?? "default";  // null-coalescing
+input ??= "default";            // assign if null
+int? len = user?.Name?.Length;  // null-conditional
+customer?.Order = GetOrder();   // ?. assignment (C# 14)
+string n = maybeNull!;          // null-forgiving (trust me)
+
+if (obj is string str) Use(str); // type test + cast
+var t = obj as string;           // null if not a string
+var size = sizeof(int); var tn = nameof(count);`}
+]},
+{g:"Basics", t:"Control flow", body:[
+ {c:`if (score >= 90) grade = 'A';
+else if (score >= 80) grade = 'B';
+else grade = 'C';
+
+for (int i = 0; i < 10; i++) { if (i == 5) continue; }
+foreach (var item in items) { if (item == null) break; }
+while (queue.Count > 0) queue.Dequeue();
+do { line = Console.ReadLine(); } while (line != "q");
+
+switch (day)
+{
+    case DayOfWeek.Saturday:
+    case DayOfWeek.Sunday:
+        Rest(); break;
+    default:
+        Work(); break;
+}`}
+]},
+{g:"Basics", t:"Pattern matching & switch expressions", body:[
+ {c:`string Describe(object o) => o switch
+{
+    null                    => "nothing",
+    int n when n < 0        => "negative int",
+    int n                   => $"int {n}",
+    string { Length: 0 }    => "empty string",       // property pattern
+    Point(0, 0)             => "origin",             // positional
+    Point { X: > 0, Y: > 0 }=> "quadrant I",         // relational
+    int[] [1, .., var last] => $"starts with 1, ends {last}", // list
+    _                       => "something else"      // discard
+};
+
+if (shape is Circle { Radius: > 10 } big) Console.WriteLine(big);
+bool ok = c is >= 'a' and <= 'z' or '_';             // and / or / not
+if (x is not null) { }`}
+]},
+{g:"Basics", t:"Methods", body:[
+ {c:`int Add(int a, int b) => a + b;              // expression-bodied
+void Log(string msg, int level = 1) { }      // optional param
+Log(level: 2, msg: "hi");                    // named args
+
+int Sum(params int[] nums) => nums.Sum();     // variable args
+Sum(1, 2, 3);
+void All(params ReadOnlySpan<int> xs) { }     // params collections (C# 13)
+
+bool TryParse(string s, out int value) { ... } // out: must assign
+if (int.TryParse("42", out var n)) { }
+void Swap(ref int a, ref int b) => (a, b) = (b, a); // ref: in & out
+double Len(in Vector3 v) => v.Length();       // in: read-only ref
+
+(int min, int max) Range(int[] xs) => (xs.Min(), xs.Max()); // tuple
+var (lo, hi) = Range(data);                   // deconstruct
+
+int Fact(int n)                               // local function
+{
+    return Go(n);
+    static int Go(int k) => k <= 1 ? 1 : k * Go(k - 1);
+}`}
+]},
+{g:"Basics", t:"Arrays & collection expressions", body:[
+ {c:`int[] nums = [1, 2, 3];                // collection expression (C# 12)
+List<string> names = ["Ada", "Linus"];
+int[] both = [..nums, 4, 5];            // spread
+int[] empty = [];
+
+int[] old = new int[5];                 // zero-filled
+int[,] grid = new int[3, 3];            // rectangular
+int[][] jagged = [[1], [2, 3]];         // array of arrays
+
+nums.Length; Array.Sort(nums); Array.IndexOf(nums, 2);
+int last = nums[^1];                    // from end
+int[] mid = nums[1..^1];                // slice (copy)
+Span<int> view = nums.AsSpan(1, 2);     // slice (no copy)`}
+]},
+
+/* ───────── TYPES & OOP ───────── */
+{g:"Types & OOP", t:"Value vs reference types", body:[
+ {p:"Value types (<code>struct</code>, <code>int</code>, <code>bool</code>, <code>enum</code>) hold their data directly; assignment copies it. Reference types (<code>class</code>, arrays, <code>string</code>, delegates) hold a reference to an object on the managed heap; assignment copies the reference."},
+ {html:STACK_HEAP},
+ {c:`var p1 = new Point(1, 2); var p2 = p1; p2.X = 9;  // p1.X still 1 (struct)
+var a1 = new Person("Ada", 36); var a2 = a1;
+a2.Age = 40;                                   // a1.Age is now 40 (class)`}
+]},
+{g:"Types & OOP", t:"Classes & properties", body:[
+ {c:`public class BankAccount
+{
+    private decimal _balance;                  // field
+    public string Owner { get; }               // get-only (ctor sets)
+    public string Id { get; init; } = "";      // set only during init
+    public required string Branch { get; set; }// caller must set
+    public decimal Balance => _balance;        // computed
+    public string Note { get; set => field = value.Trim(); } // field keyword (C# 14)
+    public static int Created { get; private set; }
+
+    public BankAccount(string owner) { Owner = owner; Created++; }
+
+    public void Deposit(decimal amt)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(amt);
+        _balance += amt;
+    }
+    public override string ToString() => $"{Owner}: {Balance:C}";
+}
+
+var acct = new BankAccount("Jeff") { Id = "A-1", Branch = "OKC" };`}
+]},
+{g:"Types & OOP", t:"Primary constructors", tag:"C# 12", body:[
+ {p:"Parameters are in scope across the whole class body. Great for dependency injection."},
+ {c:`public class OrderService(IRepository repo, ILogger<OrderService> log)
+{
+    public async Task<Order?> GetAsync(int id)
+    {
+        log.LogInformation("Fetching {Id}", id);
+        return await repo.FindAsync(id);
+    }
+}`}
+]},
+{g:"Types & OOP", t:"Records & structs", body:[
+ {c:`public record Person(string Name, int Age);   // immutable, value equality
+var a = new Person("Ada", 36);
+var b = a with { Age = 37 };                  // non-destructive copy
+a == new Person("Ada", 36);                   // true
+var (n, age) = a;                             // deconstruct
+Console.WriteLine(a);  // Person { Name = Ada, Age = 36 }
+
+public record struct Money(decimal Amount, string Currency);
+public readonly struct Point(double x, double y)
+{
+    public double X { get; } = x; public double Y { get; } = y;
+    public double Dist => Math.Sqrt(X * X + Y * Y);
+}`},
+ {tbl:[["Kind","Stored","Equality"],["class","heap, by ref","reference"],["struct","inline, by value","field by field"],["record","heap, by ref","value (generated)"],["record struct","inline, by value","value (generated)"]]}
+]},
+{g:"Types & OOP", t:"Inheritance & polymorphism", body:[
+ {c:`public abstract class Shape
+{
+    public abstract double Area();               // must override
+    public virtual string Name => "shape";       // may override
+}
+
+public class Circle(double r) : Shape
+{
+    public override double Area() => Math.PI * r * r;
+    public override string Name => "circle";
+}
+
+public sealed class Square(double s) : Shape     // no further subclassing
+{
+    public override double Area() => s * s;
+}
+
+Shape[] shapes = [new Circle(1), new Square(2)];
+foreach (var s in shapes) Console.WriteLine($"{s.Name}: {s.Area():F2}");
+
+class Derived : Base { public Derived() : base("arg") { } }  // call base ctor`}
+]},
+{g:"Types & OOP", t:"Interfaces", body:[
+ {c:`public interface IRepository<T>
+{
+    Task<T?> FindAsync(int id);
+    Task SaveAsync(T item);
+    bool Exists(int id) => FindAsync(id).Result is not null; // default impl
+}
+
+public class SqlRepo : IRepository<Order>, IDisposable
+{
+    public Task<Order?> FindAsync(int id) => ...;
+    public Task SaveAsync(Order o) => ...;
+    public void Dispose() { }
+}`},
+ {p:"A class inherits from one base class but can implement many interfaces. Program to the interface to keep code testable."}
+]},
+{g:"Types & OOP", t:"Access modifiers", body:[
+ {tbl:[["Modifier","Visible to"],["public","everyone"],["private","the containing type only (default for members)"],["protected","type + derived types"],["internal","same assembly (default for top-level types)"],["protected internal","same assembly OR derived types"],["private protected","derived types in the same assembly"],["file","same source file only"]]},
+ {ul:["<code>static</code>: belongs to the type, not an instance","<code>abstract</code>: no body, must be overridden","<code>sealed</code>: can't be inherited / overridden further","<code>partial</code>: split a type across files"]}
+]},
+{g:"Types & OOP", t:"Generics & constraints", body:[
+ {c:`public class Box<T>(T value) { public T Value { get; } = value; }
+
+T Max<T>(T a, T b) where T : IComparable<T> => a.CompareTo(b) >= 0 ? a : b;
+
+public class Cache<TKey, TValue>
+    where TKey : notnull
+    where TValue : class, new()
+{ }
+
+T Sum<T>(IEnumerable<T> xs) where T : INumber<T>   // generic math
+{
+    T total = T.Zero;
+    foreach (var x in xs) total += x;
+    return total;
+}`},
+ {p:"Common constraints: <code>class</code>, <code>struct</code>, <code>notnull</code>, <code>new()</code>, <code>unmanaged</code>, a base class, or an interface."}
+]},
+{g:"Types & OOP", t:"Enums", body:[
+ {c:`public enum Status { Pending, Active = 10, Closed }
+
+[Flags]
+public enum Perm { None = 0, Read = 1, Write = 2, Exec = 4, All = Read | Write | Exec }
+
+var p = Perm.Read | Perm.Write;
+bool canWrite = p.HasFlag(Perm.Write);
+Status s = Enum.Parse<Status>("Active");
+string label = Status.Closed.ToString();       // "Closed"
+foreach (var v in Enum.GetValues<Status>()) { }`}
+]},
+{g:"Types & OOP", t:"Nullable reference types", body:[
+ {c:`#nullable enable                 // on by default in new projects
+string name = "x";               // never null (compiler warns otherwise)
+string? maybe = null;            // may be null
+int? age = null;                 // Nullable<int>
+
+if (maybe is not null) Console.WriteLine(maybe.Length); // flow analysis
+int len = maybe?.Length ?? 0;
+age.HasValue; age.GetValueOrDefault(18);
+ArgumentNullException.ThrowIfNull(arg);`}
+]},
+{g:"Types & OOP", t:"Extension members", tag:"C# 14", body:[
+ {c:`public static class StringExt
+{
+    // classic extension method
+    public static bool IsBlank(this string? s) => string.IsNullOrWhiteSpace(s);
+
+    // new extension block: properties and static members too
+    extension(string s)
+    {
+        public int WordCount => s.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+        public string Truncate(int max) => s.Length <= max ? s : s[..max] + "…";
+    }
+}
+
+"hello brave world".WordCount;   // 3
+"".IsBlank();                    // true`}
+]},
+
+/* ───────── FUNCTIONAL & DATA ───────── */
+{g:"Functional & Data", t:"Delegates, lambdas & events", body:[
+ {c:`Func<int, int, int> add = (a, b) => a + b;     // returns a value
+Action<string> log = msg => Console.WriteLine(msg); // returns void
+Predicate<int> isEven = n => n % 2 == 0;
+var square = (int x) => x * x;                 // natural type
+var greet = (string who = "world") => $"hi {who}";
+
+public class Button
+{
+    public event EventHandler<string>? Clicked;
+    public void Press() => Clicked?.Invoke(this, "pressed");
+}
+var btn = new Button();
+btn.Clicked += (sender, e) => Console.WriteLine(e);   // subscribe
+btn.Clicked -= handler;                                // unsubscribe`}
+]},
+{g:"Functional & Data", t:"LINQ", body:[
+ {c:`var adults = people
+    .Where(p => p.Age >= 18)
+    .OrderBy(p => p.Name).ThenByDescending(p => p.Age)
+    .Select(p => new { p.Name, p.Age })
+    .ToList();
+
+var byCity = people.GroupBy(p => p.City)
+    .Select(g => new { City = g.Key, Count = g.Count(), Avg = g.Average(p => p.Age) });
+
+people.Any(p => p.Age > 65);   people.All(p => p.Active);
+people.First(); people.FirstOrDefault(p => p.Id == 7);
+people.Count(); people.Sum(p => p.Pay); people.Max(p => p.Age);
+people.MaxBy(p => p.Age); people.DistinctBy(p => p.Email);
+people.Skip(20).Take(10);       // paging
+people.Chunk(100);              // batches
+people.ToDictionary(p => p.Id);
+names.Zip(ages, (n, a) => $"{n}:{a}");
+people.CountBy(p => p.City);    // .NET 9
+people.Index();                 // (index, item) pairs, .NET 9`},
+ {label:"Query syntax", c:`var q = from o in orders
+        join c in customers on o.CustomerId equals c.Id
+        where o.Total > 100
+        orderby o.Date descending
+        select new { c.Name, o.Total };`},
+ {p:"LINQ is lazy: nothing runs until you enumerate or call <code>ToList()</code>, <code>Count()</code>, <code>First()</code> and the like."}
+]},
+{g:"Functional & Data", t:"Collections", body:[
+ {c:`var list = new List<int> { 3, 1, 2 };
+list.Add(4); list.Remove(1); list.Sort(); list.Contains(2);
+
+var dict = new Dictionary<string, int> { ["a"] = 1, ["b"] = 2 };
+dict["c"] = 3;
+if (dict.TryGetValue("a", out var val)) { }
+dict.GetValueOrDefault("z", 0);
+foreach (var (key, value) in dict) { }
+
+var set = new HashSet<string> { "x", "y" };  set.Add("x"); // false
+var q = new Queue<int>();  q.Enqueue(1); q.Dequeue();     // FIFO
+var st = new Stack<int>(); st.Push(1); st.Pop();          // LIFO
+var pq = new PriorityQueue<string, int>(); pq.Enqueue("job", 2);
+var frozen = dict.ToFrozenDictionary();                    // read-heavy lookups
+var cd = new ConcurrentDictionary<int, string>();          // thread-safe`},
+ {tbl:[["Need","Use"],["ordered, indexable","List&lt;T&gt;"],["key → value lookup","Dictionary&lt;K,V&gt;"],["unique items","HashSet&lt;T&gt;"],["FIFO / LIFO","Queue / Stack"],["immutable snapshot","ImmutableArray, Frozen*"],["multi-threaded","Concurrent*"]]}
+]},
+{g:"Functional & Data", t:"Iterators & yield", body:[
+ {c:`IEnumerable<int> Fib()
+{
+    (int a, int b) = (0, 1);
+    while (true)
+    {
+        yield return a;           // pause and hand back a value
+        (a, b) = (b, a + b);
+    }
+}
+
+foreach (var n in Fib().Take(10)) Console.Write($"{n} ");
+
+IEnumerable<string> ReadLines(string path)
+{
+    foreach (var line in File.ReadLines(path))
+        if (line.StartsWith("#")) continue;
+        else yield return line;
+}`}
+]},
+{g:"Functional & Data", t:"Tuples & deconstruction", body:[
+ {c:`var pt = (X: 3, Y: 4);
+Console.WriteLine(pt.X);
+(string name, int age) person = ("Ada", 36);
+var (n, a) = person;
+(a, b) = (b, a);                 // swap
+var (_, second) = GetPair();     // discard
+
+foreach (var (i, item) in items.Index()) { }   // .NET 9`}
+]},
+{g:"Functional & Data", t:"Span & memory", body:[
+ {p:"<code>Span&lt;T&gt;</code> is a stack-only window over contiguous memory: slicing without allocating."},
+ {c:`ReadOnlySpan<char> text = "2026-10-01";
+int year = int.Parse(text[..4]);               // no substring allocation
+Span<byte> buf = stackalloc byte[256];         // stack buffer
+Memory<byte> mem = new byte[1024];             // heap-safe, async-friendly
+ReadOnlySpan<int> nums = [1, 2, 3];`}
+]},
+
+/* ───────── ASYNC & ERRORS ───────── */
+{g:"Async & Errors", t:"async / await", body:[
+ {c:`public async Task<string> FetchAsync(string url, CancellationToken ct = default)
+{
+    using var http = new HttpClient();
+    var html = await http.GetStringAsync(url, ct);
+    return html[..100];
+}
+
+// run in parallel, wait for all
+Task<string> t1 = FetchAsync(a), t2 = FetchAsync(b);
+string[] both = await Task.WhenAll(t1, t2);
+
+var first = await Task.WhenAny(t1, t2);          // first to finish
+await Task.Delay(TimeSpan.FromSeconds(1));
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+await Parallel.ForEachAsync(urls, cts.Token, async (u, ct) => await FetchAsync(u, ct));
+
+// async streams
+async IAsyncEnumerable<int> Ticks()
+{
+    for (int i = 0; ; i++) { await Task.Delay(1000); yield return i; }
+}
+await foreach (var tick in Ticks()) { }`},
+ {ul:["Return <code>Task</code> / <code>Task&lt;T&gt;</code>; reserve <code>async void</code> for event handlers.","Never block with <code>.Result</code> or <code>.Wait()</code>; await all the way up.","Use <code>ValueTask</code> for hot paths that often complete synchronously.","Pass <code>CancellationToken</code> through long operations."]}
+]},
+{g:"Async & Errors", t:"Exceptions", body:[
+ {c:`try
+{
+    var data = File.ReadAllText(path);
+}
+catch (FileNotFoundException ex)
+{
+    logger.LogWarning(ex, "Missing {Path}", path);
+}
+catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+{
+    // exception filter: only catches 404s
+}
+catch (Exception ex)
+{
+    throw;                          // rethrow, keeps stack trace
+}
+finally
+{
+    Cleanup();                      // always runs
+}
+
+public class InsufficientFundsException(decimal need)
+    : Exception($"Need {need:C} more");
+
+throw new InvalidOperationException("Order already shipped");
+ArgumentException.ThrowIfNullOrEmpty(name);`}
+]},
+{g:"Async & Errors", t:"using & IDisposable", body:[
+ {c:`using var conn = new SqlConnection(cs);    // disposed at end of scope
+using (var reader = File.OpenText(path))   // disposed at end of block
+{
+    Console.WriteLine(reader.ReadLine());
+}
+await using var stream = File.OpenRead(p);  // IAsyncDisposable
+
+public sealed class Resource : IDisposable
+{
+    private bool _disposed;
+    public void Dispose()
+    {
+        if (_disposed) return;
+        // release handles, connections, files
+        _disposed = true;
+    }
+}`},
+ {p:"The garbage collector frees memory; <code>Dispose</code> releases unmanaged resources (files, sockets, DB connections) deterministically."}
+]},
+{g:"Async & Errors", t:"Threading & locks", body:[
+ {c:`private readonly Lock _gate = new();         // System.Threading.Lock (C# 13)
+lock (_gate) { _count++; }
+
+Interlocked.Increment(ref _hits);           // atomic, lock-free
+var sem = new SemaphoreSlim(3);             // max 3 concurrent
+await sem.WaitAsync(); try { ... } finally { sem.Release(); }
+
+await Task.Run(() => HeavyCpuWork());       // move CPU work off the UI thread`}
+]},
+
+/* ───────── TOOLBOX ───────── */
+{g:"Toolbox", t:"Files & JSON", body:[
+ {c:`string text = File.ReadAllText("in.txt");
+string[] lines = await File.ReadAllLinesAsync("in.txt");
+await File.WriteAllTextAsync("out.txt", text);
+File.AppendAllText("log.txt", $"{DateTime.Now:o}\\n");
+foreach (var f in Directory.EnumerateFiles(dir, "*.cs", SearchOption.AllDirectories)) { }
+string full = Path.Combine(dir, "data", "file.json");
+Path.GetExtension(full); Path.GetFileNameWithoutExtension(full);
+
+using System.Text.Json;
+var opts = new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true };
+string json = JsonSerializer.Serialize(person, opts);
+Person? back = JsonSerializer.Deserialize<Person>(json, opts);
+
+public record Order(
+    [property: JsonPropertyName("order_id")] int Id,
+    [property: JsonIgnore] string Secret);`}
+]},
+{g:"Toolbox", t:"Dates & times", body:[
+ {c:`var now = DateTime.Now; var utc = DateTime.UtcNow;
+var stamp = DateTimeOffset.UtcNow;            // prefer for storage/APIs
+var d = new DateOnly(2026, 10, 1);
+var t = new TimeOnly(14, 30);
+var later = now.AddDays(7).AddHours(-2);
+TimeSpan gap = later - now;                   // gap.TotalHours
+now.ToString("yyyy-MM-dd HH:mm");
+DateTime.TryParse("2026-10-01", out var parsed);
+var sw = Stopwatch.StartNew(); /* ... */ sw.Elapsed.TotalMilliseconds;`}
+]},
+{g:"Toolbox", t:"Attributes & reflection", body:[
+ {c:`[Obsolete("Use NewMethod")] public void OldMethod() { }
+
+[AttributeUsage(AttributeTargets.Class)]
+public sealed class TableAttribute(string name) : Attribute
+{
+    public string Name { get; } = name;
+}
+
+[Table("orders")] public class Order { }
+
+var attr = typeof(Order).GetCustomAttribute<TableAttribute>();
+foreach (var prop in typeof(Order).GetProperties())
+    Console.WriteLine($"{prop.Name}: {prop.PropertyType.Name}");`}
+]},
+{g:"Toolbox", t:"Namespaces & project layout", body:[
+ {c:`namespace Contoso.Billing;            // file-scoped namespace
+using System.Text;                   // import
+using static System.Math;            // call Sqrt() directly
+using Json = System.Text.Json.JsonSerializer;  // alias
+global using System.Linq;            // applies to whole project (GlobalUsings.cs)`},
+ {label:".csproj", c:`<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+</Project>`, lang:"markup"}
+]},
+{g:"Toolbox", t:"dotnet CLI", body:[
+ {c:`dotnet new console -n MyApp        # also: webapi, classlib, xunit, worker
+dotnet new sln && dotnet sln add MyApp
+dotnet add package Serilog
+dotnet add reference ../Lib/Lib.csproj
+dotnet build -c Release
+dotnet run -- arg1 arg2
+dotnet watch                       # hot reload
+dotnet test --filter "Category=Unit"
+dotnet publish -c Release -r linux-x64 --self-contained
+dotnet format                      # fix style
+dotnet run app.cs                  # single-file app (.NET 10)`, lang:"none"}
+]},
+{g:"Toolbox", t:"Dependency injection & config", body:[
+ {c:`var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddSingleton<IClock, SystemClock>();   // one for app life
+builder.Services.AddScoped<IOrderRepo, SqlOrderRepo>(); // one per request
+builder.Services.AddTransient<IEmailer, SmtpEmailer>(); // new every time
+builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
+
+var app = builder.Build();
+app.MapGet("/orders/{id:int}", async (int id, IOrderRepo repo) =>
+    await repo.FindAsync(id) is { } o ? Results.Ok(o) : Results.NotFound());
+app.Run();`}
+]},
+{g:"Toolbox", t:"Key concepts at a glance", body:[
+ {tbl:[["Concept","In one line"],["CLR","Runtime that JIT-compiles IL to native code and manages memory"],["GC","Generational collector (Gen 0/1/2) frees unreachable heap objects"],["Boxing","Wrapping a value type in an object; costs an allocation"],["Encapsulation","Hide state behind properties and methods"],["Inheritance","Reuse a base class; one base, many interfaces"],["Polymorphism","virtual/override, or interfaces, pick behavior at runtime"],["Abstraction","Depend on interfaces, not concrete types"],["Immutability","records, init, readonly: safer sharing across threads"],["Deferred execution","LINQ and yield run only when enumerated"],["SOLID","Single-resp., Open/closed, Liskov, Interface seg., Dependency inv."]]}
+]},
+{g:"Toolbox", t:"Modern C# by version", body:[
+ {tbl:[["Ver","Highlights"],["9","records, init, top-level statements, pattern and/or/not"],["10","file-scoped namespaces, global using, record struct"],["11","raw strings, required, list patterns, generic math"],["12","primary constructors, collection expressions, alias any type"],["13","params collections, Lock type, \\e escape, partial properties"],["14","extension blocks, field keyword, ?. assignment, nameof(List&lt;&gt;)"]]}
+]}
+];
+
+/* ---------- render ---------- */
+const grid = document.getElementById("grid");
+const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+let idx = 0;
+function codeBlock(b){
+  const lang = b.lang || "csharp";
+  const id = "c" + (idx++);
+  return `<div class="snip">${b.label?`<div class="label">${b.label}</div>`:""}<button class="copy" type="button" data-target="${id}">Copy</button><pre><code id="${id}" class="language-${lang}">${esc(b.c)}</code></pre></div>`;
+}
+function table(rows){
+  const [h,...r] = rows;
+  return `<div class="tbl"><table><thead><tr>${h.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>${r.map(row=>`<tr>${row.map((x,i)=>`<td>${i===0?`<code>${x}</code>`:x}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+function renderCard(card){
+  const parts = card.body.map(b=>{
+    if (b.c) return codeBlock(b);
+    if (b.p) return `<p>${b.p}</p>`;
+    if (b.tbl) return table(b.tbl);
+    if (b.ul) return `<ul>${b.ul.map(x=>`<li>${x}</li>`).join("")}</ul>`;
+    if (b.html) return b.html;
+    return "";
+  }).join("");
+  return `<section class="card" data-group="${card.g}"><h2>${card.t}${card.tag?`<span class="tag">${card.tag}</span>`:""}</h2>${parts}</section>`;
+}
+let html = "";
+for (const g of GROUPS){
+  html += `<div class="group-head" data-group-head="${g}">${g}</div>`;
+  html += CARDS.filter(c=>c.g===g).map(renderCard).join("");
+}
+grid.innerHTML = html;
+if (window.Prism && Prism.highlightAllUnder) Prism.highlightAllUnder(document.body);
+
+/* ---------- filters ---------- */
+const chipsEl = document.getElementById("chips");
+const q = document.getElementById("q");
+const countEl = document.getElementById("count");
+const emptyEl = document.getElementById("empty");
+let active = "All";
+chipsEl.innerHTML = ["All",...GROUPS].map(g=>`<button class="chip" type="button" aria-pressed="${g==="All"}" data-g="${g}">${g}</button>`).join("");
+chipsEl.addEventListener("click", e=>{
+  const b = e.target.closest(".chip"); if(!b) return;
+  active = b.dataset.g;
+  chipsEl.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed", c===b));
+  try{ localStorage.setItem("cs-group", active) }catch(_){}
+  apply();
+});
+q.addEventListener("input", apply);
+function apply(){
+  const term = q.value.trim().toLowerCase();
+  let shown = 0;
+  const visibleGroups = new Set();
+  grid.querySelectorAll(".card").forEach(c=>{
+    const ok = (active==="All" || c.dataset.group===active) && (!term || c.textContent.toLowerCase().includes(term));
+    c.hidden = !ok; if(ok){shown++; visibleGroups.add(c.dataset.group);}
+  });
+  grid.querySelectorAll("[data-group-head]").forEach(h=>h.hidden = !visibleGroups.has(h.dataset.groupHead));
+  countEl.textContent = `${shown} of ${CARDS.length} cards`;
+  emptyEl.hidden = shown>0;
+}
+try{ const saved = localStorage.getItem("cs-group"); if(saved && (saved==="All"||GROUPS.includes(saved))){ active = saved; chipsEl.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed", c.dataset.g===saved)); } }catch(_){}
+apply();
+
+/* ---------- copy ---------- */
+grid.addEventListener("click", e=>{
+  const b = e.target.closest(".copy"); if(!b) return;
+  const code = document.getElementById(b.dataset.target);
+  const done = ()=>{ b.textContent="Copied"; setTimeout(()=>b.textContent="Copy",1400); };
+  const fallback = ()=>{ const r=document.createRange(); r.selectNodeContents(code); const s=getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent="Selected"; setTimeout(()=>b.textContent="Copy",1400); };
+  try{ navigator.clipboard.writeText(code.textContent).then(done, fallback); }catch(_){ fallback(); }
+});
+</script>
+
+
+</body></html>

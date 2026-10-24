@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bash Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/theme.css"><link rel="stylesheet" href="../assets/sheet.css"></head>
+<body><div id="app"></div>
+<script type="text/plain" id="sheet-src">
+title: Bash
+eyebrow: Shell scripting · bash 4+
+lede: Scripting essentials, parameter expansion, tests, redirection and the text-processing one-liners you reuse constantly. Click any line to copy.
+footer: Quote your variables ("$var"). Run `shellcheck script.sh` to catch most mistakes.
+
+== Script skeleton | start here
+#!/usr/bin/env bash ## Portable shebang
+set -euo pipefail ## Exit on error, unset var, or failed pipe stage
+IFS=$'\n\t' ## Safer word splitting
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" ## Directory of this script
+trap 'echo "failed at line $LINENO" >&2' ERR ## Report where it died
+trap 'rm -rf "$tmp"' EXIT ## Always clean up
+tmp="$(mktemp -d)" ## Temp dir
+main() { :; }; main "$@" ## Entry point pattern
+
+== Variables & quoting | basics
+name="Ada"; echo "$name" ## Assign (no spaces around =) and use
+readonly PI=3.14 ## Constant
+export PATH="$HOME/bin:$PATH" ## Export to child processes
+echo "$(date +%F)" ## Command substitution
+echo $((2 + 3 * 4)) ## Arithmetic
+((count++)) ## Increment
+'single' vs "double" ## Single: literal. Double: expands $vars and $(cmds)
+$'tab\there' ## ANSI-C quoting (escape sequences)
+read -r -p "Name: " name ## Prompt for input
+read -r -s -p "Password: " pw ## Silent input
+
+== Parameter expansion | ${...}
+${var:-default} ## Use default if unset or empty
+${var:=default} ## Assign default if unset or empty
+${var:?error message} ## Exit with message if unset or empty
+${var:+alt} ## alt if var is set, else empty
+${#var} ## Length
+${var:2:5} ## Substring: offset 2, length 5
+${var#prefix}  ${var##*/} ## Strip shortest / longest prefix match
+${var%suffix}  ${var%%.*} ## Strip shortest / longest suffix match
+${var/old/new}  ${var//old/new} ## Replace first / all
+${var^^}  ${var,,} ## Uppercase / lowercase
+${!prefix@} ## Names of variables starting with prefix
+
+== Tests | [[ ]] and (( ))
+[[ -e f ]]  [[ -f f ]]  [[ -d d ]] ## Exists / regular file / directory
+[[ -r f ]]  [[ -w f ]]  [[ -x f ]] ## Readable / writable / executable
+[[ -s f ]]  [[ -L f ]] ## Non-empty / symlink
+[[ -z "$s" ]]  [[ -n "$s" ]] ## Empty / non-empty string
+[[ "$a" == "$b" ]]  [[ "$a" == pre* ]] ## String equal / glob match
+[[ "$s" =~ ^[0-9]+$ ]] ## Regex match (groups in BASH_REMATCH)
+[[ $a -eq $b ]]  -ne -lt -le -gt -ge ## Integer comparison
+(( a > b )) ## Arithmetic comparison
+[[ -f f && -r f ]] || echo "no" ## Combine with && and ||
+command -v git >/dev/null || { echo "git missing"; exit 1; } ## Check a tool exists
+
+== Control flow | loops, functions
+if [[ cond ]]; then ...; elif [[ cond ]]; then ...; else ...; fi ## If
+for f in *.log; do echo "$f"; done ## Loop over files
+for ((i=0; i<10; i++)); do echo "$i"; done ## C-style loop
+for i in {1..5}; do echo "$i"; done ## Brace range
+while IFS= read -r line; do echo "$line"; done < file.txt ## Read a file line by line
+until [[ -f ready ]]; do sleep 1; done ## Loop until true
+case "$1" in start) run;; stop|halt) quit;; *) usage;; esac ## Switch
+greet() { local who="${1:-world}"; echo "hi $who"; } ## Function with local var and default
+return 1 ## Function exit status (0 = success)
+select opt in a b c; do echo "$opt"; break; done ## Simple menu
+
+== Arrays | indexed and associative
+arr=(a b c); echo "${arr[1]}" ## Create and index
+echo "${arr[@]}"  echo "${#arr[@]}" ## All elements / count
+arr+=(d) ## Append
+for x in "${arr[@]}"; do echo "$x"; done ## Iterate safely
+declare -A m=([k]=v [x]=y); echo "${m[k]}" ## Associative array
+for k in "${!m[@]}"; do echo "$k=${m[$k]}"; done ## Iterate keys
+mapfile -t lines < file.txt ## Read file into array
+
+== Redirection & pipes | I/O
+cmd > out.txt  cmd >> out.txt ## Overwrite / append stdout
+cmd 2> err.txt ## Redirect stderr
+cmd > all.txt 2>&1  cmd &> all.txt ## Both to one file
+cmd > /dev/null 2>&1 ## Discard everything
+cmd < in.txt ## stdin from file
+cmd <<< "text" ## Here-string
+cat <<'EOF' ## Here-doc (quoted: no expansion), end with EOF on its own line
+cmd1 | cmd2 ## Pipe stdout to stdin
+cmd | tee out.txt ## Show and save
+diff <(sort a) <(sort b) ## Process substitution
+cmd1 && cmd2 ; cmd1 || cmd2 ## Run on success / on failure
+
+== Special variables | $
+$? ## Exit status of last command
+$$ ## Current shell PID
+$! ## PID of last background job
+$0 ## Script name
+$1 $2 ... ## Positional arguments
+$# ## Number of arguments
+"$@" ## All arguments, each quoted (use this)
+$* ## All arguments as one word (rarely wanted)
+$RANDOM ## Random 0-32767
+$SECONDS ## Seconds since shell started
+
+== Jobs & shortcuts | interactive
+cmd & ## Run in background
+jobs ; fg %1 ; bg %1 ## List, foreground, resume in background
+wait ## Wait for background jobs
+nohup cmd & ## Survive logout
+Ctrl-R ## Reverse history search
+!!  !$  !^ ## Last command / last arg / first arg
+sudo !! ## Rerun last command as root
+Ctrl-A  Ctrl-E ## Start / end of line
+Ctrl-U  Ctrl-K  Ctrl-W ## Delete to start / to end / previous word
+cd - ## Previous directory
+Ctrl-C  Ctrl-Z  Ctrl-D ## Interrupt / suspend / end input
+
+== Text one-liners | grep, sed, awk
+grep -rn "TODO" --include="*.py" . ## Recursive search with line numbers
+grep -E "a|b" file ; grep -v "x" file ## Extended regex / invert
+grep -c pattern file ; grep -l pattern *.txt ## Count / list matching files
+sed -i 's/old/new/g' file ## Replace in place (macOS: -i '')
+sed -n '10,20p' file ## Print lines 10-20
+sed '/^#/d;/^$/d' file ## Delete comments and blank lines
+awk '{print $1, $NF}' file ## First and last column
+awk -F: '{print $1}' /etc/passwd ## Custom delimiter
+awk '{s+=$3} END {print s}' file ## Sum a column
+cut -d, -f1,3 file.csv ## Pick CSV columns
+sort file | uniq -c | sort -rn | head ## Top repeated lines
+tr -s ' ' < file ; tr a-z A-Z < file ## Squeeze spaces / uppercase
+wc -l file ; head -n 5 file ; tail -f log ## Count, first lines, follow
+xargs -n1 -P4 cmd ## Run cmd per input line, 4 in parallel
+find . -name "*.log" -mtime +7 -delete ## Delete logs older than 7 days
+find . -type f -exec sha256sum {} + ## Run a command on results
+</script>
+<script src="../assets/sheet.js"></script></body></html>

@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PowerShell Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/theme.css"><link rel="stylesheet" href="../assets/sheet.css"></head>
+<body><div id="app"></div>
+<script type="text/plain" id="sheet-src">
+title: PowerShell
+eyebrow: Windows PowerShell 5.1 and PowerShell 7+
+lede: Objects flow through the pipeline, not text. Discovery commands, filtering, files, processes, networking and scripting patterns.
+footer: Windows PowerShell 5.1 has no `&&`, `||` or ternary; PowerShell 7+ does. Use `curl.exe` or `Invoke-RestMethod` (bare `curl` is an alias for Invoke-WebRequest in 5.1).
+
+== Discover | help yourself
+Get-Command *service* ## Find commands by name
+Get-Help Get-Process -Examples ## Examples for a command
+Get-Help about_Comparison_Operators ## Concept help pages
+Get-Process | Get-Member ## What properties and methods does this object have?
+Get-Alias -Definition Get-ChildItem ## Aliases for a cmdlet
+$PSVersionTable ## Version and edition
+Get-Module -ListAvailable ## Installed modules
+Update-Help ## Download help files (admin)
+
+== Pipeline & objects | shaping output
+Get-Process | Where-Object CPU -gt 100 ## Filter (simple syntax)
+Get-Process | Where-Object { $_.CPU -gt 100 -and $_.Name -like "chrome*" } ## Filter (script block)
+Get-Process | Sort-Object WS -Descending | Select-Object -First 5 Name, WS ## Top 5 by memory
+Get-Service | Group-Object Status ## Group and count
+Get-ChildItem | Measure-Object Length -Sum -Average ## Totals
+1..5 | ForEach-Object { $_ * 2 } ## Transform each item
+Get-Process | Select-Object -ExpandProperty Name ## Plain strings instead of objects
+Get-Process | Format-Table Name, Id, CPU -AutoSize ## Table (for display only)
+Get-Process | Format-List * ## All properties
+Get-Process | Out-GridView ## Interactive filterable grid (Windows)
+
+== Files & folders | filesystem
+Get-ChildItem -Recurse -Filter *.log ## Find files
+Get-ChildItem -Recurse -File | Where-Object Length -gt 100MB ## Large files
+Get-Content app.log -Tail 50 -Wait ## Follow a log
+Get-Content file.txt | Select-String "error" ## Grep
+Select-String -Path *.cs -Pattern "TODO" -Recurse ## Search code (use Get-ChildItem for recursion in 5.1)
+Set-Content out.txt "text" ; Add-Content out.txt "more" ## Write / append
+Copy-Item src dst -Recurse ; Move-Item a b ## Copy / move
+Remove-Item path -Recurse -Force ## Delete (careful)
+New-Item -ItemType Directory -Force -Path a\b\c ## mkdir -p
+Test-Path .\file ## Exists?
+Get-FileHash file -Algorithm SHA256 ## Checksum
+Compress-Archive -Path dir -DestinationPath out.zip ## Zip
+Expand-Archive out.zip -DestinationPath dir ## Unzip
+
+== Variables & operators | language
+$x = 5 ; $s = "Hi $x" ; 'literal $x' ## Double quotes expand, single do not
+"$($obj.Name) has $($list.Count) items" ## Expression inside a string
+$arr = @(1,2,3) ; $arr += 4 ## Array
+$h = @{ name = "Ada"; age = 36 } ; $h.name ## Hashtable
+[pscustomobject]@{ Name = "Ada"; Age = 36 } ## Ad-hoc object
+-eq -ne -gt -ge -lt -le ## Comparison (case-insensitive; -ceq for case-sensitive)
+-like "a*" -notlike ## Wildcard match
+-match "^\d+$" ## Regex match (sets $Matches)
+-replace "old","new" ## Regex replace
+-contains $x ; -in $arr ## Collection membership
+-and -or -not ## Logic
+$null -eq $x ## Null check ($null on the left)
+$env:PATH ; $env:USERPROFILE ## Environment variables
+@" ... "@ ## Here-string (closing marker at column 0)
+
+== Processes & services | system
+Get-Process -Name chrome ## Find process
+Stop-Process -Name notepad -Force ## Kill by name
+Start-Process notepad -ArgumentList file.txt ## Launch
+Get-Service | Where-Object Status -eq Running ## Running services
+Restart-Service Spooler ; Stop-Service ; Start-Service ## Control a service (admin)
+Get-CimInstance Win32_OperatingSystem ## OS details via CIM
+Get-ComputerInfo | Select-Object OsName, OsVersion ## Quick system summary
+Get-WinEvent -LogName System -MaxEvents 20 ## Recent event log entries
+Get-Volume ; Get-PSDrive -PSProvider FileSystem ## Disks and free space
+Get-ItemProperty "HKLM:\Software\Microsoft\Windows\CurrentVersion" ## Read registry
+winget upgrade --all ## Update installed apps
+
+== Network & web | connectivity
+Test-NetConnection host -Port 443 ## TCP port check (like nc -z)
+Resolve-DnsName example.com -Type A ## DNS lookup
+Get-NetTCPConnection -State Listen ## Listening ports
+Get-NetTCPConnection -LocalPort 8080 | Select OwningProcess ## Who owns a port
+Invoke-RestMethod https://api.example.com/items ## GET and parse JSON automatically
+Invoke-RestMethod -Method Post -Uri $u -Body ($o | ConvertTo-Json) -ContentType application/json ## POST JSON
+Invoke-RestMethod $u -Headers @{ Authorization = "Bearer $token" } ## Auth header
+Invoke-WebRequest $u -OutFile file.zip ## Download a file
+Get-NetIPAddress -AddressFamily IPv4 ## Local IPs
+$ProgressPreference = 'SilentlyContinue' ## Make Invoke-WebRequest much faster in 5.1
+
+== Data formats | convert
+Get-Content f.json -Raw | ConvertFrom-Json ## Parse JSON
+$obj | ConvertTo-Json -Depth 10 ## To JSON (default depth is only 2!)
+Import-Csv f.csv ; $rows | Export-Csv out.csv -NoTypeInformation ## CSV in and out
+$obj | Export-Clixml state.xml ; Import-Clixml state.xml ## Round-trip complex objects
+[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("hi")) ## Base64 encode
+[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($b64)) ## Base64 decode
+Get-Date -Format "yyyy-MM-ddTHH:mm:ssK" ## ISO-style date
+[DateTimeOffset]::UtcNow.ToUnixTimeSeconds() ## Unix epoch
+New-Guid ## Random GUID
+Get-Clipboard ; "text" | Set-Clipboard ## Clipboard
+
+== Scripting | functions and errors
+param([string]$Name = "world", [switch]$Verbose) ## Script/function parameters
+function Get-Thing { [CmdletBinding()] param([Parameter(Mandatory)][string]$Id) $Id } ## Advanced function
+try { risky } catch { Write-Error $_.Exception.Message } finally { cleanup } ## Errors
+$ErrorActionPreference = "Stop" ## Make errors terminating
+-ErrorAction SilentlyContinue ## Per-command error handling
+-WhatIf ; -Confirm ## Dry-run / ask first (when supported)
+$splat = @{ Path = "a"; Recurse = $true } ; Get-ChildItem @splat ## Splatting
+foreach ($i in $list) { } ; for ($i=0; $i -lt 5; $i++) { } ## Loops
+switch -Wildcard ($x) { "a*" { "starts a" } default { "other" } } ## Switch
+if ($?) { "last command succeeded" } ; $LASTEXITCODE ## Success of last cmdlet / native exit code
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser ## Allow local scripts
+Write-Host "x" ; Write-Output "x" ; Write-Verbose "x" ## Display vs pipeline output
+</script>
+<script src="../assets/sheet.js"></script></body></html>

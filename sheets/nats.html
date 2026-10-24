@@ -1,0 +1,524 @@
+<!doctype html><html data-theme="dark"><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body><div style="padding:8px 16px;font:600 12px ui-monospace,Consolas,monospace;letter-spacing:.04em"><a href="../index.html" style="color:inherit;opacity:.75;text-decoration:none">&larr; dev-tools</a></div>
+<title>NATS CLI Cheat Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: sticky subject-style nav, then a two-column card grid per topic; diagrams lead each concept. */
+:root{
+  --bg:#f3f5f7; --surface:#ffffff; --ink:#14212b; --muted:#5a6b78; --line:#d9e0e6;
+  --accent:#0b7a75; --accent-soft:#e2f2f0; --signal:#c2620b; --code-bg:#eef2f5; --code-ink:#0f2533;
+  --display:"Archivo",system-ui,sans-serif; --body:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f161c; --surface:#16212a; --ink:#e3eaef; --muted:#93a4b1; --line:#26343f;
+  --accent:#4fc2b8; --accent-soft:#173532; --signal:#f0a35e; --code-bg:#0b1218; --code-ink:#d6e4ec; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f161c; --surface:#16212a; --ink:#e3eaef; --muted:#93a4b1; --line:#26343f;
+  --accent:#4fc2b8; --accent-soft:#173532; --signal:#f0a35e; --code-bg:#0b1218; --code-ink:#d6e4ec; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 var(--body);padding-inline:16px;padding-block:0 48px}
+.wrap{max-width:1180px;margin:0 auto}
+header{padding-block:36px 20px;display:grid;gap:10px}
+.eyebrow{font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+h1{font:800 clamp(30px,5vw,48px)/1.05 var(--display);margin:0;letter-spacing:-.01em;text-wrap:balance}
+h1 span{color:var(--accent)}
+.lede{color:var(--muted);max-width:68ch;margin:0}
+nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:10px;border-bottom:1px solid var(--line);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+nav a{font:500 12.5px var(--mono);color:var(--ink);text-decoration:none;padding:5px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
+nav a:hover,nav a:focus-visible{border-color:var(--accent);color:var(--accent);outline:none}
+#q{margin-left:auto;font:13px var(--mono);padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);min-width:0;width:200px;max-width:100%}
+#q:focus{outline:2px solid var(--accent);outline-offset:1px}
+section{padding-top:34px;scroll-margin-top:60px}
+h2{font:700 24px/1.2 var(--display);margin:0 0 4px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+h2 .subj{font:500 13px var(--mono);color:var(--signal)}
+.intro{color:var(--muted);margin:0 0 16px;max-width:75ch}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0;display:flex;flex-direction:column;gap:10px}
+.card h3{font:700 14px var(--display);margin:0;text-transform:uppercase;letter-spacing:.05em;color:var(--accent)}
+.card p{margin:0;color:var(--muted);font-size:14px}
+.cmd{display:grid;gap:3px;min-width:0}
+.cmd .line{display:flex;align-items:stretch;background:var(--code-bg);border-radius:6px;min-width:0}
+.cmd code{flex:1;min-width:0;overflow-x:auto;white-space:pre;font:13px/1.5 var(--mono);color:var(--code-ink);padding:7px 10px}
+.cmd code .c{color:var(--muted)}
+.cmd code .f{color:var(--accent)}
+.cmd .d{font-size:13px;color:var(--muted);padding-left:2px}
+.copy{flex:none;border:0;border-left:1px solid var(--line);background:transparent;color:var(--muted);font:500 11px var(--mono);padding:0 10px;cursor:pointer;border-radius:0 6px 6px 0}
+.copy:hover,.copy:focus-visible{color:var(--accent);outline:none;background:var(--accent-soft)}
+.copy.ok{color:var(--accent)}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+.tbl{overflow-x:auto}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:600 12px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+td code,p code,li code{font:12.5px var(--mono);background:var(--code-bg);color:var(--code-ink);padding:1px 5px;border-radius:4px}
+.diagram{background:var(--code-bg);border-radius:8px;padding:10px;overflow-x:auto}
+.diagram svg{display:block;width:100%;min-width:380px;height:auto}
+svg text{font-family:var(--mono);font-size:12px;fill:var(--ink)}
+svg .lbl{fill:var(--muted);font-size:11px}
+svg .box{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
+svg .hub{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.5}
+svg .arrow{stroke:var(--accent);stroke-width:1.6;fill:none}
+svg .arrow2{stroke:var(--signal);stroke-width:1.6;fill:none;stroke-dasharray:5 4}
+svg .head{fill:var(--accent)} svg .head2{fill:var(--signal)}
+.tip{border-left:3px solid var(--signal);padding:6px 10px;font-size:13.5px;color:var(--ink);background:var(--code-bg);border-radius:0 6px 6px 0}
+ul.k{margin:0;padding-left:18px;display:grid;gap:4px;font-size:14px}
+.hidden-by-filter{display:none!important}
+footer{margin-top:40px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:14px}
+@media (max-width:560px){#q{width:100%;margin-left:0}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+html{scroll-behavior:smooth}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">nats · natscli reference</div>
+  <h1>NATS CLI <span>Cheat Sheet</span></h1>
+  <p class="lede">Connecting, core pub/sub, request–reply, JetStream streams and consumers, Key-Value, Object Store, services and ops — with the subject patterns and flags you reach for every day. Tap <b>copy</b> on any command.</p>
+</header>
+
+<nav aria-label="Sections">
+  <a href="#connect">connect</a><a href="#concepts">concepts</a><a href="#core">pub/sub</a><a href="#reqrep">request-reply</a><a href="#js">jetstream</a><a href="#consumers">consumers</a><a href="#kv">kv</a><a href="#obj">object</a><a href="#micro">services</a><a href="#ops">ops &amp; bench</a>
+  <input id="q" type="search" placeholder="filter commands…" aria-label="Filter commands">
+</nav>
+
+<!-- CONNECT -->
+<section id="connect">
+  <h2>Connect <span class="subj">nats://host:4222</span></h2>
+  <p class="intro">Save connection settings as a <b>context</b> once, then every command uses it. Flags override the context for a single call.</p>
+  <div class="grid">
+    <div class="card">
+      <h3>Run a local server</h3>
+      <div class="cmd"><div class="line"><code>nats-server -js</code></div><div class="d">Start a server with JetStream enabled (port 4222)</div></div>
+      <div class="cmd"><div class="line"><code>docker run -d --name nats -p 4222:4222 -p 8222:8222 nats -js -m 8222</code></div><div class="d">Same in Docker, with HTTP monitoring on 8222</div></div>
+      <div class="cmd"><div class="line"><code>nats server check connection -s nats://localhost:4222</code></div><div class="d">Verify you can reach it</div></div>
+      <div class="cmd"><div class="line"><code>nats rtt</code></div><div class="d">Round-trip time to the connected server</div></div>
+    </div>
+    <div class="card">
+      <h3>Contexts</h3>
+      <div class="cmd"><div class="line"><code>nats context add local --server nats://localhost:4222 --description "Local dev" --select</code></div><div class="d">Create a context and make it the default</div></div>
+      <div class="cmd"><div class="line"><code>nats context add prod --server tls://nats.example.com:4222 --creds ~/.nkeys/prod.creds</code></div><div class="d">Context using a JWT credentials file</div></div>
+      <div class="cmd"><div class="line"><code>nats context ls</code></div><div class="d">List contexts (default is marked)</div></div>
+      <div class="cmd"><div class="line"><code>nats context select prod</code></div><div class="d">Switch default context</div></div>
+      <div class="cmd"><div class="line"><code>nats context info</code></div><div class="d">Show the active context's settings</div></div>
+      <div class="cmd"><div class="line"><code>nats --context prod stream ls</code></div><div class="d">Use a context for one command only</div></div>
+    </div>
+    <div class="card">
+      <h3>Auth flags (per command or in a context)</h3>
+      <div class="tbl"><table>
+        <tr><th>Method</th><th>Flag</th></tr>
+        <tr><td>Server URL(s)</td><td><code>-s nats://a:4222,nats://b:4222</code></td></tr>
+        <tr><td>User / password</td><td><code>--user app --password secret</code></td></tr>
+        <tr><td>Token</td><td><code>--token s3cr3t</code></td></tr>
+        <tr><td>NKey seed</td><td><code>--nkey user.nk</code></td></tr>
+        <tr><td>JWT creds (decentralized)</td><td><code>--creds user.creds</code></td></tr>
+        <tr><td>TLS client cert</td><td><code>--tlscert c.pem --tlskey k.pem --tlsca ca.pem</code></td></tr>
+      </table></div>
+      <p>Env vars also work: <code>NATS_URL</code>, <code>NATS_CONTEXT</code>, <code>NATS_CREDS</code>, <code>NATS_USER</code>, <code>NATS_PASSWORD</code>.</p>
+    </div>
+    <div class="card">
+      <h3>Who am I, what can I do</h3>
+      <div class="cmd"><div class="line"><code>nats account info</code></div><div class="d">Account, JetStream limits and usage for the current user</div></div>
+      <div class="cmd"><div class="line"><code>nats cheat</code></div><div class="d">Built-in cheat sheets; <code>nats cheat kv</code> for one topic</div></div>
+      <div class="cmd"><div class="line"><code>nats --help-long</code></div><div class="d">Every command and flag</div></div>
+      <div class="tip">Add <code>--trace</code> to any command to see the underlying API requests and replies.</div>
+    </div>
+  </div>
+</section>
+
+<!-- CONCEPTS -->
+<section id="concepts">
+  <h2>Key concepts <span class="subj">subjects · wildcards · delivery</span></h2>
+  <p class="intro">Everything in NATS is addressed by a dot-separated subject. Core NATS is fire-and-forget (at-most-once); JetStream adds storage, replay and acknowledgements (at-least-once, with optional exactly-once dedupe).</p>
+  <div class="grid">
+    <div class="card">
+      <h3>Subject wildcards</h3>
+      <div class="tbl"><table>
+        <tr><th>Pattern</th><th>Matches</th><th>Doesn't match</th></tr>
+        <tr><td><code>orders.us.new</code></td><td>exactly that</td><td><code>orders.us</code></td></tr>
+        <tr><td><code>orders.*.new</code></td><td><code>orders.us.new</code>, <code>orders.eu.new</code></td><td><code>orders.us.west.new</code></td></tr>
+        <tr><td><code>orders.&gt;</code></td><td><code>orders.us</code>, <code>orders.us.west.new</code></td><td><code>orders</code></td></tr>
+        <tr><td><code>&gt;</code></td><td>everything (debugging only)</td><td>—</td></tr>
+      </table></div>
+      <p><code>*</code> matches one token; <code>&gt;</code> matches one or more trailing tokens and must be last. Wildcards are for subscribing, never publishing.</p>
+    </div>
+    <div class="card">
+      <h3>Vocabulary</h3>
+      <ul class="k">
+        <li><b>Queue group</b> — subscribers sharing a group name split the messages; each message goes to one member.</li>
+        <li><b>Inbox</b> — a unique reply subject (<code>_INBOX.…</code>) used by request–reply.</li>
+        <li><b>Headers</b> — key/value metadata on a message (<code>-H key:value</code>).</li>
+        <li><b>Stream</b> — JetStream storage that captures messages on a set of subjects.</li>
+        <li><b>Consumer</b> — a cursor over a stream with its own position, filter and ack state.</li>
+        <li><b>KV / Object Store</b> — APIs built on top of streams.</li>
+        <li><b>Account</b> — an isolated subject namespace; <code>$SYS</code> is the system account.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Delivery guarantees</h3>
+      <div class="tbl"><table>
+        <tr><th>Layer</th><th>Guarantee</th><th>Survives no subscriber?</th></tr>
+        <tr><td>Core pub/sub</td><td>at-most-once</td><td>No — message is dropped</td></tr>
+        <tr><td>JetStream + acks</td><td>at-least-once</td><td>Yes — stored and replayed</td></tr>
+        <tr><td>JetStream + <code>Nats-Msg-Id</code> + double ack</td><td>effectively exactly-once</td><td>Yes</td></tr>
+      </table></div>
+    </div>
+    <div class="card">
+      <h3>Reserved subject prefixes</h3>
+      <div class="tbl"><table>
+        <tr><td><code>$JS.API.&gt;</code></td><td>JetStream management API</td></tr>
+        <tr><td><code>$KV.&lt;bucket&gt;.&lt;key&gt;</code></td><td>KV operations (stream <code>KV_&lt;bucket&gt;</code>)</td></tr>
+        <tr><td><code>$O.&lt;bucket&gt;.&gt;</code></td><td>Object Store (stream <code>OBJ_&lt;bucket&gt;</code>)</td></tr>
+        <tr><td><code>$SRV.&gt;</code></td><td>Service discovery (micro)</td></tr>
+        <tr><td><code>$SYS.&gt;</code></td><td>Server events and monitoring</td></tr>
+      </table></div>
+    </div>
+  </div>
+</section>
+
+<!-- CORE -->
+<section id="core">
+  <h2>Core pub/sub <span class="subj">nats pub · nats sub</span></h2>
+  <p class="intro">Publishers send to a subject; every matching subscriber gets a copy. Queue groups turn fan-out into load balancing.</p>
+  <div class="grid">
+    <div class="card">
+      <h3>Fan-out vs queue group</h3>
+      <div class="diagram"><svg viewBox="0 0 460 170" role="img" aria-label="One publisher fans out to two subscribers; a queue group delivers each message to only one of its members">
+        <defs><marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="head"/></marker>
+        <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="head2"/></marker></defs>
+        <rect class="box" x="10" y="65" width="90" height="36" rx="6"/><text x="55" y="88" text-anchor="middle">pub</text>
+        <rect class="hub" x="150" y="60" width="110" height="46" rx="8"/><text x="205" y="80" text-anchor="middle">orders.new</text><text class="lbl" x="205" y="96" text-anchor="middle">server</text>
+        <path class="arrow" d="M100 83H148" marker-end="url(#a1)"/>
+        <rect class="box" x="320" y="8" width="130" height="30" rx="6"/><text x="385" y="28" text-anchor="middle">sub A</text>
+        <rect class="box" x="320" y="46" width="130" height="30" rx="6"/><text x="385" y="66" text-anchor="middle">sub B</text>
+        <path class="arrow" d="M260 75L318 25" marker-end="url(#a1)"/><path class="arrow" d="M260 80L318 62" marker-end="url(#a1)"/>
+        <rect x="314" y="92" width="142" height="74" rx="8" fill="none" stroke="var(--signal)" stroke-dasharray="4 3"/>
+        <text class="lbl" x="385" y="106" text-anchor="middle">queue: workers</text>
+        <rect class="box" x="322" y="112" width="60" height="26" rx="5"/><text x="352" y="130" text-anchor="middle">w1</text>
+        <rect class="box" x="390" y="112" width="60" height="26" rx="5" opacity=".45"/><text x="420" y="130" text-anchor="middle" opacity=".45">w2</text>
+        <path class="arrow2" d="M260 92L320 124" marker-end="url(#a2)"/>
+        <text class="lbl" x="386" y="156" text-anchor="middle">one member per message</text>
+      </svg></div>
+    </div>
+    <div class="card">
+      <h3>Publish</h3>
+      <div class="cmd"><div class="line"><code>nats pub orders.new '{"id":1,"sku":"A12"}'</code></div><div class="d">Publish a single message</div></div>
+      <div class="cmd"><div class="line"><code>nats pub orders.new "order {{Count}} at {{TimeStamp}}" --count 10 --sleep 500ms</code></div><div class="d">Ten messages using built-in templates</div></div>
+      <div class="cmd"><div class="line"><code>nats pub orders.new "hi" -H "X-Trace:abc123" -H "Source:cli"</code></div><div class="d">Add headers</div></div>
+      <div class="cmd"><div class="line"><code>cat event.json | nats pub orders.new</code></div><div class="d">Body from stdin</div></div>
+      <div class="cmd"><div class="line"><code>nats pub orders.new "x" --jetstream</code></div><div class="d">Publish and wait for a JetStream ack (stream must capture the subject)</div></div>
+      <p>Templates: <code>{{Count}}</code> <code>{{TimeStamp}}</code> <code>{{Unix}}</code> <code>{{Random 10 100}}</code></p>
+    </div>
+    <div class="card">
+      <h3>Subscribe</h3>
+      <div class="cmd"><div class="line"><code>nats sub orders.new</code></div><div class="d">Print every message on a subject</div></div>
+      <div class="cmd"><div class="line"><code>nats sub "orders.&gt;"</code></div><div class="d">All subjects under <code>orders.</code> (quote wildcards in shells)</div></div>
+      <div class="cmd"><div class="line"><code>nats sub "orders.*.new" --queue workers</code></div><div class="d">Join a queue group; run in two terminals to see load balancing</div></div>
+      <div class="cmd"><div class="line"><code>nats sub orders.new --count 5 --raw</code></div><div class="d">Exit after 5 messages, print body only (pipe-friendly)</div></div>
+      <div class="cmd"><div class="line"><code>nats sub "&gt;" --headers-only</code></div><div class="d">Watch all traffic you're allowed to see, headers only</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- REQUEST REPLY -->
+<section id="reqrep">
+  <h2>Request–reply <span class="subj">nats request · nats reply</span></h2>
+  <p class="intro">The requester publishes with a unique inbox as the reply subject and waits. Any responder on the subject answers to that inbox. Put responders in a queue group to load-balance them.</p>
+  <div class="grid">
+    <div class="card">
+      <h3>How it flows</h3>
+      <div class="diagram"><svg viewBox="0 0 460 150" role="img" aria-label="Requester sends to svc.time with reply inbox; responder replies to the inbox">
+        <defs><marker id="b1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="head"/></marker>
+        <marker id="b2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="head2"/></marker></defs>
+        <rect class="box" x="10" y="50" width="110" height="46" rx="6"/><text x="65" y="72" text-anchor="middle">requester</text><text class="lbl" x="65" y="88" text-anchor="middle">nats request</text>
+        <rect class="hub" x="175" y="50" width="110" height="46" rx="8"/><text x="230" y="78" text-anchor="middle">server</text>
+        <rect class="box" x="340" y="50" width="110" height="46" rx="6"/><text x="395" y="72" text-anchor="middle">responder</text><text class="lbl" x="395" y="88" text-anchor="middle">nats reply</text>
+        <path class="arrow" d="M120 60H173" marker-end="url(#b1)"/><path class="arrow" d="M285 60H338" marker-end="url(#b1)"/>
+        <text class="lbl" x="230" y="30" text-anchor="middle">1 → svc.time  (reply-to: _INBOX.x7f…)</text>
+        <path class="arrow2" d="M340 88H287" marker-end="url(#b2)"/><path class="arrow2" d="M175 88H122" marker-end="url(#b2)"/>
+        <text class="lbl" x="230" y="125" text-anchor="middle">2 ← _INBOX.x7f…  "12:04:31"</text>
+      </svg></div>
+    </div>
+    <div class="card">
+      <h3>Responder</h3>
+      <div class="cmd"><div class="line"><code>nats reply svc.greet "hello from $(hostname)"</code></div><div class="d">Answer every request with a fixed body</div></div>
+      <div class="cmd"><div class="line"><code>nats reply svc.echo --echo</code></div><div class="d">Echo the request body and headers back</div></div>
+      <div class="cmd"><div class="line"><code>nats reply svc.time --command "date +%T"</code></div><div class="d">Run a shell command per request; stdout is the reply</div></div>
+      <div class="cmd"><div class="line"><code>nats reply svc.time --command "date" --queue time-workers</code></div><div class="d">Load-balanced responder (queue group)</div></div>
+    </div>
+    <div class="card">
+      <h3>Requester</h3>
+      <div class="cmd"><div class="line"><code>nats request svc.greet "Jeff"</code></div><div class="d">Send and print the first reply</div></div>
+      <div class="cmd"><div class="line"><code>nats req svc.time "" --timeout 2s</code></div><div class="d">Short alias, custom timeout</div></div>
+      <div class="cmd"><div class="line"><code>nats req svc.ping "" --replies 0 --timeout 1s</code></div><div class="d">Scatter-gather: collect every reply until the timeout</div></div>
+      <div class="cmd"><div class="line"><code>nats req svc.greet "hi" --count 100</code></div><div class="d">Fire 100 requests (quick latency test)</div></div>
+      <div class="tip"><b>No responders</b> means nothing is subscribed to that subject — the server tells you immediately instead of waiting for the timeout.</div>
+    </div>
+  </div>
+</section>
+
+<!-- JETSTREAM STREAMS -->
+<section id="js">
+  <h2>JetStream streams <span class="subj">nats stream …</span></h2>
+  <p class="intro">A stream listens on subjects and stores what's published there. Retention decides when messages go away; limits cap size, count and age.</p>
+  <div class="grid">
+    <div class="card">
+      <h3>Stream → consumers</h3>
+      <div class="diagram"><svg viewBox="0 0 460 170" role="img" aria-label="Publishers write to stream ORDERS; two consumers read at independent positions">
+        <defs><marker id="c1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="head"/></marker></defs>
+        <text class="lbl" x="10" y="20">orders.&gt;</text>
+        <path class="arrow" d="M30 30V56" marker-end="url(#c1)"/>
+        <rect class="hub" x="10" y="58" width="440" height="44" rx="8"/>
+        <text x="20" y="52" class="lbl">stream ORDERS</text>
+        <g>
+          <rect class="box" x="20" y="66" width="44" height="28" rx="4"/><text x="42" y="85" text-anchor="middle">1</text>
+          <rect class="box" x="72" y="66" width="44" height="28" rx="4"/><text x="94" y="85" text-anchor="middle">2</text>
+          <rect class="box" x="124" y="66" width="44" height="28" rx="4"/><text x="146" y="85" text-anchor="middle">3</text>
+          <rect class="box" x="176" y="66" width="44" height="28" rx="4"/><text x="198" y="85" text-anchor="middle">4</text>
+          <rect class="box" x="228" y="66" width="44" height="28" rx="4"/><text x="250" y="85" text-anchor="middle">5</text>
+          <rect class="box" x="280" y="66" width="44" height="28" rx="4"/><text x="302" y="85" text-anchor="middle">6</text>
+          <rect class="box" x="332" y="66" width="44" height="28" rx="4"/><text x="354" y="85" text-anchor="middle">7</text>
+          <text class="lbl" x="398" y="85">seq →</text>
+        </g>
+        <path class="arrow" d="M146 102V128" marker-end="url(#c1)"/>
+        <rect class="box" x="86" y="130" width="120" height="30" rx="6"/><text x="146" y="150" text-anchor="middle">PROCESSOR</text>
+        <path class="arrow" d="M354 102V128" marker-end="url(#c1)"/>
+        <rect class="box" x="294" y="130" width="120" height="30" rx="6"/><text x="354" y="150" text-anchor="middle">AUDIT</text>
+      </svg></div>
+      <p>Each consumer keeps its own position, so one can lag, replay or filter without affecting another.</p>
+    </div>
+    <div class="card">
+      <h3>Create &amp; inspect</h3>
+      <div class="cmd"><div class="line"><code>nats stream add ORDERS --subjects "orders.&gt;" --storage file --retention limits --max-age 7d --max-bytes 1GB --replicas 1 --defaults</code></div><div class="d">Create non-interactively (omit flags to be prompted)</div></div>
+      <div class="cmd"><div class="line"><code>nats stream ls</code></div><div class="d">List streams</div></div>
+      <div class="cmd"><div class="line"><code>nats stream info ORDERS</code></div><div class="d">Config, message count, bytes, first/last sequence</div></div>
+      <div class="cmd"><div class="line"><code>nats stream report</code></div><div class="d">Table of all streams with sizes and replicas</div></div>
+      <div class="cmd"><div class="line"><code>nats stream subjects ORDERS</code></div><div class="d">Subjects stored and message counts per subject</div></div>
+      <div class="cmd"><div class="line"><code>nats stream edit ORDERS --max-age 30d</code></div><div class="d">Change limits on an existing stream</div></div>
+    </div>
+    <div class="card">
+      <h3>Read &amp; maintain</h3>
+      <div class="cmd"><div class="line"><code>nats stream view ORDERS</code></div><div class="d">Page through stored messages</div></div>
+      <div class="cmd"><div class="line"><code>nats stream get ORDERS 42</code></div><div class="d">Fetch message by sequence number</div></div>
+      <div class="cmd"><div class="line"><code>nats sub "orders.&gt;" --stream ORDERS --all</code></div><div class="d">Replay everything via an ephemeral consumer (also <code>--new</code>, <code>--last</code>)</div></div>
+      <div class="cmd"><div class="line"><code>nats stream rmm ORDERS 42</code></div><div class="d">Remove one message</div></div>
+      <div class="cmd"><div class="line"><code>nats stream purge ORDERS --subject orders.test -f</code></div><div class="d">Purge one subject (drop <code>--subject</code> to purge all)</div></div>
+      <div class="cmd"><div class="line"><code>nats stream backup ORDERS ./backup/ORDERS</code></div><div class="d">Back up to disk; <code>nats stream restore</code> to bring it back</div></div>
+      <div class="cmd"><div class="line"><code>nats stream rm ORDERS -f</code></div><div class="d">Delete stream and its data</div></div>
+    </div>
+    <div class="card">
+      <h3>Stream settings that matter</h3>
+      <div class="tbl"><table>
+        <tr><th>Flag</th><th>Values</th><th>Meaning</th></tr>
+        <tr><td><code>--retention</code></td><td><code>limits</code></td><td>Keep until a limit is hit (default)</td></tr>
+        <tr><td></td><td><code>interest</code></td><td>Delete once all consumers ack</td></tr>
+        <tr><td></td><td><code>work</code></td><td>Work queue: delete on first ack; one consumer per subject</td></tr>
+        <tr><td><code>--discard</code></td><td><code>old</code> / <code>new</code></td><td>At limit, drop oldest or reject new</td></tr>
+        <tr><td><code>--storage</code></td><td><code>file</code> / <code>memory</code></td><td>Durable vs fast</td></tr>
+        <tr><td><code>--replicas</code></td><td>1, 3, 5</td><td>Copies across a cluster</td></tr>
+        <tr><td><code>--max-msgs-per-subject</code></td><td>N</td><td>Keep last N per subject (KV-like)</td></tr>
+        <tr><td><code>--dupe-window</code></td><td><code>2m</code></td><td>Dedupe window for <code>Nats-Msg-Id</code></td></tr>
+      </table></div>
+      <div class="cmd"><div class="line"><code>nats pub orders.new "x" -H "Nats-Msg-Id:order-1001" --jetstream</code></div><div class="d">Publish twice: the second is flagged as a duplicate and not stored</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- CONSUMERS -->
+<section id="consumers">
+  <h2>Consumers <span class="subj">nats consumer …</span></h2>
+  <p class="intro"><b>Pull</b> consumers let clients fetch batches when ready (preferred for workers). <b>Push</b> consumers deliver to a subject. <b>Durable</b> consumers have a name and survive restarts; ephemeral ones vanish when idle.</p>
+  <div class="grid">
+    <div class="card">
+      <h3>Create</h3>
+      <div class="cmd"><div class="line"><code>nats consumer add ORDERS PROCESSOR --pull --deliver all --ack explicit --max-deliver 5 --wait 30s --filter "orders.new" --defaults</code></div><div class="d">Durable pull consumer, redelivers up to 5 times if not acked within 30s</div></div>
+      <div class="cmd"><div class="line"><code>nats consumer add ORDERS AUDIT --pull --deliver new --ack none --defaults</code></div><div class="d">Only messages from now on, no acks</div></div>
+      <div class="cmd"><div class="line"><code>nats consumer add ORDERS PUSHY --target orders.deliver --deliver last --ack explicit --defaults</code></div><div class="d">Push consumer delivering to a subject</div></div>
+    </div>
+    <div class="card">
+      <h3>Consume &amp; inspect</h3>
+      <div class="cmd"><div class="line"><code>nats consumer next ORDERS PROCESSOR</code></div><div class="d">Pull one message and ack it</div></div>
+      <div class="cmd"><div class="line"><code>nats consumer next ORDERS PROCESSOR --count 10</code></div><div class="d">Pull and ack ten</div></div>
+      <div class="cmd"><div class="line"><code>nats consumer next ORDERS PROCESSOR --no-ack</code></div><div class="d">Peek: it will be redelivered after the ack wait</div></div>
+      <div class="cmd"><div class="line"><code>nats consumer sub ORDERS PUSHY</code></div><div class="d">Read from a push consumer</div></div>
+      <div class="cmd"><div class="line"><code>nats consumer ls ORDERS</code></div><div class="d">List consumers on a stream</div></div>
+      <div class="cmd"><div class="line"><code>nats consumer info ORDERS PROCESSOR</code></div><div class="d">Pending, ack floor, redelivered counts</div></div>
+      <div class="cmd"><div class="line"><code>nats consumer report ORDERS</code></div><div class="d">Lag and ack pending for every consumer</div></div>
+      <div class="cmd"><div class="line"><code>nats consumer rm ORDERS AUDIT -f</code></div><div class="d">Delete a consumer</div></div>
+    </div>
+    <div class="card">
+      <h3>Deliver &amp; ack policies</h3>
+      <div class="tbl"><table>
+        <tr><th>--deliver</th><th>Starts at</th></tr>
+        <tr><td><code>all</code></td><td>First message in the stream</td></tr>
+        <tr><td><code>new</code></td><td>Messages published after creation</td></tr>
+        <tr><td><code>last</code></td><td>The last message</td></tr>
+        <tr><td><code>subject</code></td><td>Last message per subject</td></tr>
+        <tr><td><code>1000</code></td><td>Sequence 1000</td></tr>
+        <tr><td><code>1h</code></td><td>Messages from the last hour</td></tr>
+      </table></div>
+      <div class="tbl"><table>
+        <tr><th>--ack</th><th>Behavior</th></tr>
+        <tr><td><code>explicit</code></td><td>Ack each message (use for work)</td></tr>
+        <tr><td><code>all</code></td><td>Acking N also acks everything before it</td></tr>
+        <tr><td><code>none</code></td><td>No acks; fire-and-forget read</td></tr>
+      </table></div>
+      <p>Clients can also reply <code>+NAK</code> (redeliver now), <code>+WPI</code> (still working, extend timer) or <code>+TERM</code> (stop redelivering).</p>
+    </div>
+  </div>
+</section>
+
+<!-- KV -->
+<section id="kv">
+  <h2>Key-Value store <span class="subj">nats kv …</span></h2>
+  <p class="intro">A bucket is a stream named <code>KV_&lt;bucket&gt;</code> keeping the last N revisions of each key. Keys use dots, so you can watch with wildcards.</p>
+  <div class="grid">
+    <div class="card">
+      <h3>Buckets</h3>
+      <div class="cmd"><div class="line"><code>nats kv add CONFIG --history 5 --ttl 24h --replicas 1</code></div><div class="d">Create bucket keeping 5 revisions per key, values expire after 24h</div></div>
+      <div class="cmd"><div class="line"><code>nats kv ls</code></div><div class="d">List buckets</div></div>
+      <div class="cmd"><div class="line"><code>nats kv ls CONFIG</code></div><div class="d">List keys in a bucket</div></div>
+      <div class="cmd"><div class="line"><code>nats kv info CONFIG</code></div><div class="d">Bucket config and size</div></div>
+      <div class="cmd"><div class="line"><code>nats kv rm CONFIG -f</code></div><div class="d">Delete bucket</div></div>
+    </div>
+    <div class="card">
+      <h3>Read &amp; write</h3>
+      <div class="cmd"><div class="line"><code>nats kv put CONFIG app.theme dark</code></div><div class="d">Set a value (creates a new revision)</div></div>
+      <div class="cmd"><div class="line"><code>nats kv get CONFIG app.theme</code></div><div class="d">Value plus revision and timestamp</div></div>
+      <div class="cmd"><div class="line"><code>nats kv get CONFIG app.theme --raw</code></div><div class="d">Value only, for scripts</div></div>
+      <div class="cmd"><div class="line"><code>nats kv create CONFIG app.lock "host-a"</code></div><div class="d">Set only if the key doesn't exist (simple lock)</div></div>
+      <div class="cmd"><div class="line"><code>nats kv update CONFIG app.theme light 7</code></div><div class="d">Compare-and-set: only if current revision is 7</div></div>
+      <div class="cmd"><div class="line"><code>nats kv del CONFIG app.theme</code></div><div class="d">Delete (leaves a tombstone; history kept)</div></div>
+      <div class="cmd"><div class="line"><code>nats kv purge CONFIG app.theme</code></div><div class="d">Delete and erase history for the key</div></div>
+    </div>
+    <div class="card">
+      <h3>History &amp; watch</h3>
+      <div class="cmd"><div class="line"><code>nats kv history CONFIG app.theme</code></div><div class="d">All retained revisions of a key</div></div>
+      <div class="cmd"><div class="line"><code>nats kv watch CONFIG</code></div><div class="d">Stream every change in the bucket</div></div>
+      <div class="cmd"><div class="line"><code>nats kv watch CONFIG "app.&gt;"</code></div><div class="d">Watch a key prefix</div></div>
+      <div class="tip">Under the hood, <code>nats kv put CONFIG app.theme dark</code> publishes to <code>$KV.CONFIG.app.theme</code>. You can <code>nats sub '$KV.CONFIG.&gt;'</code> to see writes as they happen.</div>
+    </div>
+  </div>
+</section>
+
+<!-- OBJECT -->
+<section id="obj">
+  <h2>Object Store <span class="subj">nats object …</span></h2>
+  <p class="intro">For files and large blobs. Objects are chunked into a stream (<code>OBJ_&lt;bucket&gt;</code>), so size isn't limited by max message size.</p>
+  <div class="grid">
+    <div class="card">
+      <h3>Buckets &amp; files</h3>
+      <div class="cmd"><div class="line"><code>nats object add ASSETS --replicas 1</code></div><div class="d">Create a bucket</div></div>
+      <div class="cmd"><div class="line"><code>nats object put ASSETS ./report.pdf</code></div><div class="d">Upload a file (name defaults to the filename)</div></div>
+      <div class="cmd"><div class="line"><code>nats object put ASSETS ./build.tgz --name releases/v1.2.tgz</code></div><div class="d">Upload under a different name</div></div>
+      <div class="cmd"><div class="line"><code>nats object get ASSETS report.pdf --output ./copy.pdf</code></div><div class="d">Download</div></div>
+    </div>
+    <div class="card">
+      <h3>Manage</h3>
+      <div class="cmd"><div class="line"><code>nats object ls ASSETS</code></div><div class="d">List objects with size and modified time</div></div>
+      <div class="cmd"><div class="line"><code>nats object info ASSETS report.pdf</code></div><div class="d">Metadata, digest, chunk count</div></div>
+      <div class="cmd"><div class="line"><code>nats object watch ASSETS</code></div><div class="d">See uploads and deletes live</div></div>
+      <div class="cmd"><div class="line"><code>nats object del ASSETS report.pdf</code></div><div class="d">Delete an object</div></div>
+      <div class="cmd"><div class="line"><code>nats object seal ASSETS</code></div><div class="d">Make the bucket read-only</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- MICRO -->
+<section id="micro">
+  <h2>Services <span class="subj">nats micro …</span></h2>
+  <p class="intro">Services built with the NATS micro framework (Go, .NET, JS, Python, Java…) register under <code>$SRV</code>, so the CLI can discover them and read their stats.</p>
+  <div class="grid">
+    <div class="card">
+      <h3>Discover</h3>
+      <div class="cmd"><div class="line"><code>nats micro ls</code></div><div class="d">All running services and instance counts</div></div>
+      <div class="cmd"><div class="line"><code>nats micro info orders-svc</code></div><div class="d">Endpoints, subjects, queue groups, metadata</div></div>
+      <div class="cmd"><div class="line"><code>nats micro stats orders-svc</code></div><div class="d">Requests, errors, average processing time per endpoint</div></div>
+      <div class="cmd"><div class="line"><code>nats micro ping orders-svc</code></div><div class="d">Ping every instance</div></div>
+    </div>
+    <div class="card">
+      <h3>Call an endpoint</h3>
+      <div class="cmd"><div class="line"><code>nats req orders.create '{"sku":"A12","qty":2}'</code></div><div class="d">Endpoints are plain request–reply subjects</div></div>
+      <p>Errors come back as headers <code>Nats-Service-Error</code> and <code>Nats-Service-Error-Code</code>; the CLI prints them with the reply.</p>
+    </div>
+  </div>
+</section>
+
+<!-- OPS -->
+<section id="ops">
+  <h2>Ops, monitoring &amp; bench <span class="subj">nats server · nats bench</span></h2>
+  <p class="intro">Most <code>nats server</code> commands need a user in the system account (<code>$SYS</code>). Create a dedicated context for it.</p>
+  <div class="grid">
+    <div class="card">
+      <h3>Cluster health</h3>
+      <div class="cmd"><div class="line"><code>nats --context sys server list</code></div><div class="d">Every server: version, connections, uptime</div></div>
+      <div class="cmd"><div class="line"><code>nats server ping</code></div><div class="d">Ping all servers with RTT</div></div>
+      <div class="cmd"><div class="line"><code>nats server info</code></div><div class="d">Detailed info for one server</div></div>
+      <div class="cmd"><div class="line"><code>nats server report jetstream</code></div><div class="d">JetStream usage and Raft leaders per server</div></div>
+      <div class="cmd"><div class="line"><code>nats server report connections --sort in-msgs</code></div><div class="d">Busiest connections</div></div>
+      <div class="cmd"><div class="line"><code>nats server check jetstream</code></div><div class="d">Monitoring-style health check (exit codes for Nagios etc.)</div></div>
+      <div class="cmd"><div class="line"><code>nats server check stream --stream ORDERS</code></div><div class="d">Health of one stream's replicas</div></div>
+    </div>
+    <div class="card">
+      <h3>Watch &amp; debug</h3>
+      <div class="cmd"><div class="line"><code>nats events</code></div><div class="d">Live connect / disconnect / auth-error events</div></div>
+      <div class="cmd"><div class="line"><code>nats traffic</code></div><div class="d">Live view of message rates by type</div></div>
+      <div class="cmd"><div class="line"><code>nats server request connections --subject "orders.&gt;"</code></div><div class="d">Raw connz query filtered by subscription subject</div></div>
+      <div class="cmd"><div class="line"><code>curl -s localhost:8222/jsz | jq</code></div><div class="d">HTTP monitoring endpoints: <code>/varz /connz /subsz /jsz /healthz</code></div></div>
+    </div>
+    <div class="card">
+      <h3>Benchmark</h3>
+      <div class="cmd"><div class="line"><code>nats bench sub test --clients 4 --msgs 1000000</code></div><div class="d">Start subscribers first (separate terminal)</div></div>
+      <div class="cmd"><div class="line"><code>nats bench pub test --clients 4 --msgs 1000000 --size 512</code></div><div class="d">Core publish throughput</div></div>
+      <div class="cmd"><div class="line"><code>nats bench js pub test --create --msgs 100000 --size 1KB</code></div><div class="d">JetStream publish throughput (creates a bench stream)</div></div>
+      <div class="cmd"><div class="line"><code>nats bench service serve svc --clients 2</code></div><div class="d">Pair with <code>nats bench service request svc</code> for request–reply latency</div></div>
+      <div class="tip">Bench flags changed between CLI versions. Check <code>nats bench --help</code> on your build.</div>
+    </div>
+    <div class="card">
+      <h3>Handy one-liners</h3>
+      <div class="cmd"><div class="line"><code>nats sub "orders.&gt;" --raw | jq .</code></div><div class="d">Pretty-print JSON traffic</div></div>
+      <div class="cmd"><div class="line"><code>nats kv get CONFIG db.url --raw &gt; .env.db</code></div><div class="d">Pull config into a file</div></div>
+      <div class="cmd"><div class="line"><code>nats stream info ORDERS --json | jq .state.messages</code></div><div class="d">Most commands accept <code>--json</code> for scripting</div></div>
+      <div class="cmd"><div class="line"><code>nats schema info io.nats.jetstream.api.v1.stream_create_request</code></div><div class="d">Look up JetStream API schemas</div></div>
+    </div>
+  </div>
+</section>
+
+<footer>Commands target natscli v0.1+ with nats-server 2.10+. Flags occasionally shift between releases; <code>nats &lt;command&gt; --help</code> is the source of truth.</footer>
+</div>
+
+<script>
+(function(){
+  // Add a copy button to each command
+  document.querySelectorAll('.cmd .line').forEach(function(line){
+    var code=line.querySelector('code');
+    var b=document.createElement('button');
+    b.className='copy'; b.type='button'; b.textContent='copy';
+    b.setAttribute('aria-label','Copy command');
+    b.addEventListener('click',function(){
+      var t=code.textContent;
+      function done(){b.textContent='copied';b.classList.add('ok');setTimeout(function(){b.textContent='copy';b.classList.remove('ok')},1400)}
+      function fallback(){var r=document.createRange();r.selectNodeContents(code);var s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent='selected'}
+      try{navigator.clipboard.writeText(t).then(done,fallback)}catch(e){fallback()}
+    });
+    line.appendChild(b);
+  });
+  // Filter
+  var q=document.getElementById('q');
+  q.addEventListener('input',function(){
+    var v=q.value.trim().toLowerCase();
+    document.querySelectorAll('.cmd').forEach(function(c){
+      c.classList.toggle('hidden-by-filter', !!v && c.textContent.toLowerCase().indexOf(v)<0);
+    });
+    document.querySelectorAll('.card').forEach(function(card){
+      var cmds=card.querySelectorAll('.cmd'); if(!cmds.length){card.classList.toggle('hidden-by-filter',!!v && card.textContent.toLowerCase().indexOf(v)<0);return}
+      var any=[].some.call(cmds,function(c){return !c.classList.contains('hidden-by-filter')});
+      card.classList.toggle('hidden-by-filter', !!v && !any);
+    });
+    document.querySelectorAll('section').forEach(function(s){
+      var any=[].some.call(s.querySelectorAll('.card'),function(c){return !c.classList.contains('hidden-by-filter')});
+      s.classList.toggle('hidden-by-filter', !!v && !any);
+    });
+  });
+})();
+</script>
+
+</body></html>

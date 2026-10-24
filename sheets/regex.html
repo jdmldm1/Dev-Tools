@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Regex Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/theme.css"><link rel="stylesheet" href="../assets/sheet.css"></head>
+<body><div id="app"></div>
+<script type="text/plain" id="sheet-src">
+title: Regex
+eyebrow: Regular expressions · JS / Python / .NET / PCRE
+lede: Syntax that works almost everywhere, common patterns, and where engines differ. Try patterns live in the Regex Tester in the toolbox.
+footer: Engines differ at the edges. Go (RE2) has no lookaround or backreferences; Python's lookbehind must be fixed width.
+
+== Characters & classes | match one char
+. ## Any character except newline (with `s` flag also newline)
+\d  \D ## Digit / non-digit
+\w  \W ## Word char [A-Za-z0-9_] / non-word
+\s  \S ## Whitespace / non-whitespace
+[abc] ## Any of a, b, c
+[^abc] ## Anything except a, b, c
+[a-z0-9] ## Ranges
+[\d\s] ## Escapes work inside classes
+\. \* \+ \? \( \) \[ \] \{ \} \| \\ \^ \$ ## Escape a metacharacter to match it literally
+\t \n \r ## Tab, newline, carriage return
+\xHH  \uHHHH ## Hex / unicode code unit
+\p{L}  \p{Lu}  \p{N} ## Unicode property: letter, uppercase, number (JS needs `u` flag)
+
+== Anchors | position
+^ ## Start of string (start of line with `m` flag)
+$ ## End of string (end of line with `m` flag)
+\b ## Word boundary
+\B ## Not a word boundary
+\A  \z ## Absolute start / end (Python `\A \Z`, .NET and PCRE `\A \z`; not in JS)
+
+== Quantifiers | how many
+* ## 0 or more (greedy)
++ ## 1 or more
+? ## 0 or 1
+{3} ## Exactly 3
+{3,} ## 3 or more
+{3,6} ## Between 3 and 6
+*?  +?  ?? ## Lazy: match as few as possible
+*+  ++  ?+ ## Possessive: never give back (PCRE, Java, Python 3.11+; not JS or .NET)
+
+== Groups & references | capture
+(abc) ## Capturing group, numbered from 1
+(?:abc) ## Non-capturing group
+(?<year>\d{4}) ## Named group (JS, .NET, PCRE, Java)
+(?P<year>\d{4}) ## Named group, Python / Go / PCRE
+\1  \2 ## Backreference by number
+\k<year> ## Backreference by name (JS / .NET); Python `(?P=year)`
+a|b|c ## Alternation: first alternative that matches wins
+(?i) (?s) (?m) ## Inline flags (Python, PCRE, .NET, Go; not JS)
+
+== Lookaround | zero-width
+(?=foo) ## Followed by foo
+(?!foo) ## Not followed by foo
+(?<=foo) ## Preceded by foo
+(?<!foo) ## Not preceded by foo
+\d+(?= dollars) ## Digits only when followed by " dollars"
+(?<=\$)\d+ ## Digits after a dollar sign
+^(?=.*\d)(?=.*[a-z]).{8,}$ ## Several conditions at once (8+ chars with a digit and a lowercase letter)
+
+== Flags | modifiers
+|| Flag || Meaning
+|| i || Case-insensitive
+|| g || Global: find all matches (JS)
+|| m || ^ and $ match at line boundaries
+|| s || Dot also matches newline
+|| u || Unicode mode (JS); enables `\p{...}` and code points
+|| x || Extended: ignore whitespace and allow comments (Python `re.X`, .NET, PCRE; not JS)
+|| y || Sticky: match only at lastIndex (JS)
+|| d || Include match indices (JS)
+
+== Common patterns | copy and adapt
+^\d{1,3}(\.\d{1,3}){3}$ ## IPv4-looking address (does not check 0-255)
+^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$ ## Strict IPv4
+^[^\s@]+@[^\s@]+\.[^\s@]+$ ## Pragmatic email check
+^https?://[^\s/$.?#].[^\s]*$ ## HTTP(S) URL
+^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$ ## Hex color
+^\d{4}-\d{2}-\d{2}$ ## ISO date (shape only)
+^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$ ## ISO 8601 timestamp
+^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ## UUID (lowercase)
+^v?(\d+)\.(\d+)\.(\d+)(-[\w.]+)?(\+[\w.]+)?$ ## Semantic version
+^\s+|\s+$ ## Leading and trailing whitespace (replace with empty to trim)
+\s{2,} ## Runs of whitespace
+^-?\d+(\.\d+)?$ ## Integer or decimal
+"([^"\\]|\\.)*" ## Double-quoted string with escapes
+\b(\w+)\s+\1\b ## Repeated word
+
+== Replacement syntax | by language
+|| Language || Whole match || Group 1 || Named group
+|| JavaScript || `$&` || `$1` || `$<name>`
+|| Python `re.sub` || `\g<0>` || `\1` || `\g<name>`
+|| .NET `Regex.Replace` || `$&` || `$1` || `${name}`
+|| sed -E || `&` || `\1` || n/a
+|| Go `ReplaceAllString` || n/a || `${1}` || `${name}`
+|| PowerShell `-replace` || `$&` || `$1` || `${name}`
+
+== Engine differences | gotchas
+|| Feature || JS || Python || .NET || Go (RE2)
+|| Lookahead || yes || yes || yes || no
+|| Lookbehind || yes || fixed width || yes || no
+|| Backreferences || yes || yes || yes || no
+|| Named group || `(?<n>)` || `(?P<n>)` || `(?<n>)` || `(?P<n>)`
+|| Atomic / possessive || no || 3.11+ || atomic only || no
+|| Catastrophic backtracking || possible || possible || possible || impossible
+</script>
+<script src="../assets/sheet.js"></script></body></html>

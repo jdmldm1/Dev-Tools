@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Test schema that exercises XSD features the UCI schema does not. Cross-checked against .NET by tests/crosscheck-zoo.js -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:z="urn:zoo" targetNamespace="urn:zoo" elementFormDefault="qualified">
+
+  <!-- one optional leaf per type, so each test instance can exercise a single value -->
+  <xs:element name="Root" type="z:RootType"/>
+  <xs:complexType name="RootType">
+    <xs:sequence>
+      <xs:element name="Int" type="xs:int" minOccurs="0"/>
+      <xs:element name="UByte" type="xs:unsignedByte" minOccurs="0"/>
+      <xs:element name="Long" type="xs:long" minOccurs="0"/>
+      <xs:element name="ULong" type="xs:unsignedLong" minOccurs="0"/>
+      <xs:element name="PosInt" type="xs:positiveInteger" minOccurs="0"/>
+      <xs:element name="Dec" type="z:Dec52" minOccurs="0"/>
+      <xs:element name="Dbl" type="xs:double" minOccurs="0"/>
+      <xs:element name="Flt" type="xs:float" minOccurs="0"/>
+      <xs:element name="Bool" type="xs:boolean" minOccurs="0"/>
+      <xs:element name="DT" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="Date" type="xs:date" minOccurs="0"/>
+      <xs:element name="Time" type="xs:time" minOccurs="0"/>
+      <xs:element name="Dur" type="xs:duration" minOccurs="0"/>
+      <xs:element name="Hex" type="xs:hexBinary" minOccurs="0"/>
+      <xs:element name="B64" type="xs:base64Binary" minOccurs="0"/>
+      <xs:element name="Str" type="xs:string" minOccurs="0"/>
+      <xs:element name="Tok" type="xs:token" minOccurs="0"/>
+      <xs:element name="NStr" type="xs:normalizedString" minOccurs="0"/>
+      <xs:element name="Len" type="z:Len4" minOccurs="0"/>
+      <xs:element name="MinMax" type="z:Str3to5" minOccurs="0"/>
+      <xs:element name="Pat" type="z:PatT" minOccurs="0"/>
+      <xs:element name="Pat2" type="z:Pat2T" minOccurs="0"/>
+      <xs:element name="Enum" type="z:EnumT" minOccurs="0"/>
+      <xs:element name="EnumInt" type="z:EnumIntT" minOccurs="0"/>
+      <xs:element name="Range" type="z:RangeT" minOccurs="0"/>
+      <xs:element name="RangeX" type="z:RangeXT" minOccurs="0"/>
+      <xs:element name="List" type="z:ListT" minOccurs="0"/>
+      <xs:element name="ListLen" type="z:ListLenT" minOccurs="0"/>
+      <xs:element name="Union" type="z:UnionT" minOccurs="0"/>
+      <xs:element name="Collapse" type="z:CollapseT" minOccurs="0"/>
+      <xs:element name="Year" type="xs:gYear" minOccurs="0"/>
+      <xs:element name="Lang" type="xs:language" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:simpleType name="Dec52"><xs:restriction base="xs:decimal"><xs:totalDigits value="5"/><xs:fractionDigits value="2"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="Len4"><xs:restriction base="xs:string"><xs:length value="4"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="Str3to5"><xs:restriction base="xs:string"><xs:minLength value="3"/><xs:maxLength value="5"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="PatT"><xs:restriction base="xs:string"><xs:pattern value="[A-Z]{2}[0-9]+"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="Pat2T"><xs:restriction base="z:PatT"><xs:pattern value=".*9"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="EnumT"><xs:restriction base="xs:string"><xs:enumeration value="A"/><xs:enumeration value="B"/><xs:enumeration value="C"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="EnumIntT"><xs:restriction base="xs:int"><xs:enumeration value="1"/><xs:enumeration value="2"/><xs:enumeration value="3"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="RangeT"><xs:restriction base="xs:int"><xs:minInclusive value="1"/><xs:maxInclusive value="10"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="RangeXT"><xs:restriction base="xs:decimal"><xs:minExclusive value="0"/><xs:maxExclusive value="1"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="ListT"><xs:list itemType="xs:int"/></xs:simpleType>
+  <xs:simpleType name="ListLenT"><xs:restriction base="z:ListT"><xs:length value="3"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="UnionT"><xs:union memberTypes="xs:int z:EnumT"/></xs:simpleType>
+  <xs:simpleType name="CollapseT"><xs:restriction base="xs:token"><xs:pattern value="[a-z]+( [a-z]+)*"/></xs:restriction></xs:simpleType>
+
+  <!-- structure -->
+  <xs:element name="SeqMsg" type="z:SeqT"/>
+  <xs:complexType name="SeqT"><xs:sequence>
+    <xs:element name="a" type="xs:string"/>
+    <xs:element name="b" type="xs:int" minOccurs="0"/>
+    <xs:element name="c" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+  </xs:sequence></xs:complexType>
+
+  <xs:element name="ChoiceMsg"><xs:complexType>
+    <xs:choice minOccurs="1" maxOccurs="3"><xs:element name="x" type="xs:string"/><xs:element name="y" type="xs:int"/></xs:choice>
+  </xs:complexType></xs:element>
+
+  <xs:element name="NestedMsg"><xs:complexType><xs:sequence>
+    <xs:element name="a" type="xs:string"/>
+    <xs:sequence minOccurs="0" maxOccurs="2"><xs:element name="b" type="xs:string"/><xs:element name="c" type="xs:string" minOccurs="0"/></xs:sequence>
+    <xs:choice minOccurs="0"><xs:element name="d" type="xs:string"/><xs:element name="e" type="xs:string"/></xs:choice>
+  </xs:sequence></xs:complexType></xs:element>
+
+  <xs:element name="AllMsg"><xs:complexType><xs:all>
+    <xs:element name="p" type="xs:string"/><xs:element name="q" type="xs:int" minOccurs="0"/>
+  </xs:all></xs:complexType></xs:element>
+
+  <xs:element name="MixedMsg"><xs:complexType mixed="true"><xs:sequence>
+    <xs:element name="i" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+  </xs:sequence></xs:complexType></xs:element>
+
+  <xs:element name="AttrMsg"><xs:complexType>
+    <xs:sequence><xs:element name="v" type="xs:string"/></xs:sequence>
+    <xs:attribute name="id" type="xs:int" use="required"/>
+    <xs:attribute name="opt" type="z:EnumT"/>
+    <xs:attribute name="fx" type="xs:string" fixed="F"/>
+  </xs:complexType></xs:element>
+
+  <xs:element name="ExtMsg" type="z:ExtT"/>
+  <xs:complexType name="ExtT"><xs:complexContent><xs:extension base="z:SeqT"><xs:sequence>
+    <xs:element name="d" type="xs:string"/><xs:element name="e" type="xs:int" minOccurs="0"/>
+  </xs:sequence></xs:extension></xs:complexContent></xs:complexType>
+
+  <xs:element name="AbstractMsg" type="z:BaseA"/>
+  <xs:complexType name="BaseA" abstract="true"><xs:sequence><xs:element name="name" type="xs:string"/></xs:sequence></xs:complexType>
+  <xs:complexType name="DerA"><xs:complexContent><xs:extension base="z:BaseA"><xs:sequence><xs:element name="x" type="xs:string"/></xs:sequence></xs:extension></xs:complexContent></xs:complexType>
+  <xs:complexType name="DerB"><xs:complexContent><xs:extension base="z:BaseA"><xs:sequence><xs:element name="y" type="xs:int"/></xs:sequence></xs:extension></xs:complexContent></xs:complexType>
+
+  <xs:element name="Head" type="xs:anySimpleType"/>
+  <xs:element name="MemberA" type="xs:string" substitutionGroup="z:Head"/>
+  <xs:element name="MemberB" type="xs:int" substitutionGroup="z:Head"/>
+  <xs:element name="SubstMsg"><xs:complexType><xs:sequence><xs:element ref="z:Head" minOccurs="1" maxOccurs="3"/></xs:sequence></xs:complexType></xs:element>
+
+  <xs:element name="NilMsg"><xs:complexType><xs:sequence>
+    <xs:element name="n" type="xs:string" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+    <xs:element name="m" type="xs:string" minOccurs="0"/>
+  </xs:sequence></xs:complexType></xs:element>
+
+  <xs:element name="SCMsg" type="z:SCT"/>
+  <xs:complexType name="SCT"><xs:simpleContent><xs:extension base="xs:int"><xs:attribute name="unit" type="xs:string" use="required"/></xs:extension></xs:simpleContent></xs:complexType>
+
+  <xs:element name="EmptyMsg"><xs:complexType/></xs:element>
+
+  <xs:element name="BoundedMsg"><xs:complexType><xs:sequence><xs:element name="i" type="xs:int" minOccurs="2" maxOccurs="3"/></xs:sequence></xs:complexType></xs:element>
+
+  <xs:element name="GroupMsg"><xs:complexType><xs:sequence><xs:group ref="z:G"/><xs:element name="z" type="xs:string" minOccurs="0"/></xs:sequence></xs:complexType></xs:element>
+  <xs:group name="G"><xs:sequence><xs:element name="g1" type="xs:string"/><xs:element name="g2" type="xs:int" minOccurs="0" maxOccurs="2"/></xs:sequence></xs:group>
+</xs:schema>

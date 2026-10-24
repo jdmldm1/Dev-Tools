@@ -1,0 +1,1217 @@
+<!doctype html><html data-theme="dark"><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body><div style="padding:8px 16px;font:600 12px ui-monospace,Consolas,monospace;letter-spacing:.04em"><a href="../index.html" style="color:inherit;opacity:.75;text-decoration:none">&larr; dev-tools</a></div>
+<title>Go Cheat Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: sticky section index, then per-section masonry of reference cards; each card = title, one-line note, highlighted code. */
+:root {
+  --bg: #f3f5f7;
+  --surface: #ffffff;
+  --code-bg: #f7f8fb;
+  --fg: #16202b;
+  --muted: #5a6776;
+  --line: #dde3ea;
+  --accent: #0b6e8a;
+  --accent-soft: #dcEEF3;
+  --warn: #a2560e;
+  --warn-soft: #fbeedd;
+  /* syntax */
+  --k: #8b2fa8; --s: #2f7a32; --c: #8a95a3; --n: #b4530a; --t: #0b6e8a; --f: #1d4fb8;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f151c; --surface: #16202a; --code-bg: #111a22; --fg: #e3e9ef; --muted: #93a1b0; --line: #26333f;
+  --accent: #5cc6e0; --accent-soft: #15323d; --warn: #f0a85a; --warn-soft: #3a2a17;
+  --k: #d49cf0; --s: #8fd18f; --c: #6d7b8a; --n: #f2a96a; --t: #6fd3ea; --f: #8fb4ff;
+  color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #0f151c; --surface: #16202a; --code-bg: #111a22; --fg: #e3e9ef; --muted: #93a1b0; --line: #26333f;
+  --accent: #5cc6e0; --accent-soft: #15323d; --warn: #f0a85a; --warn-soft: #3a2a17;
+  --k: #d49cf0; --s: #8fd18f; --c: #6d7b8a; --n: #f2a96a; --t: #6fd3ea; --f: #8fb4ff;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.55 var(--body); padding: 0 16px; }
+.wrap { max-width: 1320px; margin: 0 auto; padding-block: 28px 64px; }
+header.top { display: grid; gap: 14px; padding-block: 8px 20px; }
+.eyebrow { font: 600 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+h1 { font: 800 clamp(34px, 6vw, 60px)/1 var(--display); margin: 0; letter-spacing: -.02em; text-wrap: balance; }
+h1 span { color: var(--accent); }
+.lede { color: var(--muted); max-width: 64ch; margin: 0; }
+.tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+#q { flex: 1 1 260px; min-width: 0; font: 15px var(--body); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); }
+#q:focus-visible, a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.count { font: 12px var(--mono); color: var(--muted); }
+
+nav.idx { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); margin: 0 -16px; padding: 10px 16px; }
+nav.idx ul { list-style: none; margin: 0 auto; padding: 0; max-width: 1320px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: thin; }
+nav.idx a { display: block; white-space: nowrap; font: 500 13px var(--body); color: var(--muted); text-decoration: none; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); }
+nav.idx a:hover { color: var(--accent); border-color: var(--accent); }
+
+.concepts { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin-top: 26px; }
+.concept { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.concept b { display: block; font: 700 17px var(--display); margin-bottom: 4px; }
+.concept p { margin: 0; color: var(--muted); font-size: 14px; }
+.concept code { font: 12.5px var(--mono); color: var(--accent); }
+
+section.sec { margin-top: 44px; scroll-margin-top: 64px; }
+.sec-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; border-bottom: 2px solid var(--fg); padding-bottom: 6px; margin-bottom: 16px; }
+.sec-head h2 { font: 700 28px/1.1 var(--display); margin: 0; letter-spacing: -.01em; }
+.sec-head span { color: var(--muted); font-size: 14px; }
+.grid { columns: 3 360px; column-gap: 14px; }
+.card { break-inside: avoid; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 14px; overflow: hidden; display: inline-block; width: 100%; }
+.card h3 { font: 700 16px var(--display); margin: 0; padding: 12px 14px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.card .note { margin: 4px 0 0; padding: 0 14px; color: var(--muted); font-size: 13.5px; }
+.card .note code, td code, li code { font: 12.5px var(--mono); background: var(--accent-soft); color: var(--fg); padding: 1px 4px; border-radius: 4px; }
+.ver { font: 600 10.5px var(--mono); letter-spacing: .04em; color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 0 5px; }
+pre.go { margin: 10px 0 0; padding: 12px 14px; background: var(--code-bg); border-top: 1px solid var(--line); overflow-x: auto; font: 12.8px/1.6 var(--mono); tab-size: 4; color: var(--fg); }
+.k { color: var(--k); font-weight: 600; } .s { color: var(--s); } .c { color: var(--c); font-style: italic; } .n { color: var(--n); } .t { color: var(--t); } .f { color: var(--f); }
+.card.warn { border-color: var(--warn); }
+.card.warn h3::before { content: "!"; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--warn); color: var(--surface); font: 700 12px var(--mono); }
+.tbl { overflow-x: auto; padding: 8px 14px 12px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 5px 8px 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+td:first-child { white-space: nowrap; }
+.diagram { padding: 10px 14px 14px; }
+.diagram svg { width: 100%; height: auto; display: block; }
+.diagram text { font-family: var(--mono); font-size: 12px; fill: var(--fg); }
+.diagram .lbl { fill: var(--muted); font-size: 11px; }
+.diagram .box { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
+.diagram .cell { fill: var(--code-bg); stroke: var(--line); stroke-width: 1.5; }
+.diagram .hot { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
+.diagram .arr { stroke: var(--accent); stroke-width: 1.6; fill: none; }
+.diagram .ah { fill: var(--accent); }
+.empty { display: none; color: var(--muted); padding: 30px 0; }
+footer { margin-top: 48px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 14px; }
+@media (max-width: 560px) { .sec-head h2 { font-size: 24px; } pre.go { font-size: 12px; } }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+
+<div class="wrap">
+<header class="top">
+  <div class="eyebrow">Reference · Go 1.22 – 1.25+</div>
+  <h1>The Go <span>Cheat Sheet</span></h1>
+  <p class="lede">Syntax, idioms and the standard library on one page. Every card is runnable-style code you can lift straight into a file. Filter to find a card fast.</p>
+  <div class="tools">
+    <input id="q" type="search" placeholder="Filter cards: slice, select, json, generics…" aria-label="Filter cards">
+    <span class="count" id="count"></span>
+  </div>
+</header>
+
+<nav class="idx" aria-label="Sections"><ul id="navlist"></ul></nav>
+
+<div class="concepts" aria-label="Key concepts">
+  <div class="concept"><b>Zero values are useful</b><p>Every type has a ready default: <code>0</code>, <code>""</code>, <code>false</code>, <code>nil</code>. A zero <code>sync.Mutex</code> or <code>bytes.Buffer</code> works without setup.</p></div>
+  <div class="concept"><b>Errors are values</b><p>No exceptions. Functions return <code>error</code> last; callers check <code>if err != nil</code> and wrap with <code>%w</code>.</p></div>
+  <div class="concept"><b>Implicit interfaces</b><p>A type satisfies an interface by having the methods. No <code>implements</code> keyword. Keep interfaces small and define them where they are used.</p></div>
+  <div class="concept"><b>Composition, not inheritance</b><p>No classes. Structs embed other structs; methods and fields are promoted to the outer type.</p></div>
+  <div class="concept"><b>Share by communicating</b><p>Goroutines are cheap. Pass data over channels; reach for <code>sync.Mutex</code> when guarding shared state is simpler.</p></div>
+  <div class="concept"><b>Capital = exported</b><p><code>User</code> is public outside the package; <code>user</code> is private. That is the whole visibility system.</p></div>
+  <div class="concept"><b>One format</b><p><code>gofmt</code> settles style. Unused imports and variables are compile errors, so code stays tidy.</p></div>
+  <div class="concept"><b>Static binaries</b><p><code>go build</code> produces one file. Cross-compile with <code>GOOS=linux GOARCH=arm64 go build</code>.</p></div>
+</div>
+
+<!-- ============ BASICS ============ -->
+<section class="sec" id="basics" data-title="Basics">
+<div class="sec-head"><h2>Basics</h2><span>Program shape, variables, types</span></div>
+<div class="grid">
+
+<div class="card"><h3>Program skeleton</h3><p class="note">Executables live in <code>package main</code> and start at <code>func main()</code>.</p>
+<script type="text/x-go">package main
+
+import (
+	"fmt"
+	"os"
+)
+
+func main() {
+	fmt.Println("hello, world")
+	os.Exit(0) // optional; non-zero = failure
+}</script></div>
+
+<div class="card"><h3>Variables</h3><p class="note"><code>:=</code> declares and infers, only inside functions.</p>
+<script type="text/x-go">var name string          // zero value ""
+var count int = 10
+var a, b = 1, "two"      // inferred types
+
+x := 42                  // short declaration
+y, z := 3.14, true
+
+var (                    // grouped
+	host = "localhost"
+	port = 8080
+)
+
+_ = x // blank identifier discards a value</script></div>
+
+<div class="card"><h3>Constants &amp; iota</h3><p class="note"><code>iota</code> counts up from 0 inside a <code>const</code> block.</p>
+<script type="text/x-go">const Pi = 3.14159
+const Timeout = 5 * time.Second
+
+type Weekday int
+const (
+	Sunday Weekday = iota // 0
+	Monday                // 1
+	Tuesday               // 2
+)
+
+const (
+	_  = iota
+	KB = 1 << (10 * iota) // 1024
+	MB                    // 1048576
+	GB
+)</script></div>
+
+<div class="card"><h3>Basic types</h3><p class="note">Sizes are explicit; <code>int</code> is 64-bit on 64-bit platforms.</p>
+<div class="tbl"><table>
+<tr><th>Kind</th><th>Types</th><th>Zero</th></tr>
+<tr><td>Boolean</td><td><code>bool</code></td><td>false</td></tr>
+<tr><td>Signed</td><td><code>int int8 int16 int32 int64</code></td><td>0</td></tr>
+<tr><td>Unsigned</td><td><code>uint uint8 … uint64 uintptr</code></td><td>0</td></tr>
+<tr><td>Float</td><td><code>float32 float64</code></td><td>0</td></tr>
+<tr><td>Complex</td><td><code>complex64 complex128</code></td><td>0</td></tr>
+<tr><td>Text</td><td><code>string</code>, <code>byte</code>=uint8, <code>rune</code>=int32</td><td>""</td></tr>
+<tr><td>Reference</td><td>pointer, slice, map, chan, func, interface</td><td>nil</td></tr>
+</table></div></div>
+
+<div class="card"><h3>Conversions</h3><p class="note">No implicit numeric conversion. Use <code>strconv</code> for text ↔ numbers.</p>
+<script type="text/x-go">i := 42
+f := float64(i)
+u := uint8(i)
+
+s := strconv.Itoa(i)          // "42"
+n, err := strconv.Atoi("123") // 123, nil
+p, _ := strconv.ParseFloat("2.5", 64)
+b, _ := strconv.ParseBool("true")
+
+str := string(rune(65))       // "A"
+bs := []byte("hi")            // string -> bytes
+back := string(bs)</script></div>
+
+<div class="card"><h3>Pointers</h3><p class="note"><code>&amp;</code> takes an address, <code>*</code> dereferences. No pointer arithmetic.</p>
+<script type="text/x-go">x := 10
+p := &x        // *int
+*p = 20        // x is now 20
+
+n := new(int)  // *int pointing at 0
+
+type Point struct{ X, Y int }
+pt := &Point{1, 2}
+pt.X = 5       // auto-deref for fields
+
+var nilp *int  // nil; *nilp panics</script></div>
+
+</div></section>
+
+<!-- ============ CONTROL FLOW ============ -->
+<section class="sec" id="flow" data-title="Control flow">
+<div class="sec-head"><h2>Control flow</h2><span>if, for, switch, defer</span></div>
+<div class="grid">
+
+<div class="card"><h3>if with init</h3><p class="note">The init statement's variables are scoped to the if/else.</p>
+<script type="text/x-go">if v, err := strconv.Atoi(s); err != nil {
+	log.Println("bad input:", err)
+} else if v > 100 {
+	fmt.Println("big")
+} else {
+	fmt.Println(v)
+}</script></div>
+
+<div class="card"><h3>for: the only loop</h3><p class="note">Three-part, condition-only (while), and infinite.</p>
+<script type="text/x-go">for i := 0; i < 5; i++ { }
+
+for n < 100 { n *= 2 }   // while
+
+for {                    // forever
+	if done() { break }
+	continue
+}
+
+for i := range 10 { }    // Go 1.22+: 0..9
+
+outer:                   // labeled break
+for _, row := range grid {
+	for _, v := range row {
+		if v < 0 { break outer }
+	}
+}</script></div>
+
+<div class="card"><h3>range</h3><p class="note">Works on slices, arrays, strings, maps, channels, ints and iterator funcs.</p>
+<script type="text/x-go">for i, v := range []string{"a", "b"} { }
+for _, v := range nums { }      // value only
+for i := range nums { }         // index only
+
+for k, v := range m { }         // map order is random
+
+for i, r := range "héllo" { }   // r is a rune; i = byte offset
+
+for msg := range ch { }         // until ch is closed</script></div>
+
+<div class="card"><h3>switch</h3><p class="note">No fallthrough by default. Cases can list values or be bare conditions.</p>
+<script type="text/x-go">switch day {
+case "sat", "sun":
+	fmt.Println("weekend")
+default:
+	fmt.Println("weekday")
+}
+
+switch {                 // replaces if/else chains
+case score >= 90:
+	grade = "A"
+case score >= 80:
+	grade = "B"
+	fallthrough          // explicit opt-in
+default:
+	grade = "C"
+}</script></div>
+
+<div class="card"><h3>defer</h3><p class="note">Runs when the function returns, in LIFO order. Arguments are evaluated immediately.</p>
+<script type="text/x-go">f, err := os.Open("data.txt")
+if err != nil {
+	return err
+}
+defer f.Close()
+
+mu.Lock()
+defer mu.Unlock()
+
+for i := 0; i < 3; i++ {
+	defer fmt.Print(i) // prints 2 1 0
+}</script></div>
+
+</div></section>
+
+<!-- ============ FUNCTIONS ============ -->
+<section class="sec" id="funcs" data-title="Functions">
+<div class="sec-head"><h2>Functions &amp; methods</h2><span>Returns, closures, receivers</span></div>
+<div class="grid">
+
+<div class="card"><h3>Multiple &amp; named returns</h3><p class="note">The error goes last by convention.</p>
+<script type="text/x-go">func divide(a, b float64) (float64, error) {
+	if b == 0 {
+		return 0, errors.New("divide by zero")
+	}
+	return a / b, nil
+}
+
+func split(sum int) (x, y int) { // named results
+	x = sum * 4 / 9
+	y = sum - x
+	return // naked return; use sparingly
+}
+
+q, err := divide(10, 2)</script></div>
+
+<div class="card"><h3>Variadic &amp; function values</h3><p class="note">Functions are first-class: pass them, return them, store them.</p>
+<script type="text/x-go">func sum(nums ...int) int {
+	total := 0
+	for _, n := range nums { total += n }
+	return total
+}
+sum(1, 2, 3)
+sum(xs...)            // spread a slice
+
+type Op func(int, int) int
+var add Op = func(a, b int) int { return a + b }
+
+func apply(op Op, a, b int) int { return op(a, b) }</script></div>
+
+<div class="card"><h3>Closures</h3><p class="note">Inner functions capture variables by reference.</p>
+<script type="text/x-go">func counter() func() int {
+	n := 0
+	return func() int {
+		n++
+		return n
+	}
+}
+
+next := counter()
+next() // 1
+next() // 2</script></div>
+
+<div class="card"><h3>Methods &amp; receivers</h3><p class="note">Use a pointer receiver to mutate or to avoid copying large structs. Be consistent per type.</p>
+<script type="text/x-go">type Rect struct{ W, H float64 }
+
+func (r Rect) Area() float64 {   // value receiver
+	return r.W * r.H
+}
+
+func (r *Rect) Scale(k float64) { // pointer receiver
+	r.W *= k
+	r.H *= k
+}
+
+r := Rect{3, 4}
+r.Scale(2)   // Go takes &r for you
+r.Area()     // 48</script></div>
+
+</div></section>
+
+<!-- ============ COLLECTIONS ============ -->
+<section class="sec" id="collections" data-title="Slices & maps">
+<div class="sec-head"><h2>Slices, maps &amp; strings</h2><span>The everyday data structures</span></div>
+<div class="grid">
+
+<div class="card"><h3>Arrays vs slices</h3><p class="note">Arrays have a fixed size in their type. Slices are views onto an array.</p>
+<script type="text/x-go">arr := [3]int{1, 2, 3}      // array
+auto := [...]string{"a", "b"} // length from literal
+
+s := []int{1, 2, 3}         // slice literal
+s2 := make([]int, 0, 10)    // len 0, cap 10
+s = append(s, 4, 5)
+s = append(s, other...)
+
+sub := s[1:3]               // [2 3], shares memory
+cp := make([]int, len(s))
+copy(cp, s)                 // independent copy
+c := slices.Clone(s)        // same thing, Go 1.21+
+
+len(s); cap(s)</script></div>
+
+<div class="card"><h3>Slice header</h3><p class="note">A slice is three words: pointer, length, capacity. <code>s[1:3]</code> points into the same backing array.</p>
+<div class="diagram"><svg viewBox="0 0 380 190" role="img" aria-label="Slice header pointing into a backing array">
+  <text x="10" y="18" class="lbl">s := []int{10,20,30,40,50}</text>
+  <rect class="box" x="10" y="30" width="70" height="26" rx="3"/><text x="18" y="48">ptr</text>
+  <rect class="box" x="80" y="30" width="70" height="26" rx="3"/><text x="88" y="48">len 5</text>
+  <rect class="box" x="150" y="30" width="70" height="26" rx="3"/><text x="158" y="48">cap 5</text>
+  <g>
+    <rect class="cell" x="10" y="98" width="56" height="30"/><text x="26" y="118">10</text>
+    <rect class="hot" x="66" y="98" width="56" height="30"/><text x="82" y="118">20</text>
+    <rect class="hot" x="122" y="98" width="56" height="30"/><text x="138" y="118">30</text>
+    <rect class="cell" x="178" y="98" width="56" height="30"/><text x="194" y="118">40</text>
+    <rect class="cell" x="234" y="98" width="56" height="30"/><text x="250" y="118">50</text>
+  </g>
+  <text x="300" y="118" class="lbl">backing</text><text x="300" y="132" class="lbl">array</text>
+  <path class="arr" d="M30 56 L30 92"/><polygon class="ah" points="25,90 35,90 30,98"/>
+  <rect class="box" x="66" y="150" width="70" height="26" rx="3"/><text x="74" y="168">ptr</text>
+  <rect class="box" x="136" y="150" width="70" height="26" rx="3"/><text x="144" y="168">len 2</text>
+  <rect class="box" x="206" y="150" width="70" height="26" rx="3"/><text x="214" y="168">cap 4</text>
+  <text x="286" y="168" class="lbl">s[1:3]</text>
+  <path class="arr" d="M86 150 L86 136"/><polygon class="ah" points="81,138 91,138 86,130"/>
+</svg></div></div>
+
+<div class="card"><h3>slices package</h3><p class="note">Generic helpers in the standard library since Go 1.21.</p>
+<script type="text/x-go">import "slices"
+
+slices.Sort(xs)
+slices.SortFunc(users, func(a, b User) int {
+	return cmp.Compare(a.Age, b.Age)
+})
+i, found := slices.BinarySearch(xs, 42)
+slices.Contains(xs, 7)
+slices.Index(xs, 7)        // -1 if missing
+slices.Reverse(xs)
+slices.Max(xs); slices.Min(xs)
+xs = slices.Compact(xs)    // drop adjacent dups
+xs = slices.Insert(xs, 1, 99)
+xs = slices.Delete(xs, 0, 2)</script></div>
+
+<div class="card"><h3>Maps</h3><p class="note">Use the comma-ok form to tell "missing" from "zero value".</p>
+<script type="text/x-go">ages := map[string]int{"ann": 31, "bo": 28}
+m := make(map[string][]string)
+
+ages["cy"] = 40
+delete(ages, "bo")
+
+if age, ok := ages["ann"]; ok {
+	fmt.Println(age)
+}
+
+for name, age := range ages { }
+
+keys := slices.Sorted(maps.Keys(ages)) // 1.23+
+clear(ages)                            // empty it
+
+set := map[string]struct{}{}           // a set
+set["x"] = struct{}{}</script></div>
+
+<div class="card"><h3>Strings, bytes &amp; runes</h3><p class="note">Strings are immutable UTF-8 bytes. <code>len</code> counts bytes, not characters.</p>
+<script type="text/x-go">s := "héllo"
+len(s)                       // 6 bytes
+utf8.RuneCountInString(s)    // 5 runes
+s[0]                         // byte 104
+[]rune(s)[1]                 // 'é'
+
+raw := `C:\path\no\escapes
+spans lines`
+
+// Build strings efficiently
+var sb strings.Builder
+for i := range 3 {
+	fmt.Fprintf(&sb, "%d,", i)
+}
+out := sb.String()</script></div>
+
+<div class="card"><h3>strings package</h3><p class="note">The functions you reach for daily.</p>
+<script type="text/x-go">strings.Contains(s, "ell")
+strings.HasPrefix(s, "he")
+strings.HasSuffix(s, "lo")
+strings.Index(s, "l")
+strings.Split("a,b,c", ",")    // [a b c]
+strings.Fields(" a  b ")       // [a b]
+strings.Join(parts, "-")
+strings.ReplaceAll(s, "l", "L")
+strings.ToUpper(s)
+strings.TrimSpace("  x  ")
+strings.Trim("--x--", "-")
+before, after, ok := strings.Cut("k=v", "=")
+strings.EqualFold("Go", "GO")  // true</script></div>
+
+</div></section>
+
+<!-- ============ TYPES ============ -->
+<section class="sec" id="types" data-title="Structs & interfaces">
+<div class="sec-head"><h2>Structs &amp; interfaces</h2><span>Data, behavior, composition</span></div>
+<div class="grid">
+
+<div class="card"><h3>Structs</h3><p class="note">Construct with field names; omitted fields get zero values. <code>NewX</code> functions act as constructors.</p>
+<script type="text/x-go">type User struct {
+	ID    int
+	Name  string
+	Email string
+	tags  []string // unexported
+}
+
+u := User{ID: 1, Name: "Ann"}
+p := &User{Name: "Bo"}
+
+func NewUser(name string) *User {
+	return &User{Name: name, tags: []string{}}
+}
+
+anon := struct{ X, Y int }{1, 2} // anonymous struct</script></div>
+
+<div class="card"><h3>Struct tags &amp; JSON</h3><p class="note">Tags are metadata read by packages like <code>encoding/json</code>.</p>
+<script type="text/x-go">type Item struct {
+	ID     int       `json:"id"`
+	Name   string    `json:"name"`
+	Price  float64   `json:"price,omitempty"`
+	Secret string    `json:"-"`
+	Made   time.Time `json:"made_at"`
+}
+
+data, err := json.Marshal(item)
+pretty, _ := json.MarshalIndent(item, "", "  ")
+
+var it Item
+err = json.Unmarshal(data, &it)
+
+json.NewDecoder(r.Body).Decode(&it) // streams
+json.NewEncoder(w).Encode(it)</script></div>
+
+<div class="card"><h3>Embedding</h3><p class="note">The embedded type's fields and methods are promoted to the outer type.</p>
+<script type="text/x-go">type Animal struct{ Name string }
+func (a Animal) Speak() string { return a.Name + " makes a sound" }
+
+type Dog struct {
+	Animal          // embedded, no field name
+	Breed string
+}
+
+d := Dog{Animal{"Rex"}, "lab"}
+d.Name     // promoted field
+d.Speak()  // promoted method
+
+func (d Dog) Speak() string { // "overrides"
+	return d.Name + " barks"
+}</script></div>
+
+<div class="card"><h3>Interfaces</h3><p class="note">Satisfied implicitly. Accept interfaces, return concrete types.</p>
+<script type="text/x-go">type Shape interface {
+	Area() float64
+	Perimeter() float64
+}
+
+type Circle struct{ R float64 }
+func (c Circle) Area() float64      { return math.Pi * c.R * c.R }
+func (c Circle) Perimeter() float64 { return 2 * math.Pi * c.R }
+
+func describe(s Shape) {
+	fmt.Printf("%.2f\n", s.Area())
+}
+describe(Circle{2}) // Circle is a Shape
+
+var _ Shape = (*Circle)(nil) // compile-time check
+
+type ReadWriter interface { // composed
+	io.Reader
+	io.Writer
+}</script></div>
+
+<div class="card"><h3>Type assertions &amp; switches</h3><p class="note"><code>any</code> is an alias for <code>interface{}</code>.</p>
+<script type="text/x-go">var v any = "hello"
+
+s := v.(string)          // panics if wrong type
+s, ok := v.(string)      // safe form
+
+switch x := v.(type) {
+case int:
+	fmt.Println("int", x+1)
+case string:
+	fmt.Println("string", len(x))
+case nil:
+	fmt.Println("nil")
+default:
+	fmt.Printf("other %T\n", x)
+}</script></div>
+
+<div class="card"><h3>Common interfaces</h3><p class="note">Implement these and the standard library works with your type.</p>
+<div class="tbl"><table>
+<tr><th>Interface</th><th>Method</th></tr>
+<tr><td><code>fmt.Stringer</code></td><td><code>String() string</code></td></tr>
+<tr><td><code>error</code></td><td><code>Error() string</code></td></tr>
+<tr><td><code>io.Reader</code></td><td><code>Read(p []byte) (n int, err error)</code></td></tr>
+<tr><td><code>io.Writer</code></td><td><code>Write(p []byte) (n int, err error)</code></td></tr>
+<tr><td><code>io.Closer</code></td><td><code>Close() error</code></td></tr>
+<tr><td><code>sort.Interface</code></td><td><code>Len, Less, Swap</code></td></tr>
+<tr><td><code>http.Handler</code></td><td><code>ServeHTTP(w, r)</code></td></tr>
+<tr><td><code>json.Marshaler</code></td><td><code>MarshalJSON() ([]byte, error)</code></td></tr>
+</table></div></div>
+
+</div></section>
+
+<!-- ============ GENERICS ============ -->
+<section class="sec" id="generics" data-title="Generics">
+<div class="sec-head"><h2>Generics</h2><span>Type parameters, Go 1.18+</span></div>
+<div class="grid">
+
+<div class="card"><h3>Generic functions</h3><p class="note">Type parameters go in square brackets. Types are usually inferred.</p>
+<script type="text/x-go">func Map[T, U any](xs []T, f func(T) U) []U {
+	out := make([]U, 0, len(xs))
+	for _, x := range xs {
+		out = append(out, f(x))
+	}
+	return out
+}
+
+lens := Map([]string{"go", "rust"}, func(s string) int {
+	return len(s)
+}) // [2 4]
+
+func Max[T cmp.Ordered](a, b T) T {
+	if a > b { return a }
+	return b
+}</script></div>
+
+<div class="card"><h3>Constraints</h3><p class="note"><code>~T</code> means "any type whose underlying type is T".</p>
+<script type="text/x-go">type Number interface {
+	~int | ~int64 | ~float64
+}
+
+func Sum[T Number](xs []T) T {
+	var total T
+	for _, x := range xs { total += x }
+	return total
+}
+
+type Celsius float64
+Sum([]Celsius{1.5, 2}) // ok thanks to ~float64
+
+// built-ins: any, comparable, cmp.Ordered</script></div>
+
+<div class="card"><h3>Generic types</h3><p class="note">Methods use the type's parameters but cannot add new ones.</p>
+<script type="text/x-go">type Stack[T any] struct {
+	items []T
+}
+
+func (s *Stack[T]) Push(v T) { s.items = append(s.items, v) }
+
+func (s *Stack[T]) Pop() (T, bool) {
+	var zero T
+	if len(s.items) == 0 {
+		return zero, false
+	}
+	v := s.items[len(s.items)-1]
+	s.items = s.items[:len(s.items)-1]
+	return v, true
+}
+
+var st Stack[int]
+st.Push(1)</script></div>
+
+<div class="card"><h3>Iterators <span class="ver">1.23+</span></h3><p class="note">Range over a function that yields values. <code>iter.Seq</code> is the standard shape.</p>
+<script type="text/x-go">func Countdown(n int) iter.Seq[int] {
+	return func(yield func(int) bool) {
+		for i := n; i >= 0; i-- {
+			if !yield(i) {
+				return // caller broke out
+			}
+		}
+	}
+}
+
+for v := range Countdown(3) {
+	fmt.Println(v) // 3 2 1 0
+}
+
+for k, v := range maps.All(m) { }</script></div>
+
+</div></section>
+
+<!-- ============ ERRORS ============ -->
+<section class="sec" id="errors" data-title="Errors">
+<div class="sec-head"><h2>Error handling</h2><span>Check, wrap, inspect</span></div>
+<div class="grid">
+
+<div class="card"><h3>Check and wrap</h3><p class="note"><code>%w</code> wraps the cause so callers can still inspect it.</p>
+<script type="text/x-go">func loadConfig(path string) (*Config, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("load config %q: %w", path, err)
+	}
+	var c Config
+	if err := json.Unmarshal(data, &c); err != nil {
+		return nil, fmt.Errorf("parse config: %w", err)
+	}
+	return &c, nil
+}</script></div>
+
+<div class="card"><h3>Sentinels, Is &amp; As</h3><p class="note"><code>errors.Is</code> matches a value; <code>errors.As</code> extracts a type. Both walk the wrap chain.</p>
+<script type="text/x-go">var ErrNotFound = errors.New("not found")
+
+if errors.Is(err, ErrNotFound) { /* 404 */ }
+if errors.Is(err, os.ErrNotExist) { }
+
+var pe *fs.PathError
+if errors.As(err, &pe) {
+	fmt.Println("bad path:", pe.Path)
+}
+
+joined := errors.Join(err1, err2) // 1.20+</script></div>
+
+<div class="card"><h3>Custom error types</h3><p class="note">Any type with <code>Error() string</code> is an error.</p>
+<script type="text/x-go">type ValidationError struct {
+	Field string
+	Msg   string
+}
+
+func (e *ValidationError) Error() string {
+	return e.Field + ": " + e.Msg
+}
+
+func validate(u User) error {
+	if u.Email == "" {
+		return &ValidationError{"email", "required"}
+	}
+	return nil
+}</script></div>
+
+<div class="card"><h3>panic &amp; recover</h3><p class="note">Reserve panic for programmer bugs. <code>recover</code> works only inside a deferred function.</p>
+<script type="text/x-go">func safe(f func()) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("recovered: %v", r)
+		}
+	}()
+	f()
+	return nil
+}
+
+safe(func() { panic("boom") })</script></div>
+
+</div></section>
+
+<!-- ============ CONCURRENCY ============ -->
+<section class="sec" id="concurrency" data-title="Concurrency">
+<div class="sec-head"><h2>Concurrency</h2><span>Goroutines, channels, sync, context</span></div>
+<div class="grid">
+
+<div class="card"><h3>Goroutines &amp; WaitGroup</h3><p class="note"><code>go f()</code> starts a goroutine. A WaitGroup waits for a batch to finish.</p>
+<script type="text/x-go">var wg sync.WaitGroup
+for _, url := range urls {
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		fetch(url) // url is per-iteration in 1.22+
+	}()
+}
+wg.Wait()
+
+// Go 1.25+: Add/Done handled for you
+for _, url := range urls {
+	wg.Go(func() { fetch(url) })
+}
+wg.Wait()</script></div>
+
+<div class="card"><h3>Channels</h3><p class="note">Unbuffered sends block until received. Only the sender should close.</p>
+<script type="text/x-go">ch := make(chan int)      // unbuffered
+buf := make(chan int, 10) // buffered
+
+go func() {
+	defer close(ch)
+	for i := range 3 { ch <- i }
+}()
+
+for v := range ch { fmt.Println(v) }
+
+v, ok := <-ch // ok == false once closed & drained
+
+func producer(out chan<- int) {} // send-only
+func consumer(in <-chan int) {}  // receive-only</script></div>
+
+<div class="card"><h3>Pipeline pattern</h3><p class="note">Stages connected by channels; each stage owns and closes its output.</p>
+<div class="diagram"><svg viewBox="0 0 380 120" role="img" aria-label="Producer to workers to collector pipeline">
+  <rect class="box" x="6" y="44" width="78" height="32" rx="5"/><text x="16" y="64">producer</text>
+  <rect class="box" x="146" y="6" width="78" height="28" rx="5"/><text x="160" y="24">worker</text>
+  <rect class="box" x="146" y="46" width="78" height="28" rx="5"/><text x="160" y="64">worker</text>
+  <rect class="box" x="146" y="86" width="78" height="28" rx="5"/><text x="160" y="104">worker</text>
+  <rect class="box" x="288" y="44" width="86" height="32" rx="5"/><text x="297" y="64">collector</text>
+  <path class="arr" d="M84 60 L140 20"/><polygon class="ah" points="137,16 146,16 141,25"/>
+  <path class="arr" d="M84 60 L138 60"/><polygon class="ah" points="138,55 146,60 138,65"/>
+  <path class="arr" d="M84 60 L140 100"/><polygon class="ah" points="137,104 146,104 141,95"/>
+  <path class="arr" d="M224 20 L282 56"/><polygon class="ah" points="280,51 288,60 278,60"/>
+  <path class="arr" d="M224 60 L280 60"/><polygon class="ah" points="280,55 288,60 280,65"/>
+  <path class="arr" d="M224 100 L282 64"/><polygon class="ah" points="278,60 288,60 280,69"/>
+  <text x="96" y="114" class="lbl">jobs chan</text><text x="232" y="114" class="lbl">results chan</text>
+</svg></div></div>
+
+<div class="card"><h3>Worker pool</h3><p class="note">Fixed number of goroutines draining a jobs channel.</p>
+<script type="text/x-go">jobs := make(chan int, 100)
+results := make(chan int, 100)
+
+var wg sync.WaitGroup
+for w := 1; w <= 4; w++ {
+	wg.Go(func() {
+		for j := range jobs {
+			results <- j * j
+		}
+	})
+}
+
+for i := range 20 { jobs <- i }
+close(jobs)
+
+go func() { wg.Wait(); close(results) }()
+for r := range results { fmt.Println(r) }</script></div>
+
+<div class="card"><h3>select</h3><p class="note">Waits on several channel operations; <code>default</code> makes it non-blocking.</p>
+<script type="text/x-go">select {
+case msg := <-msgs:
+	handle(msg)
+case err := <-errs:
+	log.Println(err)
+case <-time.After(2 * time.Second):
+	fmt.Println("timeout")
+case <-ctx.Done():
+	return ctx.Err()
+}
+
+select {               // try-send
+case ch <- v:
+default:
+	fmt.Println("full, dropped")
+}</script></div>
+
+<div class="card"><h3>Mutex &amp; atomics</h3><p class="note">Guard shared state. <code>RWMutex</code> allows many readers at once.</p>
+<script type="text/x-go">type Counter struct {
+	mu sync.Mutex
+	m  map[string]int
+}
+
+func (c *Counter) Inc(key string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.m[key]++
+}
+
+var hits atomic.Int64
+hits.Add(1)
+hits.Load()
+
+var once sync.Once
+once.Do(initDB) // runs exactly once</script></div>
+
+<div class="card"><h3>context</h3><p class="note">Carries deadlines and cancellation across API boundaries. Pass it as the first argument.</p>
+<script type="text/x-go">ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+defer cancel()
+
+req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
+resp, err := http.DefaultClient.Do(req)
+
+func work(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err() // Canceled or DeadlineExceeded
+		default:
+			step()
+		}
+	}
+}</script></div>
+
+<div class="card"><h3>errgroup</h3><p class="note">From <code>golang.org/x/sync</code>: run tasks, return the first error, cancel the rest.</p>
+<script type="text/x-go">g, ctx := errgroup.WithContext(ctx)
+g.SetLimit(8) // at most 8 at once
+
+for _, id := range ids {
+	g.Go(func() error {
+		return process(ctx, id)
+	})
+}
+if err := g.Wait(); err != nil {
+	return err
+}</script></div>
+
+</div></section>
+
+<!-- ============ STDLIB ============ -->
+<section class="sec" id="stdlib" data-title="Standard library">
+<div class="sec-head"><h2>Standard library</h2><span>fmt, files, time, HTTP, logging</span></div>
+<div class="grid">
+
+<div class="card"><h3>fmt verbs</h3><p class="note"><code>Printf</code>, <code>Sprintf</code>, <code>Fprintf</code>, <code>Errorf</code> all share these.</p>
+<div class="tbl"><table>
+<tr><th>Verb</th><th>Output</th></tr>
+<tr><td><code>%v</code></td><td>default format</td></tr>
+<tr><td><code>%+v</code></td><td>struct with field names</td></tr>
+<tr><td><code>%#v</code></td><td>Go-syntax representation</td></tr>
+<tr><td><code>%T</code></td><td>type of the value</td></tr>
+<tr><td><code>%d %b %x %o</code></td><td>int: decimal, binary, hex, octal</td></tr>
+<tr><td><code>%f %.2f %e %g</code></td><td>float formats</td></tr>
+<tr><td><code>%s %q</code></td><td>string, quoted string</td></tr>
+<tr><td><code>%5d %-5s %05d</code></td><td>width, left-align, zero-pad</td></tr>
+<tr><td><code>%p</code></td><td>pointer address</td></tr>
+<tr><td><code>%t</code></td><td>bool</td></tr>
+<tr><td><code>%w</code></td><td>wrap error (Errorf only)</td></tr>
+</table></div></div>
+
+<div class="card"><h3>Files &amp; I/O</h3><p class="note">Read whole files for small data; stream with <code>bufio</code> for large ones.</p>
+<script type="text/x-go">data, err := os.ReadFile("in.txt")
+err = os.WriteFile("out.txt", data, 0o644)
+
+f, err := os.Open("big.log")
+if err != nil { return err }
+defer f.Close()
+
+sc := bufio.NewScanner(f)
+for sc.Scan() {
+	line := sc.Text()
+	_ = line
+}
+if err := sc.Err(); err != nil { return err }
+
+out, _ := os.Create("copy.log")
+defer out.Close()
+io.Copy(out, f)
+
+os.MkdirAll("a/b/c", 0o755)
+filepath.Join("dir", "file.txt")</script></div>
+
+<div class="card"><h3>time</h3><p class="note">Layouts use the reference time <code>Mon Jan 2 15:04:05 MST 2006</code>.</p>
+<script type="text/x-go">now := time.Now()
+later := now.Add(90 * time.Minute)
+elapsed := time.Since(start)
+d, _ := time.ParseDuration("1h30m")
+
+now.Format("2006-01-02 15:04")
+now.Format(time.RFC3339)
+t, err := time.Parse("2006-01-02", "2026-10-01")
+
+ticker := time.NewTicker(time.Second)
+defer ticker.Stop()
+for t := range ticker.C { _ = t }
+
+time.Sleep(200 * time.Millisecond)</script></div>
+
+<div class="card"><h3>HTTP server <span class="ver">1.22+</span></h3><p class="note">The standard mux supports methods and path wildcards.</p>
+<script type="text/x-go">mux := http.NewServeMux()
+
+mux.HandleFunc("GET /users/{id}", func(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"id": id})
+})
+
+mux.HandleFunc("POST /users", createUser)
+
+srv := &http.Server{
+	Addr:         ":8080",
+	Handler:      mux,
+	ReadTimeout:  5 * time.Second,
+	WriteTimeout: 10 * time.Second,
+}
+log.Fatal(srv.ListenAndServe())</script></div>
+
+<div class="card"><h3>HTTP client</h3><p class="note">Always close the body and set a timeout.</p>
+<script type="text/x-go">client := &http.Client{Timeout: 10 * time.Second}
+
+resp, err := client.Get("https://api.example.com/items")
+if err != nil { return err }
+defer resp.Body.Close()
+
+if resp.StatusCode != http.StatusOK {
+	return fmt.Errorf("status %d", resp.StatusCode)
+}
+
+var items []Item
+err = json.NewDecoder(resp.Body).Decode(&items)
+
+body, _ := json.Marshal(payload)
+resp, err = client.Post(url, "application/json", bytes.NewReader(body))</script></div>
+
+<div class="card"><h3>Middleware</h3><p class="note">A function that wraps a <code>http.Handler</code>.</p>
+<script type="text/x-go">func logging(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		next.ServeHTTP(w, r)
+		slog.Info("req", "method", r.Method,
+			"path", r.URL.Path, "dur", time.Since(start))
+	})
+}
+
+http.ListenAndServe(":8080", logging(mux))</script></div>
+
+<div class="card"><h3>Structured logging</h3><p class="note"><code>log/slog</code> ships in the standard library since 1.21.</p>
+<script type="text/x-go">logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+	Level: slog.LevelDebug,
+}))
+slog.SetDefault(logger)
+
+slog.Info("user login", "user", u.ID, "ip", ip)
+slog.Error("db failed", "err", err)
+
+reqLog := logger.With("request_id", rid)
+reqLog.Warn("slow query", "ms", 830)</script></div>
+
+<div class="card"><h3>CLI flags &amp; env</h3><p class="note">The <code>flag</code> package covers most small tools.</p>
+<script type="text/x-go">port := flag.Int("port", 8080, "listen port")
+verbose := flag.Bool("v", false, "verbose output")
+var name string
+flag.StringVar(&name, "name", "world", "who to greet")
+flag.Parse()
+
+args := flag.Args()          // positional args
+fmt.Println(*port, *verbose, name, args)
+
+home := os.Getenv("HOME")
+val, ok := os.LookupEnv("API_KEY")</script></div>
+
+</div></section>
+
+<!-- ============ TOOLING ============ -->
+<section class="sec" id="tooling" data-title="Modules & tools">
+<div class="sec-head"><h2>Modules, testing &amp; tools</h2><span>Project layout and the go command</span></div>
+<div class="grid">
+
+<div class="card"><h3>go command</h3><p class="note">One tool for build, test, format and dependencies.</p>
+<div class="tbl"><table>
+<tr><th>Command</th><th>Does</th></tr>
+<tr><td><code>go mod init example.com/app</code></td><td>start a module</td></tr>
+<tr><td><code>go get pkg@latest</code></td><td>add or upgrade a dependency</td></tr>
+<tr><td><code>go mod tidy</code></td><td>sync go.mod with imports</td></tr>
+<tr><td><code>go run .</code></td><td>compile and run</td></tr>
+<tr><td><code>go build -o bin/app</code></td><td>build a binary</td></tr>
+<tr><td><code>go test ./...</code></td><td>test all packages</td></tr>
+<tr><td><code>go test -race -cover</code></td><td>race detector + coverage</td></tr>
+<tr><td><code>go vet ./...</code></td><td>static checks</td></tr>
+<tr><td><code>gofmt -w .</code></td><td>format in place</td></tr>
+<tr><td><code>go install pkg@ver</code></td><td>install a tool binary</td></tr>
+<tr><td><code>go mod vendor</code></td><td>copy deps (air-gapped builds)</td></tr>
+<tr><td><code>go doc fmt.Printf</code></td><td>show documentation</td></tr>
+</table></div></div>
+
+<div class="card"><h3>Project layout</h3><p class="note">A common shape. <code>internal/</code> cannot be imported from outside the module.</p>
+<script type="text/x-go">// myapp/
+// ├── go.mod          module example.com/myapp
+// ├── go.sum
+// ├── cmd/
+// │   └── server/
+// │       └── main.go  package main
+// ├── internal/       private to this module
+// │   ├── store/
+// │   └── api/
+// └── pkg/            optional public packages
+
+import "example.com/myapp/internal/store"
+
+func init() { } // runs before main, per package</script></div>
+
+<div class="card"><h3>Table-driven tests</h3><p class="note">Files end in <code>_test.go</code>; functions start with <code>Test</code>.</p>
+<script type="text/x-go">func TestAdd(t *testing.T) {
+	tests := []struct {
+		name string
+		a, b int
+		want int
+	}{
+		{"positive", 2, 3, 5},
+		{"negative", -1, -2, -3},
+		{"zero", 0, 0, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := Add(tt.a, tt.b); got != tt.want {
+				t.Errorf("Add(%d,%d) = %d, want %d",
+					tt.a, tt.b, got, tt.want)
+			}
+		})
+	}
+}</script></div>
+
+<div class="card"><h3>Benchmarks &amp; helpers</h3><p class="note">Run with <code>go test -bench=. -benchmem</code>.</p>
+<script type="text/x-go">func BenchmarkJoin(b *testing.B) {
+	for b.Loop() {             // Go 1.24+
+		strings.Join(parts, ",")
+	}
+}
+
+func TestServer(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()         // auto-cleaned
+	t.Cleanup(func() { /* teardown */ })
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/users/7", nil)
+	mux.ServeHTTP(rec, req)
+	if rec.Code != 200 { t.Fatal(rec.Code) }
+}</script></div>
+
+</div></section>
+
+<!-- ============ GOTCHAS ============ -->
+<section class="sec" id="gotchas" data-title="Gotchas">
+<div class="sec-head"><h2>Gotchas</h2><span>Mistakes the compiler won't catch</span></div>
+<div class="grid">
+
+<div class="card warn"><h3>Writing to a nil map</h3><p class="note">Reading a nil map is fine; writing panics.</p>
+<script type="text/x-go">var m map[string]int
+_ = m["x"]          // 0, fine
+m["x"] = 1          // panic: assignment to entry in nil map
+
+m = make(map[string]int) // fix</script></div>
+
+<div class="card warn"><h3>Nil interface that isn't nil</h3><p class="note">An interface holding a typed nil pointer is not equal to nil.</p>
+<script type="text/x-go">func find() error {
+	var e *MyErr = nil
+	return e          // non-nil error!
+}
+find() != nil         // true
+
+func find() error {
+	return nil        // return a literal nil instead
+}</script></div>
+
+<div class="card warn"><h3>Slice aliasing</h3><p class="note"><code>append</code> may write into a shared backing array.</p>
+<script type="text/x-go">a := []int{1, 2, 3, 4}
+b := a[:2]           // cap 4, shares a
+b = append(b, 99)    // overwrites a[2]!
+// a == [1 2 99 4]
+
+b = a[:2:2]          // full slice expr caps it
+b = append(b, 99)    // now copies</script></div>
+
+<div class="card warn"><h3>Goroutine leaks</h3><p class="note">A goroutine blocked on a channel nobody reads lives forever.</p>
+<script type="text/x-go">ch := make(chan int)         // unbuffered
+go func() { ch <- compute() }()
+select {
+case v := <-ch: use(v)
+case <-time.After(time.Second):
+	return // goroutine stuck sending forever
+}
+
+ch = make(chan int, 1)       // fix: buffer of 1</script></div>
+
+<div class="card warn"><h3>Map iteration &amp; concurrency</h3><p class="note">Order is randomized, and maps are not safe for concurrent writes.</p>
+<script type="text/x-go">// Don't rely on order:
+for k := range m { }               // differs per run
+for _, k := range slices.Sorted(maps.Keys(m)) { }
+
+// Concurrent writes crash the program:
+// "fatal error: concurrent map writes"
+// Use sync.Mutex, or sync.Map for
+// write-once/read-many caches.</script></div>
+
+<div class="card warn"><h3>defer in loops</h3><p class="note">Deferred calls wait for the function, not the iteration.</p>
+<script type="text/x-go">for _, p := range paths {
+	f, _ := os.Open(p)
+	defer f.Close() // all stay open until return
+}
+
+for _, p := range paths {     // fix: wrap it
+	func() {
+		f, _ := os.Open(p)
+		defer f.Close()
+		process(f)
+	}()
+}</script></div>
+
+</div></section>
+
+<p class="empty" id="empty">No cards match that filter.</p>
+<footer>Version tags mark features that need a minimum Go release. Run <code>go version</code> to check yours; set the minimum in go.mod with the <code>go</code> directive.</footer>
+</div>
+
+<script>
+(function () {
+  var KW = "break case chan const continue default defer else fallthrough for func go goto if import interface map package range return select struct switch type var".split(" ");
+  var TY = "bool byte complex64 complex128 error float32 float64 int int8 int16 int32 int64 rune string uint uint8 uint16 uint32 uint64 uintptr any comparable true false nil iota".split(" ");
+  var BI = "append cap clear close copy delete len make max min new panic print println recover".split(" ");
+  var kw = new Set(KW), ty = new Set(TY), bi = new Set(BI);
+  var re = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|("(?:\\.|[^"\\\n])*"|`[^`]*`|'(?:\\.|[^'\\\n])+')|(\b0[xob][0-9a-fA-F_]+\b|\b\d[\d_]*(?:\.\d+)?(?:e[+-]?\d+)?\b)|([A-Za-z_][A-Za-z0-9_]*)/g;
+  function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+  function hl(src) {
+    var out = "", last = 0, m;
+    re.lastIndex = 0;
+    while ((m = re.exec(src))) {
+      out += esc(src.slice(last, m.index));
+      var t = m[0], cls = null;
+      if (m[1]) cls = "c";
+      else if (m[2]) cls = "s";
+      else if (m[3]) cls = "n";
+      else if (m[4]) {
+        if (kw.has(t)) cls = "k";
+        else if (ty.has(t)) cls = "t";
+        else if (bi.has(t) || src.charAt(re.lastIndex) === "(") cls = "f";
+      }
+      out += cls ? '<span class="' + cls + '">' + esc(t) + "</span>" : esc(t);
+      last = re.lastIndex;
+    }
+    return out + esc(src.slice(last));
+  }
+  document.querySelectorAll('script[type="text/x-go"]').forEach(function (s) {
+    var pre = document.createElement("pre");
+    pre.className = "go";
+    var code = document.createElement("code");
+    code.innerHTML = hl(s.textContent.replace(/^\n/, ""));
+    pre.appendChild(code);
+    s.replaceWith(pre);
+  });
+
+  var secs = Array.prototype.slice.call(document.querySelectorAll("section.sec"));
+  var nav = document.getElementById("navlist");
+  secs.forEach(function (sec) {
+    var li = document.createElement("li");
+    var a = document.createElement("a");
+    a.href = "#" + sec.id;
+    a.textContent = sec.dataset.title;
+    li.appendChild(a);
+    nav.appendChild(li);
+  });
+
+  var cards = Array.prototype.slice.call(document.querySelectorAll(".card"));
+  var count = document.getElementById("count");
+  var empty = document.getElementById("empty");
+  function filter(q) {
+    q = q.trim().toLowerCase();
+    var shown = 0;
+    cards.forEach(function (c) {
+      var hit = !q || c.textContent.toLowerCase().indexOf(q) !== -1;
+      c.hidden = !hit;
+      if (hit) shown++;
+    });
+    secs.forEach(function (sec) {
+      sec.hidden = !sec.querySelector(".card:not([hidden])");
+    });
+    count.textContent = shown + " of " + cards.length + " cards";
+    empty.style.display = shown ? "none" : "block";
+  }
+  document.getElementById("q").addEventListener("input", function (e) { filter(e.target.value); });
+  filter("");
+})();
+</script>
+
+</body></html>

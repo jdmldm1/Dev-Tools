@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SQL Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/theme.css"><link rel="stylesheet" href="../assets/sheet.css"></head>
+<body><div id="app"></div>
+<script type="text/plain" id="sheet-src">
+title: SQL
+eyebrow: ANSI SQL · PostgreSQL / MySQL / SQL Server / SQLite notes
+lede: Querying, joins, aggregation, window functions, CTEs, changing data, schema, transactions, and the dialect differences that trip people up.
+footer: Always test destructive statements inside a transaction first, and run a SELECT with the same WHERE before every UPDATE or DELETE.
+
+== Select & filter | read data
+SELECT col1, col2 FROM t; ## Choose columns
+SELECT DISTINCT col FROM t; ## Unique values
+SELECT * FROM t WHERE a = 1 AND (b > 5 OR c IS NULL); ## Filter
+WHERE col IN ('a','b') ## One of a list
+WHERE col BETWEEN 10 AND 20 ## Inclusive range
+WHERE name LIKE 'A%' ## Pattern: % any chars, _ one char
+WHERE col IS NULL / IS NOT NULL ## Null checks (never `= NULL`)
+ORDER BY a DESC, b ASC ## Sort
+LIMIT 10 OFFSET 20 ## Paging (Postgres, MySQL, SQLite)
+SELECT TOP 10 * FROM t; ## Same, SQL Server
+OFFSET 20 ROWS FETCH NEXT 10 ROWS ONLY ## Standard SQL paging
+SELECT a AS alias, COALESCE(b, 0) AS b0 FROM t; ## Aliases and default for NULL
+SELECT CASE WHEN x > 0 THEN 'pos' WHEN x < 0 THEN 'neg' ELSE 'zero' END FROM t; ## Conditional
+
+== Joins | combine tables
+|| Join || Returns
+|| INNER JOIN || Rows with a match in both tables
+|| LEFT JOIN || All left rows; NULLs where right has no match
+|| RIGHT JOIN || All right rows; NULLs where left has no match
+|| FULL OUTER JOIN || All rows from both sides
+|| CROSS JOIN || Every combination (cartesian product)
+SELECT o.id, c.name FROM orders o JOIN customers c ON c.id = o.customer_id; ## Basic inner join
+SELECT c.name FROM customers c LEFT JOIN orders o ON o.customer_id = c.id WHERE o.id IS NULL; ## Anti-join: customers without orders
+SELECT e.name, m.name AS manager FROM emp e LEFT JOIN emp m ON m.id = e.manager_id; ## Self join
+SELECT * FROM a JOIN b USING (id); ## Shorthand when column names match
+SELECT * FROM a UNION SELECT * FROM b; ## Combine, remove duplicates (UNION ALL keeps them)
+SELECT id FROM a INTERSECT SELECT id FROM b; ## In both
+SELECT id FROM a EXCEPT SELECT id FROM b; ## In a, not b (Oracle: MINUS)
+
+== Aggregate | group data
+SELECT COUNT(*), COUNT(DISTINCT col), SUM(x), AVG(x), MIN(x), MAX(x) FROM t; ## Aggregate functions
+SELECT dept, COUNT(*) FROM emp GROUP BY dept; ## Per group
+SELECT dept, AVG(pay) FROM emp GROUP BY dept HAVING AVG(pay) > 50000; ## Filter groups (WHERE filters rows before)
+SELECT a, b, COUNT(*) FROM t GROUP BY a, b ORDER BY COUNT(*) DESC; ## Multiple keys
+SELECT col, COUNT(*) FROM t GROUP BY col HAVING COUNT(*) > 1; ## Find duplicates
+GROUP BY ROLLUP (a, b)  /  CUBE (a, b)  /  GROUPING SETS (...) ## Subtotals (Postgres, SQL Server, Oracle, MySQL ROLLUP)
+STRING_AGG(name, ', ') ## Concatenate group (Postgres, SQL Server; MySQL `GROUP_CONCAT`)
+
+== Subqueries, CTEs, windows | advanced reads
+SELECT * FROM t WHERE id IN (SELECT t_id FROM u); ## Subquery
+SELECT * FROM t WHERE EXISTS (SELECT 1 FROM u WHERE u.t_id = t.id); ## Existence (usually faster than IN)
+WITH recent AS (SELECT * FROM orders WHERE created > '2026-01-01') SELECT * FROM recent; ## CTE
+WITH RECURSIVE tree AS (SELECT id, parent_id FROM n WHERE id = 1 UNION ALL SELECT n.id, n.parent_id FROM n JOIN tree ON n.parent_id = tree.id) SELECT * FROM tree; ## Recursive CTE (hierarchies)
+ROW_NUMBER() OVER (PARTITION BY dept ORDER BY pay DESC) ## Rank within a group, no ties
+RANK() / DENSE_RANK() OVER (ORDER BY score DESC) ## Ranking with ties
+SUM(x) OVER (ORDER BY d ROWS UNBOUNDED PRECEDING) ## Running total
+LAG(x) OVER (ORDER BY d) / LEAD(x) OVER (ORDER BY d) ## Previous / next row
+SELECT * FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY k ORDER BY d DESC) rn FROM t) x WHERE rn = 1; ## Latest row per key
+
+== Change data | DML
+INSERT INTO t (a, b) VALUES (1, 'x'), (2, 'y'); ## Insert rows
+INSERT INTO t (a, b) SELECT a, b FROM src; ## Insert from a query
+UPDATE t SET a = 1, b = 'x' WHERE id = 5; ## Update (always use WHERE)
+DELETE FROM t WHERE id = 5; ## Delete rows
+TRUNCATE TABLE t; ## Remove all rows fast (resets identity in some engines)
+INSERT ... RETURNING id; ## Get generated values (Postgres, SQLite; SQL Server uses OUTPUT)
+INSERT ... ON CONFLICT (id) DO UPDATE SET a = EXCLUDED.a; ## Upsert (Postgres, SQLite)
+INSERT ... ON DUPLICATE KEY UPDATE a = VALUES(a); ## Upsert (MySQL)
+MERGE INTO t USING s ON t.id = s.id WHEN MATCHED THEN UPDATE ... WHEN NOT MATCHED THEN INSERT ...; ## Upsert (SQL Server, Oracle, Postgres 15+)
+
+== Schema | DDL
+CREATE TABLE t (id BIGINT PRIMARY KEY, name VARCHAR(100) NOT NULL, created TIMESTAMP DEFAULT CURRENT_TIMESTAMP); ## Create a table
+CREATE TABLE o (id INT PRIMARY KEY, c_id INT REFERENCES customers(id) ON DELETE CASCADE); ## Foreign key
+ALTER TABLE t ADD COLUMN c INT; ## Add a column
+ALTER TABLE t DROP COLUMN c; ## Drop a column
+ALTER TABLE t RENAME COLUMN a TO b; ## Rename a column
+ALTER TABLE t ADD CONSTRAINT u UNIQUE (email); ## Constraint
+DROP TABLE IF EXISTS t; ## Delete a table
+CREATE INDEX idx_t_a ON t (a); ## Index
+CREATE UNIQUE INDEX ux ON t (a, b); ## Unique composite index
+DROP INDEX idx_t_a; ## Remove index
+CREATE VIEW v AS SELECT ...; ## Saved query
+
+== Transactions & performance | safety and speed
+BEGIN; ... COMMIT; ## Group statements atomically (SQL Server: BEGIN TRANSACTION)
+ROLLBACK; ## Undo everything since BEGIN
+SAVEPOINT s1; ROLLBACK TO s1; ## Partial rollback
+SELECT ... FOR UPDATE; ## Lock selected rows (not SQLite)
+EXPLAIN SELECT ...; ## Show the query plan
+EXPLAIN (ANALYZE, BUFFERS) SELECT ...; ## Plan with real timings (Postgres)
+WHERE col = :param ## Use bound parameters, never string concatenation (SQL injection)
+Index columns used in WHERE, JOIN and ORDER BY ## Rule of thumb
+WHERE LOWER(col) = 'x' ## Function on a column prevents plain index use; use an expression index
+
+== Dialect differences | gotchas
+|| Task || PostgreSQL || MySQL || SQL Server || SQLite
+|| Limit rows || `LIMIT n` || `LIMIT n` || `TOP n` / `FETCH` || `LIMIT n`
+|| Concatenate || `||` operator || `CONCAT(a,b)` || `+` or `CONCAT` || `||` operator
+|| Auto id || `GENERATED ... AS IDENTITY` / `SERIAL` || `AUTO_INCREMENT` || `IDENTITY(1,1)` || `INTEGER PRIMARY KEY`
+|| Now || `NOW()` || `NOW()` || `GETDATE()` / `SYSDATETIME()` || `CURRENT_TIMESTAMP`
+|| Quote identifier || `"name"` || `` `name` `` || `[name]` || `"name"`
+|| Boolean || `boolean` || `TINYINT(1)` || `BIT` || 0/1
+|| String agg || `STRING_AGG` || `GROUP_CONCAT` || `STRING_AGG` || `GROUP_CONCAT`
+|| Date add || `d + INTERVAL '1 day'` || `DATE_ADD(d, INTERVAL 1 DAY)` || `DATEADD(day,1,d)` || `date(d,'+1 day')`
+</script>
+<script src="../assets/sheet.js"></script></body></html>

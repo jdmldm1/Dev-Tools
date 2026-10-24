@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>curl Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/theme.css"><link rel="stylesheet" href="../assets/sheet.css"></head>
+<body><div id="app"></div>
+<script type="text/plain" id="sheet-src">
+title: curl
+eyebrow: HTTP from the command line
+lede: Requests, headers, auth, uploads, debugging and timing. Paste a curl command into the Curl Converter in the toolbox to get fetch, Python or PowerShell.
+footer: On Windows PowerShell 5.1 use `curl.exe` (bare `curl` is an alias for Invoke-WebRequest). In cmd.exe use double quotes and escape inner quotes with a backslash.
+
+== Basic requests | verbs
+curl https://example.com ## GET, body to stdout
+curl -i https://example.com ## Include response headers
+curl -I https://example.com ## HEAD request: headers only
+curl -X DELETE https://api.example.com/items/1 ## Other methods (-X)
+curl -L https://example.com ## Follow redirects
+curl -s https://example.com ## Silent (no progress meter)
+curl -sS https://example.com ## Silent but still show errors
+curl -f https://example.com/missing ## Fail with exit code 22 on HTTP errors
+curl -v https://example.com ## Verbose: request and response headers, TLS
+curl --http2 / --http1.1 / --http3 ## Force a protocol version
+
+== Send data | bodies
+curl -d 'a=1&b=2' URL ## Form-encoded POST (-d implies POST)
+curl --data-urlencode 'q=hello world' URL ## URL-encode a value for you
+curl -H 'Content-Type: application/json' -d '{"a":1}' URL ## JSON POST
+curl --json '{"a":1}' URL ## JSON POST with correct headers (curl 7.82+)
+curl -d @body.json -H 'Content-Type: application/json' URL ## Body from a file
+curl -F 'file=@photo.jpg' -F 'title=Hi' URL ## Multipart upload
+curl -T backup.tar.gz URL ## PUT a file
+curl -X PATCH -d '{"a":2}' -H 'Content-Type: application/json' URL ## PATCH
+curl -G -d 'q=x' -d 'page=2' URL ## Send -d values as the query string on a GET
+echo '{"a":1}' | curl --json @- URL ## Body from stdin
+
+== Headers & auth | identity
+curl -H 'Accept: application/json' URL ## Add header
+curl -H 'Authorization: Bearer TOKEN' URL ## Bearer token
+curl -u user:pass URL ## Basic auth (prompts if you omit :pass)
+curl -H 'X-API-Key: KEY' URL ## API key header
+curl -A 'my-agent/1.0' URL ## User-Agent
+curl -e https://referrer.example URL ## Referer
+curl -b 'session=abc' URL ## Send a cookie
+curl -c jar.txt -b jar.txt URL ## Save and reuse cookies
+curl --oauth2-bearer TOKEN URL ## Bearer, alternate flag
+curl -H 'Host: other.example' http://10.0.0.5/ ## Override Host header
+
+== Output & download | files
+curl -o out.html URL ## Save to a named file
+curl -O URL ## Save using the remote filename
+curl -C - -O URL ## Resume a download
+curl -J -O URL ## Use the server-supplied filename
+curl --output-dir ./dl -O URL ## Choose destination folder
+curl -s URL | jq . ## Pretty-print JSON
+curl -w '%{http_code}\n' -o /dev/null -s URL ## Just the status code (Windows: -o NUL)
+curl --compressed URL ## Ask for gzip/br and decode
+curl -Z URL1 URL2 ## Parallel transfers
+curl 'https://host/file[1-5].txt' -O ## URL ranges (globbing)
+
+== TLS, proxies, DNS | network
+curl -k URL ## Skip certificate verification (testing only)
+curl --cacert ca.pem URL ## Trust a custom CA
+curl --cert client.pem --key client.key URL ## Mutual TLS
+curl -x http://proxy:8080 URL ## Use a proxy
+curl --noproxy '*' URL ## Ignore proxy settings
+curl --resolve example.com:443:10.0.0.5 https://example.com ## Pin a hostname to an IP
+curl --connect-to example.com:443:backend:8443 https://example.com ## Redirect a connection target
+curl --interface eth0 URL ## Use a specific network interface
+curl -4 URL ; curl -6 URL ## Force IPv4 / IPv6
+curl --unix-socket /var/run/docker.sock http://localhost/containers/json ## Talk to a Unix socket
+
+== Timeouts & retries | reliability
+curl --connect-timeout 5 --max-time 30 URL ## Connect and total time limits
+curl --retry 3 --retry-delay 2 --retry-all-errors URL ## Retry transient failures
+curl --fail-with-body URL ## Fail on HTTP errors but still print the body
+curl --limit-rate 1M URL ## Throttle bandwidth
+curl -m 10 -s -o /dev/null -w '%{http_code}' URL ## Health check pattern
+
+== Timing & diagnostics | -w variables
+curl -w '@-' -o /dev/null -s URL <<< 'dns %{time_namelookup} tcp %{time_connect} tls %{time_appconnect} ttfb %{time_starttransfer} total %{time_total}\n' ## Phase timings
+|| Variable || Meaning
+|| `%{http_code}` || Final status code
+|| `%{time_total}` || Total seconds
+|| `%{time_namelookup}` || DNS done
+|| `%{time_connect}` || TCP connected
+|| `%{time_appconnect}` || TLS done
+|| `%{time_starttransfer}` || First byte
+|| `%{size_download}` || Bytes received
+|| `%{url_effective}` || Final URL after redirects
+|| `%{remote_ip}` || Server IP used
+curl --trace-ascii - URL ## Full wire trace
+curl -K config.txt ## Read options from a file
+
+== Exit codes | $?
+|| Code || Meaning
+|| 0 || Success
+|| 6 || Could not resolve host
+|| 7 || Failed to connect
+|| 22 || HTTP error (with -f)
+|| 28 || Operation timed out
+|| 35 || TLS handshake failed
+|| 51 / 60 || Certificate problem
+|| 52 || Empty reply from server
+</script>
+<script src="../assets/sheet.js"></script></body></html>

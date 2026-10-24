@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Markdown Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/theme.css"><link rel="stylesheet" href="../assets/sheet.css"></head>
+<body><div id="app"></div>
+<script type="text/plain" id="sheet-src">
+title: Markdown
+eyebrow: CommonMark + GitHub Flavored Markdown
+lede: Headings, emphasis, lists, links, code, tables, task lists, alerts and diagrams. Anything marked GFM works on GitHub and most modern renderers. In multi-line examples, copy puts the line breaks back.
+footer: Renderers differ on extensions. When in doubt, preview in the target (GitHub, GitLab, your docs site).
+
+== Text | inline
+**bold**  or  __bold__ ## Bold
+*italic*  or  _italic_ ## Italic
+***bold italic*** ## Both
+~~strikethrough~~ ## Strikethrough (GFM)
+`inline code` ## Inline code
+``code with a ` backtick`` ## Backtick inside code
+\* escaped \_ \# ## Backslash escapes a special character
+Line one  ## Two trailing spaces (or a backslash) at the end of a line make a line break
+<br> ## HTML line break
+<!-- comment --> ## Hidden comment
+<kbd>Ctrl</kbd> + <kbd>C</kbd> ## Keyboard keys (inline HTML)
+H<sub>2</sub>O  x<sup>2</sup> ## Subscript / superscript (inline HTML)
+
+== Headings & structure | blocks
+# H1 ## Top-level heading
+## H2 ## Second level
+### H3 ## Third level (up to ######)
+Title␤===== ## Setext H1 (underline with =); a `---` underline makes H2
+--- ## Horizontal rule (also *** or ___)
+> Quoted text ## Blockquote
+> > Nested quote ## Nested blockquote
+<details><summary>Click</summary> hidden content </details> ## Collapsible section (GitHub)
+
+== Lists | ordered and not
+- item ## Bullet (also * or +)
+  - nested item ## Indent two or four spaces
+1. first ## Numbered list
+1. second ## Numbers can all be 1
+- [ ] todo ## Task list (GFM)
+- [x] done ## Checked task (GFM)
+Term␤: Definition ## Definition list (some renderers)
+
+== Links & images | references
+[text](https://example.com) ## Inline link
+[text](https://example.com "Title") ## With tooltip
+<https://example.com> ## Automatic link
+[text][ref]  then  [ref]: https://example.com ## Reference-style link
+[section](#heading-text) ## Link to a heading anchor (lowercase, hyphens)
+![alt text](image.png) ## Image
+![alt](image.png "Title") ## Image with title
+[![badge](badge.svg)](https://example.com) ## Image that is a link
+<img src="a.png" width="300"> ## Sized image (HTML)
+[text](mailto:me@example.com) ## Email link
+
+== Code | fenced blocks
+```js␤console.log("hi")␤``` ## Fenced block with syntax highlighting (language after the fence)
+~~~ ## Alternative fence
+````md␤```js␤console.log(1)␤```␤```` ## Longer fence to show fences inside
+    indented four spaces ## Indented code block
+```diff␤- removed␤+ added␤``` ## Diff highlighting
+```json title="x" ## Extra info after the language is renderer-specific
+
+== Tables | GFM
+| Name | Qty | ## Header row
+|------|----:| ## Separator row; colons set alignment
+| Ada  | 3   | ## Data row
+|:-----|:---:|-----:| ## Left / center / right alignment
+| a \| b | ## Escape a pipe inside a cell
+
+== GitHub extras | GFM and platform
+> [!NOTE]␤> Useful info ## Alert (also TIP, IMPORTANT, WARNING, CAUTION)
+```mermaid␤graph TD; A-->B;␤``` ## Mermaid diagram
+$E = mc^2$  and  $$ ... $$ ## Math (LaTeX) inline / block
+#123  owner/repo#123 ## Link to issue or PR
+@username ## Mention
+a1b2c3d ## Commit SHA auto-links
+:tada: ## Emoji shortcode
+[^1]  then  [^1]: The note. ## Footnote
+</script>
+<script src="../assets/sheet.js"></script></body></html>

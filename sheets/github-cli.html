@@ -1,0 +1,351 @@
+<!doctype html><html data-theme="dark"><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body><div style="padding:8px 16px;font:600 12px ui-monospace,Consolas,monospace;letter-spacing:.04em"><a href="../index.html" style="color:inherit;opacity:.75;text-decoration:none">&larr; dev-tools</a></div>
+<title>GitHub CLI Cheat Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: sticky search header, concepts strip, PR-flow lane, then a masonry of command cards keyed by gh's own state colors */
+:root{
+  --bg:#EEF1F5; --panel:#FFFFFF; --ink:#141B26; --muted:#5B6575; --line:#D7DDE6;
+  --accent:#3346C8; --code-bg:#F4F6FA; --var:#B5482A;
+  --open:#1F883D; --merged:#8250DF; --closed:#CF222E; --draft:#6E7781;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"Public Sans",ui-sans-serif,system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0F141B; --panel:#171E28; --ink:#E6EBF2; --muted:#93A0B3; --line:#2A3443;
+  --accent:#8A9BFF; --code-bg:#11171F; --var:#F0946F;
+  --open:#3FB950; --merged:#A97BFF; --closed:#F85149; --draft:#8B949E; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F141B; --panel:#171E28; --ink:#E6EBF2; --muted:#93A0B3; --line:#2A3443;
+  --accent:#8A9BFF; --code-bg:#11171F; --var:#F0946F;
+  --open:#3FB950; --merged:#A97BFF; --closed:#F85149; --draft:#8B949E; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body)}
+.wrap{max-width:1360px;margin:0 auto;padding-inline:20px;padding-block:0 48px}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding-block:14px}
+.hrow{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:end;justify-content:space-between}
+h1{font:800 clamp(28px,4vw,44px)/1 var(--display);letter-spacing:-.02em;margin:0;text-wrap:balance}
+h1 span{font-family:var(--mono);font-weight:600;color:var(--accent);font-size:.8em}
+.sub{color:var(--muted);margin:6px 0 0;font-size:14px}
+.search{flex:1 1 260px;max-width:420px;display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+.search input{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);font:14px var(--mono);outline:none}
+.search:focus-within{border-color:var(--accent)}
+.search kbd{font:12px var(--mono);color:var(--muted)}
+h2{font:700 13px/1 var(--body);text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:36px 0 14px}
+/* concepts */
+.concepts{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.concept{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;min-width:0}
+.concept h3{font:700 17px/1.2 var(--display);margin:0 0 6px}
+.concept p{margin:0;color:var(--muted);font-size:14px}
+.concept code,.note code{font:12.5px var(--mono);background:var(--code-bg);border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--ink)}
+/* flow */
+.flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.step{padding:14px 16px;border-right:1px solid var(--line);position:relative;min-width:0}
+.step:last-child{border-right:0}
+.step b{display:flex;align-items:center;gap:8px;font:700 15px var(--display)}
+.step b i{width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
+.step code{display:block;margin-top:8px;font:12.5px/1.45 var(--mono);color:var(--ink);word-break:break-word}
+.step small{display:block;color:var(--muted);font-size:12.5px;margin-top:6px}
+@media (max-width:700px){.step{border-right:0;border-bottom:1px solid var(--line)}.step:last-child{border-bottom:0}}
+/* cards */
+.grid{columns:3 380px;column-gap:16px}
+.card{break-inside:avoid;background:var(--panel);border:1px solid var(--line);border-radius:10px;margin:0 0 16px;overflow:hidden;display:inline-block;width:100%}
+.card>h3{margin:0;padding:12px 16px;font:700 19px/1.1 var(--display);display:flex;align-items:baseline;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);border-top:4px solid var(--c,var(--accent))}
+.card>h3 small{font:500 12px var(--mono);color:var(--muted)}
+.r{display:grid;grid-template-columns:minmax(0,1fr);gap:2px;padding:8px 16px;border-bottom:1px solid var(--line);cursor:pointer;position:relative}
+.r:last-child{border-bottom:0}
+.r:hover,.r:focus-visible{background:var(--code-bg);outline:none}
+.r:focus-visible{box-shadow:inset 3px 0 0 var(--accent)}
+.r code{font:13px/1.45 var(--mono);color:var(--ink);white-space:pre-wrap;word-break:break-word}
+.r code var{font-style:normal;color:var(--var)}
+.r span{font-size:13px;color:var(--muted)}
+.r.copied::after{content:"Copied";position:absolute;right:12px;top:8px;font:600 11px var(--mono);color:var(--open)}
+.note{padding:10px 16px;font-size:13px;color:var(--muted);background:var(--code-bg)}
+.hide{display:none!important}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td{padding:7px 16px;border-bottom:1px solid var(--line);vertical-align:top}
+td:first-child{font:600 12.5px var(--mono);white-space:nowrap;color:var(--ink)}
+td:last-child{color:var(--muted)}
+tr:last-child td{border-bottom:0}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--muted);margin-top:10px}
+.legend code{font:13px var(--mono);color:var(--var)}
+footer{margin-top:28px;color:var(--muted);font-size:13px}
+#empty{color:var(--muted);padding:20px 0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header>
+ <div class="wrap" style="padding-block:0">
+  <div class="hrow">
+   <div>
+    <h1>GitHub CLI <span>gh</span></h1>
+    <p class="sub">Tap any command to copy it. Values in <code style="font-family:var(--mono);color:var(--var)">orange</code> are yours to replace.</p>
+   </div>
+   <label class="search" for="q">
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6" fill="none"/></svg>
+    <input id="q" type="search" placeholder="Filter: merge, secret, --json…" autocomplete="off">
+    <kbd>/</kbd>
+   </label>
+  </div>
+ </div>
+</header>
+
+<main class="wrap">
+
+<section id="conceptSec">
+<h2>Key concepts</h2>
+<div class="concepts">
+ <div class="concept"><h3>gh vs git</h3><p><code>git</code> manages commits and branches locally. <code>gh</code> talks to GitHub: PRs, issues, Actions, releases. Use them together.</p></div>
+ <div class="concept"><h3>Repo context</h3><p>Inside a clone, gh infers the repo from your remotes. Elsewhere, add <code>-R owner/repo</code>. With a fork, pick the target once using <code>gh repo set-default</code>.</p></div>
+ <div class="concept"><h3>Grammar</h3><p><code>gh &lt;noun&gt; &lt;verb&gt; [args] [flags]</code>. Example: <code>gh pr merge 42 --squash</code>. Add <code>--help</code> to anything.</p></div>
+ <div class="concept"><h3>Interactive or scripted</h3><p>Omit flags and gh prompts you. Pass every flag (or set <code>GH_PROMPT_DISABLED=1</code>) for scripts and CI.</p></div>
+ <div class="concept"><h3>Structured output</h3><p><code>--json fields</code> returns JSON; add <code>--jq</code> to filter or <code>--template</code> for Go templates. Run <code>--json</code> with no fields to list them.</p></div>
+ <div class="concept"><h3>Hosts &amp; Enterprise</h3><p>Auth is stored per host. Use <code>--hostname</code> at login and <code>GH_HOST</code> to target a GitHub Enterprise Server.</p></div>
+ <div class="concept"><h3>Escape hatch: gh api</h3><p>Anything the CLI lacks, call REST or GraphQL directly, already authenticated. <code>{owner}</code> and <code>{repo}</code> fill in from context.</p></div>
+ <div class="concept"><h3>Make it yours</h3><p>Aliases shorten long commands. Extensions (<code>gh-*</code> repos) add new top-level commands.</p></div>
+</div>
+</section>
+
+<section id="flowSec">
+<h2>The everyday pull request loop</h2>
+<div class="flow">
+ <div class="step" style="--c:var(--open)"><b><i></i>Pick an issue</b><code>gh issue list --assignee @me</code><small>See what's on your plate</small></div>
+ <div class="step" style="--c:var(--open)"><b><i></i>Branch from it</b><code>gh issue develop 123 --checkout</code><small>Linked branch, checked out</small></div>
+ <div class="step" style="--c:var(--draft)"><b><i></i>Commit &amp; open PR</b><code>gh pr create --fill --draft</code><small>git add / commit first</small></div>
+ <div class="step" style="--c:var(--accent)"><b><i></i>Watch CI</b><code>gh pr checks --watch</code><small>Blocks until checks finish</small></div>
+ <div class="step" style="--c:var(--accent)"><b><i></i>Ready for review</b><code>gh pr ready && gh pr edit --add-reviewer alice</code><small>Leaves draft state</small></div>
+ <div class="step" style="--c:var(--merged)"><b><i></i>Merge</b><code>gh pr merge --squash --delete-branch</code><small>Cleans up local and remote branch</small></div>
+</div>
+</section>
+
+<h2>Commands</h2>
+<div id="empty" class="hide">No commands match that filter.</div>
+<div class="grid" id="grid">
+
+<div class="card" style="--c:var(--accent)"><h3>Setup &amp; auth <small>gh auth · gh config</small></h3>
+ <div class="r"><code>gh auth login</code><span>Interactive login (browser or token)</span></div>
+ <div class="r"><code>gh auth login --hostname <var>github.example.com</var></code><span>Log in to GitHub Enterprise Server</span></div>
+ <div class="r"><code>gh auth status</code><span>Show accounts, hosts, and token scopes</span></div>
+ <div class="r"><code>gh auth refresh -s <var>workflow,read:org</var></code><span>Add scopes to your existing token</span></div>
+ <div class="r"><code>gh auth switch</code><span>Switch between logged-in accounts</span></div>
+ <div class="r"><code>gh auth setup-git</code><span>Use gh as git's credential helper for HTTPS</span></div>
+ <div class="r"><code>gh auth token</code><span>Print the active token (for scripts)</span></div>
+ <div class="r"><code>gh config set git_protocol ssh</code><span>Clone and push over SSH</span></div>
+ <div class="r"><code>gh config set editor "code --wait"</code><span>Editor for PR and issue bodies</span></div>
+ <div class="r"><code>gh status</code><span>Your assigned issues, review requests, and mentions across repos</span></div>
+</div>
+
+<div class="card" style="--c:var(--ink)"><h3>Repositories <small>gh repo</small></h3>
+ <div class="r"><code>gh repo clone <var>owner/repo</var></code><span>Clone (owner optional for your own repos)</span></div>
+ <div class="r"><code>gh repo create <var>my-app</var> --private --source=. --push</code><span>Publish the current local folder as a new repo</span></div>
+ <div class="r"><code>gh repo create <var>my-app</var> --public --clone --add-readme</code><span>New repo on GitHub, then clone it</span></div>
+ <div class="r"><code>gh repo fork <var>owner/repo</var> --clone</code><span>Fork and clone; sets upstream remote</span></div>
+ <div class="r"><code>gh repo sync</code><span>Pull upstream changes into your fork's branch</span></div>
+ <div class="r"><code>gh repo set-default <var>owner/repo</var></code><span>Choose which remote gh targets</span></div>
+ <div class="r"><code>gh repo view --web</code><span>Open the repo in your browser</span></div>
+ <div class="r"><code>gh repo list <var>my-org</var> --limit 100</code><span>List repos for a user or org</span></div>
+ <div class="r"><code>gh repo edit --description "<var>text</var>" --add-topic <var>go</var></code><span>Change repo settings</span></div>
+ <div class="r"><code>gh repo rename <var>new-name</var></code><span>Rename the current repo</span></div>
+ <div class="r"><code>gh repo archive <var>owner/repo</var></code><span>Make read-only</span></div>
+ <div class="r"><code>gh repo delete <var>owner/repo</var> --yes</code><span>Permanent. Needs the delete_repo scope</span></div>
+</div>
+
+<div class="card" style="--c:var(--merged)"><h3>Pull requests <small>gh pr</small></h3>
+ <div class="r"><code>gh pr create --fill</code><span>Title and body from your commits</span></div>
+ <div class="r"><code>gh pr create -B <var>main</var> -t "<var>title</var>" -b "<var>body</var>" -r <var>alice</var> -l <var>bug</var></code><span>Base, title, body, reviewer, label in one shot</span></div>
+ <div class="r"><code>gh pr create --draft</code><span>Open as a draft</span></div>
+ <div class="r"><code>gh pr list --author @me --state open</code><span>Filter by author, state, label, base</span></div>
+ <div class="r"><code>gh pr status</code><span>PRs for your branch, by you, and awaiting your review</span></div>
+ <div class="r"><code>gh pr checkout <var>42</var></code><span>Check out a PR locally (works for forks)</span></div>
+ <div class="r"><code>gh pr view <var>42</var> --comments</code><span>Read the PR and its discussion</span></div>
+ <div class="r"><code>gh pr diff <var>42</var> --name-only</code><span>Changed files (drop the flag for the full diff)</span></div>
+ <div class="r"><code>gh pr checks <var>42</var> --watch</code><span>Live CI status</span></div>
+ <div class="r"><code>gh pr review <var>42</var> --approve</code><span>Approve</span></div>
+ <div class="r"><code>gh pr review <var>42</var> -r -b "<var>Please add tests</var>"</code><span>Request changes with a note (-c to just comment)</span></div>
+ <div class="r"><code>gh pr comment <var>42</var> -b "<var>LGTM</var>"</code><span>Add a comment</span></div>
+ <div class="r"><code>gh pr edit <var>42</var> --add-label <var>ready</var> --add-reviewer <var>bob</var></code><span>Change labels, reviewers, title, base</span></div>
+ <div class="r"><code>gh pr ready <var>42</var></code><span>Mark a draft ready for review (--undo to revert)</span></div>
+ <div class="r"><code>gh pr merge <var>42</var> --squash --delete-branch</code><span>Merge; also --merge or --rebase</span></div>
+ <div class="r"><code>gh pr merge <var>42</var> --auto --squash</code><span>Merge automatically once checks and reviews pass</span></div>
+ <div class="r"><code>gh pr close <var>42</var> -c "<var>Superseded by #50</var>"</code><span>Close with a comment; reopen with gh pr reopen</span></div>
+ <div class="r"><code>gh pr update-branch <var>42</var></code><span>Bring the PR branch up to date with its base</span></div>
+</div>
+
+<div class="card" style="--c:var(--open)"><h3>Issues <small>gh issue</small></h3>
+ <div class="r"><code>gh issue create -t "<var>title</var>" -b "<var>body</var>" -l <var>bug</var> -a @me</code><span>Create, label, and assign to yourself</span></div>
+ <div class="r"><code>gh issue list --label <var>bug</var> --state open</code><span>Filter by label, assignee, milestone</span></div>
+ <div class="r"><code>gh issue list --search "<var>is:open sort:updated-desc</var>"</code><span>Full GitHub search syntax</span></div>
+ <div class="r"><code>gh issue view <var>123</var> --web</code><span>Open in browser</span></div>
+ <div class="r"><code>gh issue comment <var>123</var> -b "<var>On it</var>"</code><span>Add a comment</span></div>
+ <div class="r"><code>gh issue edit <var>123</var> --add-assignee <var>alice</var> --milestone <var>v2</var></code><span>Reassign, relabel, re-milestone</span></div>
+ <div class="r"><code>gh issue develop <var>123</var> --checkout</code><span>Create a linked branch and switch to it</span></div>
+ <div class="r"><code>gh issue close <var>123</var> --reason "not planned"</code><span>Close as completed or not planned</span></div>
+ <div class="r"><code>gh issue reopen <var>123</var></code><span>Reopen</span></div>
+ <div class="r"><code>gh issue pin <var>123</var></code><span>Pin to the top of the issues tab</span></div>
+ <div class="r"><code>gh issue transfer <var>123</var> <var>owner/other-repo</var></code><span>Move to another repo</span></div>
+ <div class="r"><code>gh label create <var>triage</var> --color <var>FBCA04</var></code><span>Manage labels with gh label</span></div>
+</div>
+
+<div class="card" style="--c:#BF8700"><h3>Actions <small>gh run · gh workflow · gh cache</small></h3>
+ <div class="r"><code>gh run list --limit 10</code><span>Recent workflow runs</span></div>
+ <div class="r"><code>gh run list --workflow <var>ci.yml</var> --branch <var>main</var></code><span>Filter by workflow and branch</span></div>
+ <div class="r"><code>gh run watch</code><span>Pick a running job and stream its progress</span></div>
+ <div class="r"><code>gh run view <var>RUN_ID</var> --log-failed</code><span>Logs from failed steps only</span></div>
+ <div class="r"><code>gh run rerun <var>RUN_ID</var> --failed</code><span>Re-run only the failed jobs</span></div>
+ <div class="r"><code>gh run cancel <var>RUN_ID</var></code><span>Stop a run</span></div>
+ <div class="r"><code>gh run download <var>RUN_ID</var> -n <var>artifact-name</var></code><span>Download build artifacts</span></div>
+ <div class="r"><code>gh workflow list</code><span>Workflows in the repo</span></div>
+ <div class="r"><code>gh workflow run <var>deploy.yml</var> --ref <var>main</var> -f <var>env=prod</var></code><span>Trigger a workflow_dispatch with inputs</span></div>
+ <div class="r"><code>gh workflow disable <var>nightly.yml</var></code><span>Pause a workflow (enable to resume)</span></div>
+ <div class="r"><code>gh cache list</code><span>Actions caches by size and age</span></div>
+ <div class="r"><code>gh cache delete --all</code><span>Clear every cache in the repo</span></div>
+</div>
+
+<div class="card" style="--c:var(--closed)"><h3>Secrets &amp; variables <small>gh secret · gh variable</small></h3>
+ <div class="r"><code>gh secret set <var>API_KEY</var></code><span>Prompts for the value (keeps it out of shell history)</span></div>
+ <div class="r"><code>gh secret set <var>API_KEY</var> &lt; <var>key.txt</var></code><span>Read value from a file</span></div>
+ <div class="r"><code>gh secret set <var>API_KEY</var> --env <var>production</var></code><span>Environment-scoped secret</span></div>
+ <div class="r"><code>gh secret set <var>API_KEY</var> --org <var>my-org</var> --visibility all</code><span>Organization secret</span></div>
+ <div class="r"><code>gh secret set -f <var>.env</var></code><span>Bulk-load from a dotenv file</span></div>
+ <div class="r"><code>gh secret list</code><span>Names and update times (values stay hidden)</span></div>
+ <div class="r"><code>gh secret delete <var>API_KEY</var></code><span>Remove</span></div>
+ <div class="r"><code>gh variable set <var>REGION</var> --body <var>us-east-1</var></code><span>Plain config variable (readable in workflows as vars.REGION)</span></div>
+ <div class="r"><code>gh variable list</code><span>List variables</span></div>
+</div>
+
+<div class="card" style="--c:var(--open)"><h3>Releases <small>gh release</small></h3>
+ <div class="r"><code>gh release create <var>v1.2.0</var> --generate-notes</code><span>Tag and release with auto-written notes</span></div>
+ <div class="r"><code>gh release create <var>v1.2.0</var> <var>./dist/*</var> --title "<var>v1.2.0</var>" --notes-file <var>CHANGELOG.md</var></code><span>Attach build assets and custom notes</span></div>
+ <div class="r"><code>gh release create <var>v2.0.0-rc1</var> --prerelease --draft</code><span>Draft pre-release</span></div>
+ <div class="r"><code>gh release list</code><span>All releases</span></div>
+ <div class="r"><code>gh release view --web</code><span>Latest release in browser</span></div>
+ <div class="r"><code>gh release upload <var>v1.2.0</var> <var>app.zip</var> --clobber</code><span>Add or replace assets</span></div>
+ <div class="r"><code>gh release download <var>v1.2.0</var> -p "<var>*.tar.gz</var>"</code><span>Download assets matching a pattern</span></div>
+ <div class="r"><code>gh release delete <var>v1.2.0</var> --cleanup-tag</code><span>Delete release and its tag</span></div>
+</div>
+
+<div class="card" style="--c:var(--accent)"><h3>Search &amp; browse <small>gh search · gh browse</small></h3>
+ <div class="r"><code>gh search repos <var>"k8s operator"</var> --language go --sort stars</code><span>Find repositories</span></div>
+ <div class="r"><code>gh search code "<var>func main</var>" --owner <var>my-org</var></code><span>Search code across an org</span></div>
+ <div class="r"><code>gh search prs --review-requested=@me --state=open</code><span>Everything waiting on your review</span></div>
+ <div class="r"><code>gh search issues "<var>memory leak</var>" --repo <var>owner/repo</var></code><span>Search issues</span></div>
+ <div class="r"><code>gh search commits --author <var>alice</var> --committer-date "&gt;2026-09-01"</code><span>Find commits</span></div>
+ <div class="r"><code>gh browse</code><span>Open the current repo</span></div>
+ <div class="r"><code>gh browse <var>main.go:42</var></code><span>Open a file at a line</span></div>
+ <div class="r"><code>gh browse <var>123</var></code><span>Open issue or PR #123</span></div>
+ <div class="r"><code>gh browse --settings</code><span>Open repo settings (also --wiki, --projects)</span></div>
+ <div class="r"><code>gh browse -n</code><span>Print the URL instead of opening it</span></div>
+</div>
+
+<div class="card" style="--c:var(--merged)"><h3>Scripting with JSON <small>--json · --jq · --template</small></h3>
+ <div class="r"><code>gh pr list --json</code><span>No fields given: lists every available field</span></div>
+ <div class="r"><code>gh pr list --json number,title,author</code><span>Raw JSON output</span></div>
+ <div class="r"><code>gh pr view <var>42</var> --json state --jq .state</code><span>Pull out one value</span></div>
+ <div class="r"><code>gh issue list --json number,labels --jq '.[] | select(.labels[].name=="bug") | .number'</code><span>Filter with jq (built in, no install needed)</span></div>
+ <div class="r"><code>gh pr list --json number,title --template '{{range .}}#{{.number}} {{.title}}{{"\n"}}{{end}}'</code><span>Go template formatting</span></div>
+ <div class="r"><code>gh run list --json databaseId,conclusion --jq '.[] | select(.conclusion=="failure") | .databaseId'</code><span>IDs of failed runs</span></div>
+ <div class="note">Templates also offer helpers such as <code>tablerow</code>, <code>timeago</code>, <code>color</code>, and <code>truncate</code>.</div>
+</div>
+
+<div class="card" style="--c:var(--ink)"><h3>Raw API <small>gh api</small></h3>
+ <div class="r"><code>gh api repos/{owner}/{repo}</code><span>GET with repo placeholders filled in</span></div>
+ <div class="r"><code>gh api user --jq .login</code><span>Who am I?</span></div>
+ <div class="r"><code>gh api repos/{owner}/{repo}/pulls --paginate --jq '.[].title'</code><span>Walk every page</span></div>
+ <div class="r"><code>gh api -X POST repos/{owner}/{repo}/issues -f title="<var>Bug</var>" -f body="<var>Details</var>"</code><span>POST with string fields</span></div>
+ <div class="r"><code>gh api -X PATCH repos/{owner}/{repo} -F has_wiki=false</code><span>-F sends typed values (bool, number, @file)</span></div>
+ <div class="r"><code>gh api graphql -f query='query { viewer { login } }'</code><span>GraphQL query</span></div>
+ <div class="r"><code>gh api -H "Accept: application/vnd.github.raw" repos/{owner}/{repo}/contents/<var>README.md</var></code><span>Custom headers; raw file content</span></div>
+ <div class="r"><code>gh api rate_limit --jq .rate</code><span>Check remaining API calls</span></div>
+</div>
+
+<div class="card" style="--c:#BF8700"><h3>Aliases &amp; extensions <small>gh alias · gh extension</small></h3>
+ <div class="r"><code>gh alias set co 'pr checkout'</code><span>Now: gh co 42</span></div>
+ <div class="r"><code>gh alias set mine 'pr list --author @me'</code><span>Saved query</span></div>
+ <div class="r"><code>gh alias set bugs 'issue list --label=$1'</code><span>Positional args: gh bugs critical</span></div>
+ <div class="r"><code>gh alias set --shell igrep 'gh issue list | grep "$1"'</code><span>Shell alias with pipes</span></div>
+ <div class="r"><code>gh alias list</code><span>Show aliases</span></div>
+ <div class="r"><code>gh extension browse</code><span>Discover extensions interactively</span></div>
+ <div class="r"><code>gh extension install <var>dlvhdr/gh-dash</var></code><span>Install (here: a terminal PR/issue dashboard)</span></div>
+ <div class="r"><code>gh extension upgrade --all</code><span>Update all extensions</span></div>
+ <div class="r"><code>gh extension create <var>my-ext</var> --precompiled=go</code><span>Scaffold your own in Go</span></div>
+</div>
+
+<div class="card" style="--c:var(--draft)"><h3>Gists, projects &amp; more <small>gh gist · gh project · gh codespace</small></h3>
+ <div class="r"><code>gh gist create <var>notes.md</var> --public -d "<var>desc</var>"</code><span>Share a file as a gist</span></div>
+ <div class="r"><code>echo "<var>hi</var>" | gh gist create -</code><span>Gist from stdin</span></div>
+ <div class="r"><code>gh gist list</code><span>Your gists (edit, view, clone, delete also work)</span></div>
+ <div class="r"><code>gh project list --owner @me</code><span>Projects (v2); needs the project scope</span></div>
+ <div class="r"><code>gh project item-add <var>1</var> --owner @me --url <var>ISSUE_URL</var></code><span>Add an issue or PR to a project</span></div>
+ <div class="r"><code>gh codespace create -R <var>owner/repo</var></code><span>Spin up a Codespace</span></div>
+ <div class="r"><code>gh codespace ssh</code><span>SSH into one (also code, ports, stop)</span></div>
+ <div class="r"><code>gh ruleset list</code><span>Branch and tag rulesets</span></div>
+ <div class="r"><code>gh attestation verify <var>app.tar.gz</var> -R <var>owner/repo</var></code><span>Verify build provenance of an artifact</span></div>
+</div>
+
+<div class="card" style="--c:var(--accent)"><h3>Environment variables <small>for CI &amp; scripts</small></h3>
+ <table>
+  <tr><td>GH_TOKEN</td><td>Auth token; overrides stored login (ideal in CI)</td></tr>
+  <tr><td>GH_ENTERPRISE_TOKEN</td><td>Token for GitHub Enterprise Server hosts</td></tr>
+  <tr><td>GH_HOST</td><td>Default host when not in a repo</td></tr>
+  <tr><td>GH_REPO</td><td>Default repo, like -R on every command</td></tr>
+  <tr><td>GH_PROMPT_DISABLED</td><td>Never prompt; fail if input is missing</td></tr>
+  <tr><td>GH_PAGER</td><td>Pager for long output (set to cat to disable)</td></tr>
+  <tr><td>GH_EDITOR</td><td>Editor for bodies and messages</td></tr>
+  <tr><td>GH_DEBUG</td><td>Verbose logs; "api" also logs HTTP traffic</td></tr>
+  <tr><td>NO_COLOR</td><td>Disable colored output</td></tr>
+ </table>
+ <div class="note">In a workflow: <code>env: GH_TOKEN: ${{ github.token }}</code> then call gh in any step.</div>
+</div>
+
+<div class="card" style="--c:var(--open)"><h3>Handy flags <small>work on most commands</small></h3>
+ <table>
+  <tr><td>-R owner/repo</td><td>Target another repo</td></tr>
+  <tr><td>-w, --web</td><td>Open in the browser instead</td></tr>
+  <tr><td>-L, --limit N</td><td>How many results to list (default 30)</td></tr>
+  <tr><td>-s, --state</td><td>open, closed, merged, all</td></tr>
+  <tr><td>-S, --search</td><td>GitHub search query on list commands</td></tr>
+  <tr><td>-a / -l / -m</td><td>Assignee, label, milestone</td></tr>
+  <tr><td>@me</td><td>Shorthand for your own login</td></tr>
+  <tr><td>-y, --yes</td><td>Skip confirmation on destructive actions</td></tr>
+  <tr><td>--help</td><td>Usage, flags, and examples</td></tr>
+ </table>
+</div>
+
+</div>
+
+<footer>Covers gh 2.x. Run <code style="font-family:var(--mono)">gh help reference</code> for every command, or see cli.github.com/manual.</footer>
+</main>
+
+<script>
+(function(){
+  const q=document.getElementById('q'), cards=[...document.querySelectorAll('.card')], empty=document.getElementById('empty');
+  const extra=[document.getElementById('conceptSec'),document.getElementById('flowSec')];
+  document.querySelectorAll('.r').forEach(r=>{
+    r.tabIndex=0;
+    const go=()=>{
+      const t=r.querySelector('code').textContent;
+      const done=()=>{r.classList.add('copied');setTimeout(()=>r.classList.remove('copied'),1100)};
+      const fallback=()=>{const s=getSelection(),g=document.createRange();g.selectNodeContents(r.querySelector('code'));s.removeAllRanges();s.addRange(g)};
+      try{navigator.clipboard.writeText(t).then(done,fallback)}catch(e){fallback()}
+    };
+    r.addEventListener('click',go);
+    r.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();go()}});
+  });
+  q.addEventListener('input',()=>{
+    const v=q.value.trim().toLowerCase(); let any=false;
+    extra.forEach(s=>s.classList.toggle('hide',!!v));
+    cards.forEach(c=>{
+      const title=c.querySelector('h3').textContent.toLowerCase();
+      const rows=[...c.querySelectorAll('.r,tr')]; let hit=0;
+      rows.forEach(r=>{const m=!v||title.includes(v)||r.textContent.toLowerCase().includes(v);r.classList.toggle('hide',!m);if(m)hit++});
+      const n=c.querySelector('.note'); if(n) n.classList.toggle('hide',!!v&&!title.includes(v));
+      c.classList.toggle('hide',!hit); if(hit)any=true;
+    });
+    empty.classList.toggle('hide',any);
+  });
+  document.addEventListener('keydown',e=>{if(e.key==='/'&&document.activeElement!==q){e.preventDefault();q.focus()}});
+})();
+</script>
+
+</body></html>

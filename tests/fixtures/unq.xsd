@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- elementFormDefault is "unqualified": local elements have NO namespace, global elements (and refs to them) do. A local element can opt in with form="qualified". -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:u="urn:unq" targetNamespace="urn:unq">
+  <xs:element name="Doc" type="u:DocT"/>
+  <xs:element name="Shared" type="xs:string"/>
+  <xs:complexType name="DocT"><xs:sequence>
+    <xs:element name="local" type="xs:string"/>
+    <xs:element name="qual" type="xs:int" form="qualified" minOccurs="0"/>
+    <xs:element ref="u:Shared" minOccurs="0"/>
+    <xs:element name="nested" minOccurs="0"><xs:complexType><xs:sequence><xs:element name="deep" type="xs:string"/></xs:sequence></xs:complexType></xs:element>
+  </xs:sequence></xs:complexType>
+</xs:schema>

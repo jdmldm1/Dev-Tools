@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>JavaScript / TypeScript Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/theme.css"><link rel="stylesheet" href="../assets/sheet.css"></head>
+<body><div id="app"></div>
+<script type="text/plain" id="sheet-src">
+title: JavaScript / TypeScript
+eyebrow: Modern JS (ES2023+) · TypeScript · npm
+lede: Syntax, arrays and objects, async, modules, DOM, TypeScript types and utility types, and the npm commands you run daily.
+footer: MDN (developer.mozilla.org) and the TypeScript Handbook are the references to trust.
+
+== Variables & operators | basics
+const x = 1 ; let y = 2 ## Block-scoped; prefer const
+`Hello ${name}` ## Template literal
+a ?? b ## Nullish coalescing (only null/undefined)
+a?.b ; a?.[0] ; a?.() ## Optional chaining
+a ||= b ; a &&= b ; a ??= b ## Logical assignment
+x === y ; x !== y ## Strict equality (avoid == and !=)
+typeof x ; Array.isArray(a) ; x instanceof C ## Type checks
+Number("5") ; parseInt("5", 10) ; parseFloat("2.5") ; +"5" ## String to number
+String(5) ; (5).toString(2) ; n.toFixed(2) ## Number to string
+[...a, ...b] ; {...o1, ...o2} ## Spread
+const { a, b: renamed = 1, ...rest } = obj ## Object destructuring with default and rest
+const [first, , third, ...others] = arr ## Array destructuring
+[a, b] = [b, a] ## Swap
+structuredClone(obj) ## Deep copy
+
+== Arrays | methods
+arr.map(f) ; arr.filter(f) ; arr.find(f) ; arr.findLast(f) ## Transform / filter / first match / last match
+arr.reduce((acc, x) => acc + x, 0) ## Fold
+arr.some(f) ; arr.every(f) ; arr.includes(x) ; arr.indexOf(x) ## Tests
+arr.flat() ; arr.flatMap(f) ## Flatten
+arr.slice(1, 3) ; arr.splice(1, 2, "x") ## Copy a range / mutate in place
+arr.push(x) ; arr.pop() ; arr.shift() ; arr.unshift(x) ## Ends
+arr.at(-1) ## Last element
+arr.sort((a, b) => a - b) ## Sort numbers (mutates)
+arr.toSorted(f) ; arr.toReversed() ; arr.with(1, x) ## Non-mutating versions (ES2023)
+Object.groupBy(arr, f) ## Group into an object (ES2024)
+Array.from({ length: 5 }, (_, i) => i) ## Make [0..4]
+Array.from(new Set(arr)) ; [...new Set(arr)] ## Unique values
+for (const x of arr) ; for (const [i, x] of arr.entries()) ## Iterate values / with index
+arr.join(", ") ; "a,b".split(",") ## Join / split
+
+== Objects & maps | data
+Object.keys(o) ; Object.values(o) ; Object.entries(o) ## Enumerate
+Object.fromEntries(entries) ## Entries back to an object
+Object.assign({}, a, b) ## Shallow merge
+Object.freeze(o) ; Object.hasOwn(o, "k") ## Immutable / own-property check
+{ [key]: value, method() {}, get x() { return 1 } } ## Computed keys, methods, getters
+delete o.k ; "k" in o ## Remove / has property
+const m = new Map() ; m.set(k, v) ; m.get(k) ; m.has(k) ; m.delete(k) ## Map (any key type, keeps order)
+const s = new Set([1, 2]) ; s.add(3) ; s.has(1) ## Set
+new WeakMap() ; new WeakSet() ## Keys that don't prevent GC
+JSON.stringify(o, null, 2) ; JSON.parse(s) ## JSON
+new Date().toISOString() ; Date.now() ## Time
+new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n) ## Currency formatting
+new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(d) ## Date formatting
+
+== Functions & classes | structure
+function f(a, b = 2, ...rest) {} ## Defaults and rest
+const f = (a) => a * 2 ## Arrow function (lexical this)
+const f = async () => {} ## Async arrow
+(() => { /* ... */ })() ## IIFE
+class A extends B { #priv = 1; static s = 2; constructor() { super() } get x() {} } ## Class with private and static members
+this ## Depends on how a function is called; arrows capture it
+f.call(ctx, a) ; f.apply(ctx, [a]) ; f.bind(ctx) ## Set `this`
+function* gen() { yield 1 } ## Generator
+export default f ; export const x = 1 ## Exports
+import f, { x as y } from "./m.js" ; import * as ns from "./m.js" ## Imports
+const mod = await import("./m.js") ## Dynamic import
+
+== Async | promises
+const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(o) }) ## fetch
+if (!r.ok) throw new Error(r.status) ; const data = await r.json() ## Check and parse (fetch does not reject on 404/500)
+await Promise.all([a(), b()]) ## Wait for all (fails fast)
+await Promise.allSettled([a(), b()]) ## Wait for all, never rejects
+await Promise.race([a(), timeout]) ; await Promise.any([a(), b()]) ## First settled / first fulfilled
+new Promise((resolve, reject) => setTimeout(resolve, 1000)) ## Promise from a callback
+const sleep = ms => new Promise(r => setTimeout(r, ms)) ## Sleep helper
+try { await f() } catch (e) { } finally { } ## Error handling
+for await (const x of asyncIterable) {} ## Async iteration
+AbortController ; fetch(url, { signal }) ## Cancel a request
+queueMicrotask(f) ; setTimeout(f, 0) ; requestAnimationFrame(f) ## Scheduling
+Promise.withResolvers() ## Deferred promise (ES2024)
+
+== DOM | browser
+document.querySelector(".a") ; document.querySelectorAll("li") ## Select
+el.textContent = "x" ; el.innerHTML = html ## Set text / HTML (sanitize HTML!)
+el.classList.add("a") ; .remove("a") ; .toggle("a") ; .contains("a") ## Classes
+el.setAttribute("k", "v") ; el.dataset.id ## Attributes and data-*
+el.addEventListener("click", e => { e.preventDefault() }) ## Events
+el.closest(".card") ; el.matches(".a") ; el.parentElement ## Traverse
+document.createElement("div") ; parent.append(child) ; el.remove() ## Create and insert
+el.getBoundingClientRect() ## Size and position
+localStorage.setItem("k", v) ; localStorage.getItem("k") ## Storage
+new URL(href) ; new URLSearchParams(location.search).get("q") ## URLs
+navigator.clipboard.writeText(text) ## Copy to clipboard (secure context)
+new IntersectionObserver(cb).observe(el) ; new ResizeObserver(cb) ## Observe visibility / size
+crypto.randomUUID() ; crypto.getRandomValues(new Uint8Array(16)) ## Random UUID / bytes
+
+== TypeScript types | static typing
+let x: string | number ; let a: string[] ; let t: [string, number] ## Union, array, tuple
+type User = { id: number; name?: string; readonly tag: string } ## Type alias
+interface User extends Base { id: number } ## Interface (extendable, mergeable)
+type Status = "idle" | "loading" | "done" ## String literal union
+enum Dir { Up, Down } ; const enum E { A } ## Enums (prefer unions)
+function f<T>(x: T): T { return x } ## Generic function
+function f<T extends { id: number }>(x: T) {} ## Constrained generic
+type Fn = (a: number, b?: string) => void ## Function type
+x as Foo ; x satisfies Foo ; x! ## Assertion, check without widening, non-null assertion
+unknown vs any ## `unknown` forces a check before use; `any` disables checking
+type A = B & C ## Intersection
+keyof T ; typeof value ; T[K] ## Key union, type from value, indexed access
+type Cond<T> = T extends string ? "s" : "n" ## Conditional type
+type M = { [K in keyof T]: T[K] } ## Mapped type
+function isStr(x: unknown): x is string { return typeof x === "string" } ## Type guard
+asserts x is string ## Assertion function
+declare module "x" ; declare global {} ## Ambient declarations
+
+== TypeScript utility types | built in
+|| Type || Result
+|| `Partial<T>` || All properties optional
+|| `Required<T>` || All properties required
+|| `Readonly<T>` || All properties readonly
+|| `Pick<T, "a" | "b">` || Only the listed keys
+|| `Omit<T, "a">` || Everything except the listed keys
+|| `Record<K, V>` || Object with keys K and values V
+|| `Exclude<U, X>` || Remove X from union U
+|| `Extract<U, X>` || Keep only X from union U
+|| `NonNullable<T>` || Remove null and undefined
+|| `ReturnType<typeof f>` || Return type of a function
+|| `Parameters<typeof f>` || Tuple of parameter types
+|| `Awaited<Promise<T>>` || Resolved type
+|| `InstanceType<typeof C>` || Instance type of a class
+
+== npm & tooling | CLI
+npm init -y ; npm install ; npm ci ## Create / install / clean install from lockfile
+npm install pkg ; npm install -D pkg ; npm uninstall pkg ## Add dependency / dev dependency / remove
+npm run build ; npm test ; npm start ## Scripts
+npx pkg ; npm exec pkg ## Run a package binary
+npm outdated ; npm update ; npm audit ; npm audit fix ## Maintenance and security
+npm ls pkg ; npm why pkg ## Why is this installed?
+npm view pkg versions ; npm pack ## Registry info / build tarball
+npm publish ; npm version patch ## Release
+node --watch file.js ; node --env-file=.env file.js ## Node: auto-restart, load env file
+node -e "console.log(1+1)" ; node -p "process.version" ## One-liners
+tsc --noEmit ; tsc --init ; tsc -w ## Type-check, create tsconfig, watch
+npx tsx file.ts ; node --experimental-strip-types file.ts ## Run TypeScript directly
+pnpm add pkg ; pnpm dlx pkg ; yarn add pkg ; bun add pkg ## Other package managers
+corepack enable ## Use pnpm/yarn pinned by package.json
+</script>
+<script src="../assets/sheet.js"></script></body></html>
