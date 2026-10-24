@@ -2,7 +2,7 @@
 #   docker build -t dev-tools:1.2.0 .
 #   zarf package create .
 #   zarf package deploy zarf-package-dev-tools-*.tar.zst --confirm
-# then: kubectl -n dev-tools port-forward svc/dev-tools 8080:80
+# then: kubectl -n dev-tools port-forward svc/dev-tools 9999:9999
 kind: ZarfPackageConfig
 metadata:
   name: dev-tools

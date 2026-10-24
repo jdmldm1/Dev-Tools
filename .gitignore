@@ -39,3 +39,4 @@ desktop.ini
 
 # Staged by the Dockerfile (and by hand when running the server tests)
 docker/server/www/
+*.zst

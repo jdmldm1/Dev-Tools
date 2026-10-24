@@ -150,7 +150,7 @@ The image is about **1.2 MB** (`docker save` size; `docker images` may show doub
 
 The pages run in your browser, so the NATS WebSocket address you type is resolved from your machine, not from the container. The server code is in `docker/server`; to run its tests without Docker, copy the served files into `docker/server/www` and gzip them (the Dockerfile shows how).
 
-**Zarf.** `zarf.yaml` packages the image with a Deployment and Service (non-root, read-only filesystem, `/healthz` probes) for air-gapped Kubernetes: `docker build -t dev-tools:1.2.0 .`, `zarf package create .`, `zarf package deploy zarf-package-dev-tools-*.tar.zst --confirm`, then `kubectl -n dev-tools port-forward svc/dev-tools 8080:80`. Keep the image tag in `zarf.yaml` and `zarf/dev-tools.yaml` equal to `package.json`.
+**Zarf.** `zarf.yaml` packages the image with a Deployment and Service (non-root, read-only filesystem, `/healthz` probes) for air-gapped Kubernetes: `docker build -t dev-tools:1.2.0 .`, `zarf package create .`, `zarf package deploy zarf-package-dev-tools-*.tar.zst --confirm`, then `kubectl -n dev-tools port-forward svc/dev-tools 9999:9999`. Keep the image tag in `zarf.yaml` and `zarf/dev-tools.yaml` equal to `package.json`.
 
 ## Layout
 
