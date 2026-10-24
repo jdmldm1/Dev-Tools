@@ -36,3 +36,6 @@ desktop.ini
 # Temp
 *.tmp
 *.bak
+
+# Staged by the Dockerfile (and by hand when running the server tests)
+docker/server/www/

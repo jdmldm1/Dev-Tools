@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>UCI Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/theme.css"><link rel="stylesheet" href="../assets/sheet.css"></head>
+<body><div id="app"></div>
+<script type="text/plain" id="sheet-src">
+title: UCI
+eyebrow: Universal Command and Control Interface · release 2.6
+lede: The message standard behind OMS and AMS GRA: what the four parts are, how messages are named and structured, the six primitive interaction patterns, compliance, versioning, and what changed from 2.5 to 2.6. Read from the public release documents and schema (Distribution A) and the open-arsenal/uci repository.
+footer: Sources: UCI-STD-001 Rev10, UCI-SPC-001 Rev6 (USSDS), UCI-SPC-002 Rev2 (UNIS), UCI-VDD-001 Rev11, UCI-NSC-001 and the 2.5 / 2.6 XSDs, compared with the Schema Diff tool. Public documents, not intended for operational use; the official documents are authoritative.
+
+== What UCI is | open-arsenal/uci
+|| Item || Detail
+|| Purpose || A messaging standard for mission-level command and control: a common message definition so weapon-system elements (sensors, vehicles, data products, software) coordinate machine to machine
+|| Not specified || Hardware, operating system, encoding and transport. UCI does not prescribe a wire format or protocol, and compliance excludes non-messaging interactions
+|| Release || 2.6, released 8 July 2026 (schema 002.6.0); document set dated 30 July 2026
+|| Maintained by || The USAF with the UCI Consortium, governed by the UCI Governance Plan (UCI-PGM-001); related to OMS through the OACWG
+|| Change requests || Tracked as OAM-nnnn items; the 2.6 VDD lists about 20 incorporated, for example optional booleans retyped to enums (OAM-6861), zero-length strings (OAM-5551), ML predictions with confidences (OAM-5708)
+note: UCI is the message layer. OMS says who must send what and how components are packaged; AMS GRA says how the mission system is built from them. See the OMS and AMS GRA sheets.
+
+== The four parts of the standard | UCI-STD-001
+|| Document || Role
+|| UCI-STD-001 Standard (Rev10) || Requirements for using and defining messages, compliance, primitive pattern overview, versioning
+|| UCI-STD-002 Schema (Rev6) || The XSDs: message definitions, security markings, versioning; delivered as a zip with the schema checker results and a VDD.txt
+|| UCI-SPC-001 USSDS (Rev6) || Schema Style and Design Specification: the CERTs and GUIDs that govern how messages are written
+|| UCI-SPC-002 UNIS (Rev2) || Normalized Interface Specification: the interaction patterns and roles
+|| UCI-VDD-001 (Rev11) || Version Description Document: lists every document and its revision, and the change requests in the release
+|| UCI-IDD-001 || Secure Messaging IDD: a wrapper structure for integrity and non-repudiation (referenced; not part of the schema)
+|| UCI-NSC-001 || Notice of Significant Change: Introduction to UCI 3.0 (see the last sections)
+|| Tools folder || Starter kit tools VDD and Prisma, a schema visualizer
+note: A UCI Component is anything that sends or receives UCI messages. An Adopting Program (AP) is a program using UCI.
+
+== Program schema and message sets | how programs use it
+|| Term || Meaning
+|| UCI Message Set || A subset (all or fewer) of a UCI Schema: only the messages a program actually uses
+|| Extension Message Set || Planned or program-specific additions and changes; must still conform to the USSDS
+|| Other messages || XSD-defined messages independent of UCI that do not follow the USSDS
+|| Program Schema || The program's message set plus any extension sets and other messages
+|| Message Set tailoring || Pick messages in the XSD Schema Explorer (trace what a message pulls in) before writing a set
+
+== Message structure | from the 2.6 schema
+|| Item || What the files show
+|| Namespace || https://www.vdl.afrl.af.mil/programs/oam, elementFormDefault qualified, so every element is in it (use a default xmlns)
+|| Files || UCI_MessageDefinitions_v2_6_0.xsd (about 8 MB, includes the next), UCI_SecurityMarkings_v2_6_0.xsd, UCI_Versioning_v2_6_0.xsd
+|| Messages || 725 global elements. Each has type <Name>MT, extending MessageType and adding MessageData of type <Name>MDT
+|| Message layout || SecurityInformation, MessageHeader, optional ObjectState (NEW, UPDATED, REMOVED) on data messages, then MessageData
+|| MessageHeader || SystemID (UUID), Timestamp, SchemaVersion, Mode (LIVE, EXERCISE, SIMULATION, NONEXERCISE_SIMULATION), optional ServiceID and MissionID
+|| Size || 5,571 types: 4,636 complex, 935 simple, 710 enumerations; no attributes, groups, lists or unions in the schema
+|| Identifiers || UUID based. RQMT USTD-000436: Leach-Salz variant (any version) or the nil UUID; USTD-000673: lowercase 8-4-4-4-12 text form
+|| Time || DateTimeType requires a trailing Z, so UTC
+|| Units || SI: angles in radians, altitude and distance in meters (reference WGS-84 ellipsoid by default), speed in m/s
+note: Use the Coordinates tool to convert degrees, DMS, knots, feet and flight levels to the schema units.
+
+== Naming conventions | USSDS CERTs
+|| Pattern || Rule
+|| <Msg>MT / <Msg>MDT || Message type and message data type; 725 of each
+|| ...Type, ...Enum || complexTypes end in Type, MT, MDT, DRL, DRLE, ML, PET or EXT; non-enum simpleTypes end in Type; enumerations end in Enum
+|| ...ID_Type || Identifier types, derived from uci:ID_Type (278 of them)
+|| ...PET || Polymorphic Extension Type: abstract base for a choice of subtypes (always declared abstract)
+|| ...ChoiceType || Types built with xs:choice (131); a choice carries no minOccurs=0 members
+|| Enum values || Start with A-Z or 0-9, then A-Z, 0-9 or underscore; every value is documented
+|| Elements || Each element uses only name, type, minOccurs, maxOccurs; empty elements use uci:EmptyType; no xs:simpleContent
+|| Design style || Venetian Blind (a GUID); XSD 1.0 only; allowed built-ins are boolean, string, the integer family, float, double, hexBinary and similar
+|| Documentation || Every message has two documentation tags: the description, then UCI_PRIMITIVE: <pattern>
+note: The USSDS has roughly 190 CERTs (strongly enforced, checkable with XPath) and 30 GUIDs (recommended). The UCI SchemaChecker enforces them for each release.
+
+== Message families by name | counts in 2.6
+|| Suffix || Count and use
+|| ...Status || 294: periodic or event status (Status-1)
+|| ...Command || 99: commands, answered by a ...CommandStatus
+|| ...Request || 78: action or data requests, answered by a ...RequestStatus
+|| ...Capability || 33: what a subsystem can do, reported with ...CapabilityStatus
+|| ...Activity || 31: what a subsystem is currently doing
+|| ...Report || 25: observations such as PositionReport
+|| ...Plan || 18: plans such as MissionPlan, RoutePlan
+note: Counts are suffix matches by name, so a message can fall in none of them.
+
+== Primitive interaction patterns | UCI-SPC-002 (UNIS)
+|| Pattern || Messages and behavior
+|| Status-1 || One message producer to consumers, no acknowledgement. Default for anything not matching another pattern; sending it is the terminal state
+|| Data-1 || One data message, fire and forget
+|| DataRecord-1 || Like Data-1 but supports data record management (NEW / UPDATED / REMOVED via ObjectState)
+|| DataRequest-2 || *DataRequest then *DataRequestStatus. Status values QUEUED, PROCESSING, COMPLETED, FAILED, REJECTED; data may arrive in the final status
+|| ActionRequest-2 || *Request then *RequestStatus, same status values; the requester ignores further responses after a terminal state
+|| Command-2 || *Command then *CommandStatus. Status values RECEIVED, ACCEPTED, REJECTED, CANCELED; an ACCEPTED command may return the resulting activity
+|| DataRecordManagementRequest-3 || A record message plus an ActionRequest-2 pair to create, change or delete records
+|| DataRecordListManagementRequest-3 || The same for lists of records, using the list types in the USSDS
+note: Roles: Producer / Consumer (single messages), Requester / Requestee, Commander / Commandee. Each pattern has a CERT (UNIS-nnnnnn) requiring components to follow the interaction figure. Exemplars and templates for the -3 patterns are marked to be supplied in a later release.
+
+== Compliance | UCI-STD-001 section 3
+|| Requirement || Statement
+|| USTD-000120 || A UCI Component shall use messages defined in the UCI Schema for interactions with other UCI components
+|| USTD-000629 || UCI message interactions shall conform to the CERTs in the UNIS
+|| USTD-000436 || UUIDs shall conform to RFC 4122 variant 1 or the nil UUID
+|| USTD-000673 || UUIDs shall use the RFC 4122 string representation
+|| USTD-000125 || The schema itself shall conform to the USSDS CERTs (a Consortium obligation)
+|| GUID USTD-000679 || Programs should follow the schema definitions including annotations and type restrictions; annotations are descriptive, not prescriptive
+note: Evidence is test results showing the component sends and receives the messages it uses and plays its role in each pattern. Check message validity with the XSD Schema Explorer's Validate tab or Traffic Lab's Analysis view.
+
+== Versioning | how to read uci:version
+|| Idea || Detail
+|| Release number || X.Y: X rises for significant changes, Y for others; the number does not measure impact on a single program
+|| Per component version || Every message, complexType and simpleType carries a uci:version attribute
+|| Change categories || Structural (not backward compatible: code impacted) and Optional (backward compatible: be aware)
+|| Traceability || Direct (the type itself changed) and Indirect (a type it uses or extends changed)
+|| Structural changes || Add a required element, lower maxOccurs, delete an element or PET, switch choice/sequence, change what a type extends
+|| Not tracked || New types, renames (treated as add plus delete), reordering elements or enum values, annotation changes
+|| Document revisions || Each document has a revision letter or number and a change history; the VDD records the set
+
+== 2.5 to 2.6 | measured with Schema Diff
+|| Change || Detail
+|| Messages || 3 added, none removed (722 to 725)
+|| Types || 39 added, 26 removed, 162 changed, 150 breaking
+|| Reach || 722 messages are affected through shared types
+|| Shared types || SecurityInformationType DeclassDate and CUI_DecontrolDate changed from dateTime to DateTimeType; WhitespaceVisibleString1024Type and 4096Type patterns went from {0,N} to {1,N} (zero-length strings no longer valid)
+|| Enums || New values such as OrbitRegimeEnum SUBORBITAL and VLEO; MessageTypeEnum SYSTEM_SCHEDULE*
+note: Load both XSD sets in Schema Diff and open Root causes to see which few types explain most of the 722.
+
+== UCI 3.0 | UCI-NSC-001 (expected early 2027)
+|| Change || Intent
+|| UCI Profiles || Message sets by mission function: Theater and Operational Planning, Tactical Planning, Execution and Dynamic Planning, Platform and Systems
+|| Core Message Set || The minimum required profile messages aggregated into authoritative common definitions
+|| Compliance || New requirements for Systems, Subsystems and Services, including a mandatory Interface Contract
+|| Versioning || Refined definitions and processes for standard and schema versioning
+|| Foundational data types || Consistent use of types across the schema
+note: This describes a planned release; details can change before it is issued.
+
+== Which tool for which task | dev-tools
+Toolbox: XSD Schema Explorer & Validator ## Search a release, read member documentation, trace type usage, generate samples, validate XML
+Toolbox: Message Builder ## Form generated from the schema with live XML, OMS JSON and validation
+Toolbox: Schema Diff ## Compare two releases; changes rated breaking, review or additive, with root causes
+Toolbox: UCI Traffic Lab ## Load a capture: bus, transactions (command and status chains), validity, latency, map, replay
+Toolbox: NATS Explorer ## Watch UCI messages on a NATS bus, decoded against the schema
+Toolbox: CAL Explorer (OWP) ## Connect to an LA-CAL server and publish or subscribe OMS JSON
+Toolbox: UUID, ULID & Password Generator ## UUIDs for identifiers
+Cheat sheet: XML, XPath & XSD ## xmllint validation, namespaces, schema building blocks
+xmllint --noout --schema <root>.xsd message.xml ## Validate a message against the release schema (CLI)
+Cheat sheet: OMS ## Which messages a compliant component must send
+Cheat sheet: AMS GRA ## Where UCI sits in the mission system architecture
+</script>
+<script src="../assets/sheet.js"></script></body></html>

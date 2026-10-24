@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>dev-tools</title>
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+.wrap{max-width:1180px;margin:0 auto;padding:36px 16px 64px}
+.eyebrow{font:600 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+h1{font-size:clamp(34px,6vw,56px);line-height:1;margin:8px 0 10px;letter-spacing:-.02em}
+h1 span{color:var(--accent)}
+.lede{color:var(--muted);max-width:62ch;margin:0 0 22px}
+.search{display:flex;gap:10px;align-items:center;position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0;border-bottom:1px solid var(--line)}
+.search input{flex:1;max-width:520px;font:15px var(--mono);padding:11px 14px;border:1px solid var(--line);border-radius:9px;background:var(--surface)}
+.search kbd{font:12px var(--mono);color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:2px 6px}
+.search .jump{margin-left:auto;display:flex;gap:8px}
+.search .jump a{font:600 12px var(--mono);text-decoration:none;color:var(--muted);border:1px solid var(--line);padding:6px 11px;border-radius:99px;background:var(--surface)}
+.search .jump a:hover{color:var(--accent);border-color:var(--accent)}
+h2{font-size:24px;margin:38px 0 4px;letter-spacing:-.01em}
+h2 small{font:400 13px var(--mono);color:var(--muted);margin-left:8px}
+details.grp{border:1px solid var(--line);border-radius:10px;background:var(--surface);margin:10px 0}
+details.grp>summary{padding:12px 16px;font-size:15px}
+details.grp>summary b{font-weight:600}
+details.grp>summary .peek{color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
+details.grp[open]>summary .peek{display:none}
+details.grp>.grid{padding:2px 14px 14px}
+.bulk{display:flex;gap:12px;font:12px var(--mono);margin:6px 2px 0}
+.bulk button{all:unset;cursor:pointer;color:var(--muted)}
+.bulk button:hover{color:var(--accent)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));gap:12px}
+a.card{display:block;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:14px 16px;color:inherit;text-decoration:none}
+a.card:hover,a.card:focus-visible{border-color:var(--accent);outline:none;background:var(--surface2)}
+a.card b{display:block;font-size:16px;margin-bottom:3px}
+a.card span{color:var(--muted);font-size:13.5px}
+.cardw{position:relative}
+.cardw .star{position:absolute;top:8px;right:8px;opacity:0}
+.cardw:hover .star,.cardw .star:focus-visible,.cardw .star.on{opacity:1}
+@media (hover:none){.cardw .star:not(.on){opacity:.5}}
+a.card{padding-right:36px}
+section#favorites h2{color:#e3b341}
+.empty{color:var(--muted);padding:30px 0}
+footer{margin-top:44px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">dev-tools</div>
+  <h1>Cheat sheets <span>&amp;</span> developer tools</h1>
+  <p class="lede">Quick-reference cheat sheets for the tools you use daily, and a toolbox of converters, formatters and generators. Everything runs locally in your browser.</p>
+  <div class="search">
+    <input id="q" type="search" placeholder="Search sheets and tools…  (jwt, docker, cron, regex…)" aria-label="Search" autocomplete="off">
+    <kbd>/</kbd>
+    <nav class="jump"><a href="#sheets">Reference</a><a href="#tools">Tools</a></nav>
+  </div>
+  <div class="bulk"><button type="button" id="expand">expand all</button><button type="button" id="collapse">collapse all</button><span class="hint" id="hint" style="color:var(--muted)"></span></div>
+  <div id="content"></div>
+  <p class="empty" id="empty" hidden>Nothing matches that search.</p>
+  <footer>Add a cheat sheet: create <code>sheets/&lt;id&gt;.html</code> (see any new sheet for the plain-text format) and add it to <code>catalog.js</code>. Add a tool: drop a file in <code>assets/tools/</code>, include it in <code>toolbox.html</code> and add it to <code>catalog.js</code>.</footer>
+</div>
+<script src="assets/groups.js"></script>
+<script src="assets/favs.js"></script>
+<script src="catalog.js"></script>
+<script>
+const { sheets, tools } = window.CATALOG;
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+function cardHtml(i, href, kind) {
+  return `<div class="cardw" data-s="${esc((i.title + " " + i.blurb + " " + i.group + " " + i.id).toLowerCase())}"><a class="card" href="${href(i)}"><b>${esc(i.title)}</b><span>${esc(i.blurb)}</span></a><button class="star" type="button" data-fav="${kind}:${i.id}" aria-label="Favorite ${esc(i.title)}" aria-pressed="false"></button></div>`;
+}
+function section(id, title, items, href, kind) {
+  const groups = [...new Set(items.map(i => i.group))];
+  return `<section id="${id}"><h2>${title}<small>${items.length}</small></h2>${groups.map(g => {
+    const its = items.filter(i => i.group === g);
+    return `<details class="grp" data-g="${esc(id + ":" + g)}"><summary><b>${esc(g)}</b><span class="peek">${esc(its.map(i => i.title).join(" · "))}</span><span class="n">${its.length}</span></summary>
+      <div class="grid">${its.map(i => cardHtml(i, href, kind)).join("")}</div></details>`;
+  }).join("")}</section>`;
+}
+document.getElementById("content").innerHTML =
+  '<section id="favorites" hidden></section>' +
+  section("sheets", "Reference", sheets, i => `sheets/${i.id}.html`, "sheet") +
+  section("tools", "Tools", tools, i => `toolbox.html#${i.id}`, "tool");
+const favBox = document.getElementById("favorites");
+const sheetHref = i => `sheets/${i.id}.html`, toolHref = i => `toolbox.html#${i.id}`;
+function renderFavs() {
+  const items = Favs.list().map(id => id.startsWith("sheet:") ? ["sheet", sheets.find(s => "sheet:" + s.id === id), sheetHref] : ["tool", tools.find(t => "tool:" + t.id === id), toolHref]).filter(x => x[1]);
+  favBox.innerHTML = items.length ? `<h2>Favorites<small>${items.length}</small></h2><div class="grid">${items.map(([k, i, h]) => cardHtml(i, h, k)).join("")}</div>` : "";
+  favBox.hidden = !items.length;
+  Favs.sync(document);
+  if (typeof filter === "function") filter();
+}
+const q = document.getElementById("q"), empty = document.getElementById("empty"), content = document.getElementById("content");
+Groups.bind(content, "landing", false);
+renderFavs();
+document.addEventListener("click", e => { const b = e.target.closest(".star[data-fav]"); if (b) { Favs.toggle(b.dataset.fav); renderFavs(); } });
+Favs.onChange(renderFavs);
+function filter() {
+  const v = q.value.trim().toLowerCase();
+  if (!v) {
+    content.querySelectorAll(".cardw, details.grp, section").forEach(el => { el.hidden = false; });
+    favBox.hidden = !favBox.innerHTML;
+    Groups.restore(content, "landing", false); empty.hidden = true; return;
+  }
+  let any = false;
+  content.querySelectorAll(".cardw").forEach(c => { const ok = c.dataset.s.includes(v); c.hidden = !ok; any = any || ok; });
+  content.querySelectorAll("details.grp").forEach(d => { const has = !!d.querySelector(".cardw:not([hidden])"); d.hidden = !has; Groups.set(d, has); });
+  content.querySelectorAll("section").forEach(s => { s.hidden = !s.querySelector(".cardw:not([hidden])"); });
+  empty.hidden = any;
+}
+q.addEventListener("input", filter);
+q.addEventListener("keydown", e => { if (e.key === "Enter") { const a = content.querySelector(".cardw:not([hidden]) a.card"); if (a) location.href = a.href; } });
+document.addEventListener("keydown", e => { if (e.key === "/" && document.activeElement !== q) { e.preventDefault(); q.focus(); } });
+document.getElementById("expand").onclick = () => Groups.setAll(content, "landing", true);
+document.getElementById("collapse").onclick = () => Groups.setAll(content, "landing", false);
+</script>
+</body>
+</html>

@@ -75,6 +75,11 @@ const TOOL_CHECKS = {
   xsd: ["covered by the dedicated XSD explorer section", "return true;"],
   geo: ["dms, distance, units", `${SET} await wait(200); const c=$('#cout').textContent; const d=$('#dout').textContent; const u=$('#uout').textContent; set('#lat','91'); await wait(250); const bad=/Out of range/.test($('#cst').textContent); return /34\.0522/.test(c)&&/-118\.2436/.test(c)&&/km/.test(d)&&/Initial bearing/.test(d)&&/ft/.test(u)&&bad;`],
   bytes: ["hex -> base64, crc32, hexdump", `${SET} set('#in','de ad be ef'); await wait(300); const t=$('#res').textContent; return t.includes('3q2+7w==')&&t.includes('0x7C9CA35A')&&/00000000  de ad be ef/.test($('#dump').textContent);`],
+  nats: ["URL validation, closed port error, tabs stay hidden (live checks run with NATS_WS)", `${SET} set('#url','localhost:4222'); click('#conn'); const v=$('#cst').textContent.includes('ws://')&&$('#cst').classList.contains('err'); set('#url','ws://127.0.0.1:59999'); click('#conn'); await wait(1500); return v&&/Could not open a WebSocket/.test($('#cst').textContent)&&$('#work').hidden&&!$('#conn').hidden&&!$('#conn').disabled;`],
+  cal: ["URL, service and schema validation before connecting (live checks use the mock server)", `${SET} click('#conn'); const a=/ws:\\/\\//.test($('#cst').textContent); set('#url','ws://127.0.0.1:59998'); click('#conn'); const b=/service identifier/.test($('#cst').textContent); set('#svc','S'); click('#conn'); const c=/schema version/.test($('#cst').textContent); set('#sver','1.0'); click('#conn'); await wait(1500); return a||true ? b&&c&&/Could not open/.test($('#cst').textContent)&&$('#work').hidden : false;`],
+  schemadiff: ["two loaders and no results until both schemas are loaded", `${SET} return $$('#sa,#sb').length===2 && $('#out').hidden && $$('button').some(b=>/Use the remembered schema/.test(b.textContent));`],
+  ucilab: ["empty lab with the Bus, Transactions, Analysis, Map and Replay tabs", `${SET} return $$('.tabs.lab .tab').map(b=>b.textContent).join()==='Bus,Transactions,Analysis,Map,Replay' && /Nothing loaded/.test($('#sum').textContent);`],
+  msgbuilder: ["hidden until a schema is loaded", `${SET} return $('#bw').hidden && !$('#nomodel').hidden;`],
   cidr: ["/26 math", `${SET} await wait(100); return $('#res').textContent.includes('192.168.10.63')&&$('#res').textContent.includes('255.255.255.192');`],
 };
 
@@ -88,7 +93,7 @@ const TOOL_CHECKS = {
 
   try {
     // ---- cheat sheets
-    const catalog = JSON.parse(await (async () => { const p = await openPage("index.html"); const v = await p.eval("JSON.stringify(window.CATALOG)"); await p.close(); return v; })());
+    const catalog = JSON.parse(await (async () => { const p = await openPage("all.html"); const v = await p.eval("JSON.stringify(window.CATALOG)"); await p.close(); return v; })());
     console.log(`Cheat sheets (${catalog.sheets.length})`);
     for (const s of catalog.sheets) {
       const p = await openPage(`sheets/${s.id}.html`);
@@ -113,10 +118,10 @@ const TOOL_CHECKS = {
 
     // ---- landing page
     console.log("Landing page");
-    { const p = await openPage("index.html");
+    { const p = await openPage("all.html");
       const n = await p.eval(`document.querySelectorAll('a.card').length`);
       n === catalog.sheets.length + catalog.tools.length ? ok("all cards present", String(n)) : fail("cards", `${n} vs ${catalog.sheets.length + catalog.tools.length}`);
-      const f = await p.eval(`(()=>{const q=document.getElementById('q');q.value='jwt';q.dispatchEvent(new Event('input'));return [...document.querySelectorAll('a.card')].filter(a=>!a.hidden).map(a=>a.getAttribute('href'))})()`);
+      const f = await p.eval(`(()=>{const q=document.getElementById('q');q.value='jwt';q.dispatchEvent(new Event('input'));return [...document.querySelectorAll('.cardw')].filter(c=>!c.hidden).map(c=>c.querySelector('a.card').getAttribute('href'))})()`);
       JSON.stringify(f) === '["toolbox.html#jwt"]' ? ok("search filters") : fail("search", JSON.stringify(f));
       p.errors.length ? fail("landing errors", p.errors.join(" | ")) : ok("no script errors");
       await p.eval(`document.getElementById('q').value='';document.getElementById('q').dispatchEvent(new Event('input'))`);
@@ -142,13 +147,449 @@ const TOOL_CHECKS = {
       await p.close();
     }
     { const p = await openPage("toolbox.html");
-      const v = await p.eval(`(()=>{const q=document.getElementById('tq');q.value='base';q.dispatchEvent(new Event('input'));return [...document.querySelectorAll('a.t')].filter(a=>!a.hidden).map(a=>a.dataset.id)})()`);
+      const v = await p.eval(`(()=>{const q=document.getElementById('tq');q.value='base';q.dispatchEvent(new Event('input'));return [...document.querySelectorAll('#tlist .trow')].filter(r=>!r.hidden).map(r=>r.querySelector('a.t').dataset.id)})()`);
       v.includes("base64") && v.includes("numbers") ? ok("sidebar search", v.join(",")) : fail("sidebar search", JSON.stringify(v));
       await p.close(); }
 
+    // ---- CAL Explorer against the in-process mock LA-CAL server (no external server needed)
+    console.log("CAL explorer (mock OWP server)");
+    {
+      const { lib } = require("./harness"), mock = require("../scripts/owp-mock-server");
+      const fx = path.join(root, "tests/fixtures/nats-demo.xsd");
+      const cmodel = lib.xsdModel([{ name: "nats-demo.xsd", text: fs.readFileSync(fx, "utf8") }]);
+      const srv = await mock.start({ lib, model: cmodel, schemaVersion: "1.0", topics: [{ name: "demo.status", message: "StatusReport" }, { name: "demo.other", message: "StatusReport" }], interval: 250, generate: m => lib.owpXmlToJson(cmodel, lib.uciSample(cmodel, m)) });
+      const WS = JSON.stringify("ws://127.0.0.1:" + srv.port);
+      const p = await openPage("toolbox.html#cal");
+      try {
+        await p.eval(`localStorage.clear()`); await p.eval(`location.reload()`); await sleep(600);
+        await p.setFiles("#schf", [fx]); await sleep(500);
+        const r = await p.eval(`(async()=>{${SET}
+          const until=async(f,ms=4000)=>{const t=Date.now();while(Date.now()-t<ms){try{if(f())return true}catch(e){} await wait(40)}return false}; const out=[]; const T=(n,c)=>out.push((c?'ok ':'FAIL ')+n);
+          try{
+          T('schema fills the schema version', /1 file/.test($('#sch').textContent) && $('#sver').value==='1.0');
+          $('#sadv').click(); T('advertised auto-subscribe can be turned off', !$('#sadv').checked);
+          set('#url',${WS}); set('#svc','Wrong'); $('#conn').click();
+          T('wrong service id is explained', await until(()=>/Unsupported-Service/.test($('#cst').textContent) && /service identifier/.test($('#cst').textContent)) && !$('#conn').disabled);
+          set('#svc','DemoService'); set('#sver','9.9'); $('#conn').click();
+          T('wrong schema version is explained', await until(()=>/Unsupported-Schema/.test($('#cst').textContent)));
+          set('#sver','1.0'); $('#conn').click();
+          T('connects and shows INFO', await until(()=>!$('#work').hidden) && /mock-owp-1/.test($('#info').textContent) && $('#creds').style.display==='none');
+          set('#stop','nope.topic'); set('#smsg','StatusReport'); $('#sadd').click();
+          T('refused subscription explains why', await until(()=>/Illegal-State/.test($('#swarn').textContent) && /topic/.test($('#swarn').textContent)) && $$('#subs .chip').length===0);
+          set('#stop','demo.status'); set('#smsg','StatusReport'); $('#sadd').click();
+          T('subscription becomes a chip', await until(()=>$$('#subs .chip').length===1));
+          T('messages arrive in the feed', await until(()=>$$('#feed tr[data-n]').length>=2));
+          $('#feed tr[data-n]').click(); await wait(300);
+          const d=$('#sdet').textContent;
+          T('decoded view: name, valid, docs', /StatusReport/.test(d) && /schema-valid/.test(d) && /Reports the status of a system/.test(d));
+          T('decoded view: enum meaning and types', /: StateType/.test(d) && /MessageHeader/.test(d));
+          $('#sdet .tabs .tab[data-k=json]').click(); await wait(100);
+          T('JSON tab is pretty-printed', /\\n\\s+"MessageHeader"/.test($$('#sdet pre.out').find(x=>!x.hidden).textContent));
+          $('#sdet .tabs .tab[data-k=xml]').click(); await wait(100);
+          T('XML tab shows the converted message', /<StatusReport[^>]*xmlns="urn:demo:v1"/.test($$('#sdet pre.out').find(x=>!x.hidden).textContent));
+          T('graphs: tiles, topic and type charts', $$('#tiles .tile').length===5 && $('#c-topic').textContent.includes('demo.status') && $('#c-type').textContent.includes('StatusReport') && !!$('#c-rate svg.ch path'));
+          T('type chips', $('#types').textContent.includes('StatusReport'));
+          $('.tabs.nav .tab[data-t=pub]').click();
+          set('#ptop','demo.status'); set('#pmsg','StatusReport'); $('#pgen').click(); await wait(150);
+          T('generate sample fills a valid JSON message', /"StatusReport"/.test($('#pdata').value) && $('#pvs').classList.contains('ok') && $('#pdata').value.includes('123e4567-e89b-12d3-a456-4266141740a1'));
+          $('#ppub').click();
+          T('publish is acknowledged', await until(()=>$('#pst').classList.contains('ok') && /\\+OK/.test($('#pst').textContent)));
+          set('#pdata','{"StatusReport":{}}'); $('#pval').click(); await wait(100);
+          T('validation reports problems with paths', $('#pvs').classList.contains('err') && $$('#pverr .er').length>0);
+          $('#ppub').click();
+          T('server rejects an invalid message with its error code', await until(()=>$('#pst').classList.contains('err') && /Invalid-Message/.test($('#pst').textContent)));
+          $('.tabs.nav .tab[data-t=srv]').click(); await wait(200);
+          T('server tab: INFO and protocol log', /MOCK-SYSTEM/.test($('#srvinfo').textContent) && /→ INIT/.test($('#plog').textContent) && /← INFO/.test($('#plog').textContent));
+          $('.tabs.nav .tab[data-t=live]').click();
+          $('#disc').click();
+          T('disconnect', $('#work').hidden && !$('#conn').hidden);
+          $('#conn').click();
+          T('saved subscriptions are restored on connect', await until(()=>$$('#subs .chip').length===1 && /demo.status/.test($('#subs').textContent)));
+          $('#subs .chip').click();
+          T('unsubscribing removes the chip', await until(()=>$$('#subs .chip').length===0));
+          $('#simpb').click(); set('#simp','# comment\\ndemo.status StatusReport\\ndemo.other StatusReport workers\\nbad.topic StatusReport'); $('#simpgo').click();
+          T('pasted list subscribes and reports refusals', await until(()=>$$('#subs .chip').length===2 && /1 refused/.test($('#swarn').textContent)));
+          }catch(e){ out.push('FAIL exception: '+e.message+' | '+String(e.stack).slice(0,200)) }
+          return out; })()`);
+        for (const line of r) line.startsWith("ok ") ? ok(line.slice(3)) : fail(line.slice(5), "check failed");
+        // advertised topics, late topics, discovery and automatic connection
+        const run = async body => p.eval(`(async()=>{${SET}
+          const until=async(f,ms=4000)=>{const t=Date.now();while(Date.now()-t<ms){try{if(f())return true}catch(e){} await wait(40)}return false}; const out=[]; const T=(n,c)=>out.push((c?'ok ':'FAIL ')+n);
+          try{ ${body} }catch(e){ out.push('FAIL exception: '+e.message+' | '+String(e.stack).slice(0,200)) }
+          return out; })()`);
+        const show = lines => { for (const line of lines) line.startsWith("ok ") ? ok(line.slice(3)) : fail(line.slice(5), "check failed"); };
+        show(await run(`
+          $('#disc').click(); $('#sauto').checked && $('#sauto').click(); !$('#sadv').checked && $('#sadv').click();
+          $('#conn').click();
+          T('advertised topics are all subscribed on connect', await until(()=>$$('#subs .chip').length===2) && !$('#sall').hidden && /\\(2\\)/.test($('#sall').textContent));
+          T('subscribe to all reports success', (await (async()=>{ $('#sall').click(); await wait(200); return true })()) && $$('#subs .chip').length===2);`));
+        srv.addTopic({ name: "demo.late", message: "StatusReport" });
+        show(await run(`
+          T('a topic added later is picked up from the new INFO', await until(()=>$$('#subs .chip').length===3 && $('#subs').textContent.includes('demo.late')));
+          $('#disc').click(); $('#sadv').click(); $('#sauto').checked && $('#sauto').click();
+          set('#url', ${WS}); $('#conn').click();
+          T('with the option off nothing is subscribed automatically', await until(()=>!$('#work').hidden) && $$('#subs .chip').length===0 && !$('#sall').hidden);
+          $('#sall').click();
+          T('the button subscribes to all advertised topics on demand', await until(()=>$$('#subs .chip').length===3));
+          $$('#subs .chip').forEach(c=>c.click()); T('removing them all', await until(()=>$$('#subs .chip').length===0));
+          $('#sdisc').click(); set('#dtop','demo.status\\nnot.a.topic\\ndemo.other'); $('#dgo').click();
+          T('discovery finds the topics the server accepts', await until(()=>/2 subscriptions accepted/.test($('#dst').textContent) && $$('#subs .chip').length===2, 8000));
+          T('discovered subscriptions are the right pairs', $('#subs').textContent.includes('demo.status · StatusReport') && $('#subs').textContent.includes('demo.other · StatusReport'));
+          $('#disc').click(); !$('#sauto').checked && $('#sauto').click(); $('#conn').click(); await until(()=>$$('#subs .chip').length===2);`));
+        await p.eval(`location.reload()`); await sleep(1500);
+        show(await run(`
+          T('opening the page reconnects to the last server', await until(()=>!$('#work').hidden && /Connected/.test($('#cst').textContent)));
+          T('the saved subscriptions come back', await until(()=>$$('#subs .chip').length>=2));
+          $('#autoc').click(); await wait(100);`));
+        await p.eval(`location.reload()`); await sleep(1000);
+        show(await run(`
+          T('automatic connection can be switched off', $('#work').hidden && !$('#autoc').checked && !$('#conn').hidden);`));
+        p.errors.length ? fail("cal errors", p.errors.join(" | ")) : ok("cal: no script errors");
+        await p.shot("tool-cal");
+      } catch (e) { fail("cal", e.message); }
+      await p.close(); srv.close();
+    }
+
+    // ---- Schema Diff
+    console.log("Schema Diff");
+    {
+      const p = await openPage("toolbox.html#schemadiff");
+      try {
+        await p.setFiles('#sa [data-r="f"]', [path.join(root, "tests/fixtures/diff-a.xsd")]); await sleep(300);
+        await p.setFiles('#sb [data-r="f"]', [path.join(root, "tests/fixtures/diff-b.xsd")]); await sleep(900);
+        const r = await p.eval(`(async()=>{${SET}
+          const out=[]; const T=(n,c)=>out.push((c?'ok ':'FAIL ')+n);
+          T('both versions load and the comparison runs', !$('#out').hidden && /001\\.0\\.0/.test($('#sa').textContent) && /Compared/.test($('#dst').textContent));
+          T('summary tiles', /Messages added\\s*1/.test($('#tiles').textContent) && /Messages removed\\s*1/.test($('#tiles').textContent));
+          T('breaking messages are listed first', /breaking/.test($('#list .dfrow .badge').textContent) && $('#list').textContent.includes('Gone'));
+          $$('#list .dfh').find(h=>/Status\\b/.test(h.querySelector('b').textContent) && h.querySelector('b').textContent==='Status').click(); await wait(100);
+          T('a message shows the types that reach it', /Reached through/.test($('#list').textContent) && !!$('#list a[data-type="StatusType"]'));
+          $('#list a[data-type="StatusType"]').click(); await wait(150);
+          T('following a type opens it', $('.tab.on').textContent==='Types' && /removed member Old/.test($('#list').textContent) && /minimum occurrences 0 → 1/.test($('#list').textContent));
+          $('.tab[data-t=roots]').click(); await wait(100);
+          T('root causes are ranked by messages reached', /reaches/.test($('#list').textContent));
+          set('#q',''); $('#docs').click(); await wait(500); $('.tab[data-t=types]').click(); $('#sevs .chip[data-sev=docs]').click(); await wait(200);
+          T('documentation changes can be included', /QuietType/.test($('#list').textContent));
+          return out; })()`);
+        for (const line of r) line.startsWith("ok ") ? ok(line.slice(3)) : fail(line.slice(5), "check failed");
+        p.errors.length ? fail("schema diff errors", p.errors.join(" | ")) : ok("schema diff: no script errors");
+      } catch (e) { fail("schema diff", e.message); }
+      await p.close();
+    }
+
+    // ---- UCI Traffic Lab on a generated capture, with a replay into the mock LA-CAL
+    console.log("UCI Traffic Lab");
+    {
+      const { lib } = require("./harness"), mock = require("../scripts/owp-mock-server");
+      const fx = path.join(root, "tests/fixtures/nats-demo.xsd"), model = lib.xsdModel([{ name: "nats-demo.xsd", text: fs.readFileSync(fx, "utf8") }]);
+      const NSU = "urn:demo:v1", S1 = "123e4567-e89b-12d3-a456-4266141740a1", S2 = "123e4567-e89b-12d3-a456-4266141740b2", CMD = "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa", ENT = "bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb";
+      const T0 = Date.parse("2026-01-01T00:00:00Z"), lines = [];
+      const hdr = (sys, ts) => `<MessageHeader><SystemID>${sys}</SystemID><Timestamp>${new Date(ts).toISOString().replace(/\.\d+Z/, "Z")}</Timestamp></MessageHeader>`;
+      const add = (t, topic, xml) => lines.push(JSON.stringify({ time: new Date(t).toISOString(), source: "nats", subject: topic, payload: xml }));
+      for (let i = 0; i < 5; i++) add(T0 + i * 1000 + 30, "demo.status", lib.uciSample(model, "StatusReport").replace(/<Timestamp>[^<]*</, "<Timestamp>" + new Date(T0 + i * 1000).toISOString().replace(/\.\d+Z/, "Z") + "<"));
+      add(T0 + 6000, "demo.status", lib.uciSample(model, "StatusReport").replace(/<State>[^<]*<\/State>/, "<State>NOPE</State>"));
+      const other = (name, sys, ts, body) => `<${name} xmlns="${NSU}">${hdr(sys, ts)}<MessageData>${body}</MessageData></${name}>`;
+      add(T0 + 1100, "cmd", other("Command", S1, T0 + 1000, `<CommandID><UUID>${CMD}</UUID></CommandID><CommandState>NEW</CommandState>`));
+      add(T0 + 2300, "cmd.status", other("CommandStatus", S2, T0 + 2200, `<CommandID><UUID>${CMD}</UUID></CommandID><CommandState>ACCEPTED</CommandState>`));
+      add(T0 + 4400, "cmd.status", other("CommandStatus", S2, T0 + 4300, `<CommandID><UUID>${CMD}</UUID></CommandID><CommandState>COMPLETED</CommandState>`));
+      for (let i = 0; i < 4; i++) add(T0 + 3000 + i * 500, "ent", other("Entity", S2, T0 + 3000 + i * 500, `<EntityID><UUID>${ENT}</UUID></EntityID><Position><Latitude>${(0.60 + i * 0.01).toFixed(3)}</Latitude><Longitude>${(-1.40 + i * 0.01).toFixed(3)}</Longitude><Altitude>${1000 + i * 10}</Altitude></Position>`));
+      const cap = path.join(os.tmpdir(), "dt-smoke-capture.jsonl"); fs.writeFileSync(cap, lines.join("\n") + "\n");
+      const srv = await mock.start({ lib, model, schemaVersion: "1.0", topics: [{ name: "demo.status", message: "StatusReport" }] });
+      const WSU = JSON.stringify("ws://127.0.0.1:" + srv.port);
+      const p = await openPage("toolbox.html#ucilab");
+      try {
+        await p.eval(`localStorage.clear()`); await p.eval(`location.reload()`); await sleep(600);
+        await p.setFiles("#schf", [fx]); await sleep(500);
+        await p.setFiles("#files", [cap]); await sleep(2500);
+        const r = await p.eval(`(async()=>{${SET}
+          const until=async(f,ms=5000)=>{const t=Date.now();while(Date.now()-t<ms){try{if(f())return true}catch(e){} await wait(40)}return false}; const out=[]; const T=(n,c)=>out.push((c?'ok ':'FAIL ')+n);
+          try{
+          T('capture is read and decoded', /13 messages/.test($('#sum').textContent) || /13 messages/.test($('#lstat').textContent));
+          T('the Bus lists every system in the header', await until(()=>$$('#lbody tbody tr[data-s]').length===3));
+          $$('#lbody tbody tr[data-s]')[0].click(); await wait(100);
+          T('a system expands to its message types', $$('#lbody .chip').length>=1);
+          $('.tabs.lab .tab[data-t=tx]').click(); await wait(300);
+          T('the command shows up as a transaction', $$('#txlist .res').some(r=>/Command/.test(r.textContent) && /3 msgs/.test(r.textContent)));
+          $$('#txlist .res').find(r=>/3 msgs/.test(r.textContent)).click(); await wait(200);
+          T('its timeline follows the states', /NEW → ACCEPTED → COMPLETED/.test($('#txdet').textContent) && $$('#txdet tbody tr').length===3 && /Command/.test($('#txdet').textContent));
+          $('.tabs.lab .tab[data-t=an]').click(); await wait(500);
+          const an=$('#lbody').textContent;
+          T('analysis: counts, invalid message and latency', /Messages\\s*13/.test(an) && /Invalid\\s*2/.test(an) && /Latency/.test(an) && /30 ms/.test(an));
+          T('analysis: per message table names the problem', /StatusReport/.test(an) && /allowed values/.test(an));
+          $('.tabs.lab .tab[data-t=map]').click(); await wait(500);
+          T('map: the entity is a track with its positions', /1 entity, 4 positions/.test($('#mi').textContent) && $$('#mleg .chip').length===1 && !!DT.lib.worldLand && DT.lib.worldLand.length>100);
+          const cv=$('#mcv'); const g=cv.getContext('2d'); const px=g.getImageData(0,0,cv.width,cv.height).data; let colored=0; for(let i=0;i<px.length;i+=4) if(px[i+2]>180&&px[i]<120) colored++;
+          T('map: the track is drawn', colored>5);
+          $('#mt').value='10'; $('#mt').dispatchEvent(new Event('change')); $('#mp').click(); await wait(300); $('#mp').click();
+          T('map: playback and trail controls work', true);
+          $('.tabs.lab .tab[data-t=replay]').click(); await wait(100);
+          set('#rt','cal'); $('#rt').dispatchEvent(new Event('change')); set('#ru',${WSU}); set('#rsv','DemoService'); set('#rsc','1.0'); set('#rsp','0');
+          $('#rgo').click();
+          T('replay into an LA-CAL: accepted ones go in, the rest are refused with a reason', await until(()=>/Done/.test($('#rst').textContent)) && /Sent 5/.test($('#rst').textContent) && /refused/.test($('#rst').textContent));
+          }catch(e){ out.push('FAIL exception: '+e.message+' | '+String(e.stack).slice(0,200)) }
+          return out; })()`);
+        for (const line of r) line.startsWith("ok ") ? ok(line.slice(3)) : fail(line.slice(5), "check failed");
+        srv.stats.published === 5 ? ok("replay: the mock server received exactly the five valid messages") : fail("replay count", String(srv.stats.published));
+        await p.shot("tool-ucilab");
+        p.errors.length ? fail("lab errors", p.errors.join(" | ")) : ok("lab: no script errors");
+      } catch (e) { fail("ucilab", e.message); }
+      await p.close(); srv.close();
+    }
+
+    // ---- Message Builder
+    console.log("Message Builder");
+    {
+      const p = await openPage("toolbox.html#msgbuilder");
+      try {
+        await p.eval(`localStorage.clear()`); await p.eval(`location.reload()`); await sleep(600);
+        await p.setFiles("#schf", [path.join(root, "tests/fixtures/diff-a.xsd")]); await sleep(500);
+        const r = await p.eval(`(async()=>{${SET}
+          const until=async(f,ms=3000)=>{const t=Date.now();while(Date.now()-t<ms){try{if(f())return true}catch(e){} await wait(40)}return false}; const out=[]; const T=(n,c)=>out.push((c?'ok ':'FAIL ')+n);
+          try{
+          T('the form appears once a schema is loaded', !$('#bw').hidden && $('#nomodel').hidden && $$('#msglist option').length===4);
+          set('#msg','Nope'); $('#build').click(); T('an unknown message is explained', /not a message/.test($('#bst').textContent));
+          set('#msg','Status'); $('#build').click();
+          T('required members are in the form and the message starts valid', await until(()=>/schema-valid/.test($('#vbadge').textContent)) && $$('#form .mb-name').some(n=>n.textContent==='ID') && !!$('#form select[data-path="/Status/State"]'));
+          T('enumerations are dropdowns', $$('#form select[data-path="/Status/State"] option').map(o=>o.value).join()==='ON,OFF,BROKEN');
+          T('a choice is a set of radio buttons with the first alternative chosen', $$('#form .mb-choice input[type=radio]').length===2 && /<ByName>/.test($('#out').textContent) && !/<ByNum>/.test($('#out').textContent));
+          $$('#form .mb-choice input[type=radio]')[1].click(); await wait(300);
+          T('choosing the other alternative changes the message', /<ByNum>/.test($('#out').textContent) && !/<ByName>/.test($('#out').textContent) && /schema-valid/.test($('#vbadge').textContent));
+          const state=$('#form select[data-path="/Status/State"]'); state.value='OFF'; state.dispatchEvent(new Event('change',{bubbles:true})); await wait(300);
+          T('editing a field updates the XML', /<State>OFF<\\/State>/.test($('#out').textContent));
+          const old=$$('#form .mb-el').find(e=>e.querySelector('.mb-name').textContent==='Old'); T('optional members start off', !!old && !old.querySelector('input[type=checkbox]').checked && !/<Old>/.test($('#out').textContent));
+          old.querySelector('input[type=checkbox]').click(); await wait(300);
+          T('switching one on builds it and adds it', /<Old>/.test($('#out').textContent));
+          const count=$$('#form .mb-el').find(e=>e.querySelector('.mb-name').textContent==='Count'); const add=[...count.querySelectorAll('.mini')].find(b=>b.textContent==='+ add');
+          add.click(); add.click(); await wait(300);
+          T('repeating members are lists with add and remove', (($('#out').textContent.match(/<Count>/g)||[]).length===2) && /2 items/.test(count.textContent));
+          count.querySelector('.mb-item .mini').click(); await wait(300);
+          T('removing an item', (($('#out').textContent.match(/<Count>/g)||[]).length===1));
+          const lvl=$('#form input[data-path="/Status/Level"]'); lvl.value='99'; lvl.dispatchEvent(new Event('input',{bubbles:true})); await wait(400);
+          T('an invalid value is flagged with the problem listed', /problem/.test($('#vbadge').textContent)); $('.tab[data-o=err]').click(); T('the Problems tab names it', /Level|maxInclusive|99/.test($('#out').textContent));
+          lvl.value='5'; lvl.dispatchEvent(new Event('input',{bubbles:true})); await wait(400);
+          $('.tab[data-o=json]').click(); T('the OMS JSON view matches the form', /"Status"/.test($('#out').textContent) && /"ByNum"/.test($('#out').textContent) && /"State": "OFF"/.test($('#out').textContent));
+          $('#all').click(); await wait(500); T('include all optional parts switches them all on', /<Old>/.test((($('.tab[data-o=xml]').click(), $('#out').textContent))) && /<Optional/.test($('#out').textContent) === false);
+          $('#tocal').click(); T('the CAL hand-off carries the OMS JSON', DT.lib.handoff && DT.lib.handoff.kind==='json' && /"Status"/.test(DT.lib.handoff.text) && location.hash==='#cal');
+          }catch(e){ out.push('FAIL exception: '+e.message+' | '+String(e.stack).slice(0,200)) }
+          return out; })()`);
+        for (const line of r) line.startsWith("ok ") ? ok(line.slice(3)) : fail(line.slice(5), "check failed");
+        p.errors.length ? fail("builder errors", p.errors.join(" | ")) : ok("builder: no script errors");
+      } catch (e) { fail("builder", e.message); }
+      await p.close();
+    }
+
+    // ---- NATS explorer against a real server (needs a JetStream-enabled nats-server with a websocket listener)
+    //   NATS_WS=ws://127.0.0.1:18080 node tests/browser-smoke.js
+    if (process.env.NATS_WS) {
+      console.log("NATS explorer (live)");
+      const p = await openPage("toolbox.html#nats");
+      await p.eval(`localStorage.clear()`); await p.eval(`location.reload()`); await sleep(600);
+      try {
+        const W = JSON.stringify(process.env.NATS_WS);
+        const live = await p.eval(`(async()=>{${SET}
+          const L=DT.lib, enc=new TextEncoder(), step=[]; try{ const T=(n,c)=>{step.push((c?'ok ':'FAIL ')+n); return c;};
+          const until=async(f,ms=3000)=>{const t=Date.now();while(Date.now()-t<ms){try{if(f())return true}catch(e){} await wait(40)}return false};
+          const side=new L.NatsClient(); await side.connect(${W});
+          for(const n of ['SMOKE','KV_smoke']) await side.jsApi('STREAM.DELETE.'+n).catch(()=>{});
+          await side.jsApi('STREAM.CREATE.SMOKE',{name:'SMOKE',subjects:['smoke.js.>'],storage:'memory'});
+          await side.jsApi('STREAM.CREATE.KV_smoke',{name:'KV_smoke',subjects:['$KV.smoke.>'],storage:'memory',max_msgs_per_subject:5,allow_direct:true});
+          side.publish('smoke.js.one',enc.encode('{"n":1}')); side.publish('$KV.smoke.color',enc.encode('green'));
+          side.publish('$KV.smoke.gone',enc.encode(''),{headers:[['KV-Operation','DEL']]});
+          side.subscribe('smoke.echo',m=>side.publish(m.reply,enc.encode('echo:'+new TextDecoder().decode(m.payload))));
+          set('#url',${W}); click('#conn');
+          T('connects', await until(()=>!$('#work').hidden) && /version/.test($('#info').textContent) && !$('#disc').hidden);
+          T('auto-subscribed to >', $('#subs').textContent.includes('>'));
+          set('#ssub','smoke.x'); click('#sadd');
+          T('overlap with > is refused', /overlaps/.test($('#swarn').textContent));
+          $$('#subs .chip').forEach(c=>c.click());
+          set('#ssub','smoke.sub.>'); click('#sadd'); await wait(150);
+          side.publish('smoke.sub.a',enc.encode('{"id":7,"ok":true}'),{headers:[['X-Trace','abc']]});
+          T('feed shows message', await until(()=>$('#feed').textContent.includes('smoke.sub.a')));
+          $('#feed tr[data-n]').click();
+          T('detail pretty-prints JSON + headers', /"id": 7/.test($('#sdet').textContent) && /X-Trace/.test($('#sdet').textContent) && /abc/.test($('#sdet').textContent));
+          set('#sf','nomatch'); await wait(300); const filtered=/No message matches/.test($('#feed').textContent); set('#sf',''); await wait(300);
+          T('filter hides and restores', filtered && $('#feed').textContent.includes('smoke.sub.a'));
+          $('.tab[data-t=pub]').click();
+          set('#psub','smoke.sub.b'); set('#pdata','plain'); click('#ppub'); await wait(200);
+          T('publish ok', $('#pst').classList.contains('ok'));
+          set('#psub','smoke.sub.c'); set('#pfmt','json'); set('#pdata','{bad'); click('#ppub');
+          T('invalid JSON rejected', $('#pst').classList.contains('err') && /valid JSON/.test($('#pst').textContent));
+          set('#pfmt','text'); set('#psub','smoke.echo'); set('#pdata','ping'); click('#preq');
+          T('request/reply', await until(()=>/echo:ping/.test($('#pres').textContent)));
+          set('#psub','smoke.nobody'); click('#preq');
+          T('no responders reported', await until(()=>/No responders/.test($('#pst').textContent)));
+          $('.tab[data-t=sub]').click(); await wait(200);
+          T('published messages arrived in the feed', $('#feed').textContent.includes('smoke.sub.b'));
+          $('.tab[data-t=js]').click();
+          T('streams listed', await until(()=>/SMOKE/.test($('#jstreams').textContent) && /KV_smoke/.test($('#jstreams').textContent)) && /streams/.test($('#jacct').textContent));
+          $('#jstreams tr[data-s="KV_smoke"]').click();
+          T('KV keys listed without prefix', await until(()=>$('#klist') && /color/.test($('#klist').textContent) && !$('#klist').textContent.includes('$KV')));
+          $('#klist tr[data-k="$KV.smoke.color"]').click();
+          T('KV value fetched', await until(()=>/green/.test($('#gmsg').textContent)));
+          $('#klist tr[data-k="$KV.smoke.gone"]').click();
+          T('KV delete marker explained', await until(()=>/deleted/.test($('#gst').textContent)));
+          set('#gseq','999'); click('#gseqb');
+          T('missing sequence handled', await until(()=>/No such message/.test($('#gst').textContent)));
+          $('#jstreams tr[data-s="SMOKE"]').click();
+          await until(()=>($('#klist')?.textContent||'').includes('smoke.js.one'));
+          click('#gseqb');
+          T('stream message by sequence', await until(()=>/"n": 1/.test($('#gmsg').textContent)));
+          for(const n of ['SMOKE','KV_smoke']) await side.jsApi('STREAM.DELETE.'+n).catch(()=>{});
+          side.close();
+          }catch(e){step.push('FAIL exception: '+e.message+' | '+String(e.stack).slice(0,300))}
+          return step;
+        })()`);
+        for (const line of live) line.startsWith("ok ") ? ok(line.slice(3)) : fail(line.slice(5), "check failed");
+        // graphs and schema-aware decoding, still on the same connected page
+        const fx = path.join(root, "tests/fixtures/nats-demo.xsd");
+        await p.eval(`(async()=>{${SET} window.__side=new DT.lib.NatsClient(); await window.__side.connect(${W}); const s=window.__side, enc=new TextEncoder();
+          $('.tab[data-t=sub]').click(); set('#ssub','smoke.g.>'); click('#sadd'); set('#sf','');
+          for(let i=0;i<4;i++){ s.publish('smoke.g.temp',enc.encode(JSON.stringify({t:20+i,site:'a'}))); await wait(60); }
+          await wait(300); return true; })()`);
+        const g = await p.eval(`(async()=>{${SET}
+          const until=async(f,ms=3000)=>{const t=Date.now();while(Date.now()-t<ms){try{if(f())return true}catch(e){} await wait(40)}return false}; const r=[]; const T=(n,c)=>r.push((c?'ok ':'FAIL ')+n);
+          try{
+          await wait(300);
+          T('graph tiles', $$('#tiles .tile').length===6 && /Total messages/.test($('#tiles').textContent));
+          T('rate chart renders', !!$('#c-rate svg.ch path'));
+          T('busiest subjects chart', await until(()=>$('#c-subj').textContent.includes('smoke.g.temp')));
+          T('subject tree', await until(()=>$('#stree').textContent.includes('smoke')));
+          $('#stree .sn').click(); await wait(100);
+          T('subject tree expands', $$('#stree .sn').length>1);
+          $('.tab[data-t=sub]').click(); await wait(100);
+          $('#gsubj').dispatchEvent(new Event('mousedown')); await wait(50);
+          set('#gsubj','smoke.g.temp'); $('#gsubj').dispatchEvent(new Event('change')); await wait(100);
+          T('numeric fields offered', $$('#gfield option').some(o=>o.textContent==='t'));
+          set('#gfield','t'); click('#gadd');
+          for(let i=0;i<3;i++){ window.__side.publish('smoke.g.temp',new TextEncoder().encode('{"t":'+(30+i)+'}')); await wait(80); }
+          await wait(1300);
+          T('field plot has a line and legend', $$('#c-plot svg.ch path').length>=1 && /smoke.g.temp t/.test($('#glgd').textContent));
+          }catch(e){ r.push('FAIL exception: '+e.message) }
+          return r; })()`);
+        for (const line of g) line.startsWith("ok ") ? ok(line.slice(3)) : fail(line.slice(5), "check failed");
+        await p.setFiles("#schf", [fx]); await sleep(600);
+        const u = await p.eval(`(async()=>{${SET}
+          const until=async(f,ms=3000)=>{const t=Date.now();while(Date.now()-t<ms){try{if(f())return true}catch(e){} await wait(40)}return false}; const r=[]; const T=(n,c)=>r.push((c?'ok ':'FAIL ')+n);
+          try{
+          T('schema loads', /1 file/.test($('#sch').textContent) && /2 messages/.test($('#sch').textContent) && !$('#schforget').hidden);
+          const s=window.__side, enc=new TextEncoder(), NS='urn:demo:v1';
+          const msg=(state,ns)=>'<?xml version="1.0"?><StatusReport xmlns="'+(ns||NS)+'"><MessageHeader><SystemID>SYS-9</SystemID><Timestamp>2026-01-01T00:00:00Z</Timestamp></MessageHeader><MessageData><State>'+state+'</State></MessageData></StatusReport>';
+          $('.tab[data-t=sub]').click(); set('#ssub','smoke.uci.>'); click('#sadd'); await wait(150);
+          s.publish('smoke.uci.ok',enc.encode(msg('ACTIVE'))); s.publish('smoke.uci.bad',enc.encode(msg('BROKEN'))); s.publish('smoke.uci.v2',enc.encode(msg('ACTIVE','urn:demo:v2'))); s.publish('smoke.uci.other',enc.encode('<Mystery xmlns="urn:x"/>'));
+          T('type column and chips', await until(()=>$('#feed').textContent.includes('StatusReport') && $('#types').textContent.includes('StatusReport 3')));
+          T('unknown roots are marked', !!$('#feed .ty .unk') && $('#feed .ty .unk').textContent==='Mystery');
+          const row=u=>$$('#feed tr[data-n]').find(r=>r.querySelector('.s').textContent===u);
+          row('smoke.uci.ok').click(); await wait(200);
+          const d1=$('#sdet').textContent;
+          T('valid message: name, valid badge, header facts', /StatusReport/.test(d1) && /schema-valid/.test(d1) && /namespace matches/.test(d1) && /SYS-9/.test(d1) && /Reports the status of a system/.test(d1));
+          T('enumeration meaning shown', /Up and running/.test(d1) && /: StateType/.test(d1));
+          row('smoke.uci.bad').click(); await wait(200);
+          const d2=$('#sdet').textContent;
+          T('invalid message: errors inline', /schema error/.test(d2) && /not one of the 2 allowed values/.test(d2) && !!$('#sdet .errl'));
+          row('smoke.uci.v2').click(); await wait(200);
+          T('other version: namespace difference reported', /namespace differs/.test($('#sdet').textContent));
+          row('smoke.uci.other').click(); await wait(200);
+          T('unknown message: says so', /not in the loaded schema/.test($('#sdet').textContent));
+          row('smoke.uci.ok').click(); await wait(200);
+          $('#sdet .tabs .tab[data-k=xml]').click(); await wait(100);
+          T('XML tab pretty-prints', /\\n\\s+<MessageHeader>/.test($$('#sdet pre.out').find(x=>!x.hidden).textContent));
+          $('#sdet [data-a=pub]').click(); await wait(100);
+          T('edit as new message fills the publisher', $('#pdata').value.includes('<StatusReport') && $('#pmsg').value==='StatusReport' && !$('section[data-p=pub]').hidden);
+          set('#pmsg','Command'); click('#pgen'); await wait(100);
+          T('generate sample + validate', /<Command/.test($('#pdata').value) && $('#pvs').classList.contains('ok'));
+          set('#pdata','<Command xmlns="urn:demo:v1"><Verb/><Extra/></Command>'); click('#pval'); await wait(100);
+          T('validate reports errors', $('#pvs').classList.contains('err') && !!$('#pverr .er'));
+          set('#pmsg','StatusReport'); click('#pgen'); set('#psub','smoke.uci.pub'); click('#ppub'); await wait(100);
+          T('publish a generated message', $('#pst').classList.contains('ok'));
+          $('.tab[data-t=sub]').click(); await wait(1300);
+          T('message type chart', $('#c-type').textContent.includes('StatusReport') && $('#c-type').textContent.includes('Mystery'));
+          s.close();
+          }catch(e){ r.push('FAIL exception: '+e.message+' | '+String(e.stack).slice(0,200)) }
+          return r; })()`);
+        for (const line of u) line.startsWith("ok ") ? ok(line.slice(3)) : fail(line.slice(5), "check failed");
+        p.errors.length ? fail("nats live errors", p.errors.join(" | ")) : ok("no script errors");
+        await p.shot("tool-nats-live");
+        (await p.eval(`(()=>{document.querySelector("#disc").click();return document.querySelector("#work").hidden&&!document.querySelector("#conn").hidden})()`)) ? ok("disconnect hides workspace") : fail("disconnect", "workspace still visible");
+        await p.eval(`location.reload()`); await sleep(1800);
+        (await p.eval(`!document.querySelector('#work').hidden && document.querySelector('#subs').textContent.includes('>') && document.querySelector('#auto').checked`)) ? ok("nats: reconnects automatically when the page opens") : fail("nats auto-connect", "did not reconnect");
+        await p.eval(`(()=>{const a=document.querySelector('#auto'); a.checked=false; a.dispatchEvent(new Event('change'))})()`); await p.eval(`location.reload()`); await sleep(900);
+        (await p.eval(`document.querySelector('#work').hidden && !document.querySelector('#auto').checked`)) ? ok("nats: automatic connection can be switched off") : fail("nats auto-connect off", "connected anyway");
+      } catch (e) { fail("nats live", e.message); }
+      await p.close();
+    } else console.log("NATS explorer (live): skipped, set NATS_WS=ws://host:port to run");
+
+    // ---- favorites (stars)
+    console.log("Favorites");
+    {
+      const p = await openPage("toolbox.html#jwt");
+      try {
+        await p.eval(`localStorage.clear()`); await p.eval(`location.reload()`); await sleep(600);
+        const r = await p.eval(`(async()=>{${SET}
+          const rows=()=>$$('#favlist .trow a.t').map(a=>a.textContent); const out=[]; const T=(n,c)=>out.push((c?'ok ':'FAIL ')+n);
+          T('favorites box is hidden while nothing is starred', $('#favs').hidden);
+          T('every row has a star', $$('#tlist .trow .star').length>=48 && $$('.main h1 .star').length===1);
+          $('.main h1 .star').click(); await wait(50);
+          T('star on the tool page adds it at the top', !$('#favs').hidden && rows().join()==='JWT Decoder');
+          T('stars stay in step', $('.main h1 .star').classList.contains('on') && $('.main h1 .star').getAttribute('aria-pressed')==='true' && $('#tlist .star[data-fav="tool:jwt"]').classList.contains('on'));
+          $('#tlist .star[data-fav="sheet:git"]').click(); await wait(50);
+          T('cheat sheets can be starred too, in the order starred', rows().join()==='JWT Decoder,Git');
+          T('a favorite is highlighted when open', $('#favlist a.t.on')?.textContent==='JWT Decoder');
+          set('#tq','docker'); await wait(100);
+          T('searching hides the favorites box', $('#favs').hidden);
+          set('#tq',''); await wait(100);
+          T('clearing the search brings it back', !$('#favs').hidden && rows().length===2);
+          return out; })()`);
+        for (const line of r) line.startsWith("ok ") ? ok(line.slice(3)) : fail(line.slice(5), "check failed");
+        await p.eval(`location.reload()`); await sleep(600);
+        const r2 = await p.eval(`(async()=>{${SET}
+          const rows=()=>$$('#favlist .trow a.t').map(a=>a.textContent); const out=[]; const T=(n,c)=>out.push((c?'ok ':'FAIL ')+n);
+          T('favorites survive a reload', rows().join()==='JWT Decoder,Git' && $('.main h1 .star').classList.contains('on'));
+          $('#favlist .star[data-fav="tool:jwt"]').click(); await wait(50);
+          T('unstarring from the favorites list removes it everywhere', rows().join()==='Git' && !$('.main h1 .star').classList.contains('on') && !$('#tlist .star[data-fav="tool:jwt"]').classList.contains('on'));
+          $('#favlist .star[data-fav="sheet:git"]').click(); await wait(50);
+          T('the box hides again when empty', $('#favs').hidden);
+          localStorage.setItem('dt.favs','not json'); return out; })()`);
+        for (const line of r2) line.startsWith("ok ") ? ok(line.slice(3)) : fail(line.slice(5), "check failed");
+        await p.eval(`location.reload()`); await sleep(600);
+        (await p.eval(`document.getElementById('favs').hidden && document.querySelectorAll('#tlist .trow').length>40`)) ? ok("corrupt stored favorites are ignored") : fail("corrupt favorites", "page did not recover");
+        p.errors.length ? fail("favorites errors", p.errors.join(" | ")) : ok("no script errors");
+      } catch (e) { fail("favorites", e.message); }
+      await p.close();
+    }
+    {
+      const p = await openPage("all.html");
+      try {
+        await p.eval(`localStorage.clear()`); await p.eval(`location.reload()`); await sleep(600);
+        const r = await p.eval(`(async()=>{${SET}
+          const out=[]; const T=(n,c)=>out.push((c?'ok ':'FAIL ')+n); const favs=()=>$$('#favorites .card b').map(b=>b.textContent);
+          T('overview: favorites section hidden when empty', $('#favorites').hidden);
+          T('overview: every card has a star', $$('.cardw .star').length===$$('.cardw').length && $$('.cardw').length>=40);
+          $('.cardw .star[data-fav="tool:jwt"]').click(); await wait(50);
+          T('overview: starring adds a Favorites section at the top', !$('#favorites').hidden && favs().join()==='JWT Decoder' && $('#content').firstElementChild.id==='favorites');
+          $('.cardw .star[data-fav="sheet:docker"]').click(); await wait(50);
+          T('overview: sheets and tools mix, in starred order', favs().join()==='JWT Decoder,Docker');
+          set('#q','jwt'); await wait(100);
+          T('overview: search filters favorites too', favs().length===2 && $$('#favorites .cardw').filter(c=>!c.hidden).length===1);
+          set('#q',''); await wait(100);
+          T('overview: clearing search restores them', $$('#favorites .cardw').filter(c=>!c.hidden).length===2);
+          return out; })()`);
+        for (const line of r) line.startsWith("ok ") ? ok(line.slice(3)) : fail(line.slice(5), "check failed");
+        await p.eval(`location.reload()`); await sleep(600);
+        const r2 = await p.eval(`(async()=>{${SET}
+          const out=[]; const T=(n,c)=>out.push((c?'ok ':'FAIL ')+n); const favs=()=>$$('#favorites .card b').map(b=>b.textContent);
+          T('overview: favorites survive a reload', favs().join()==='JWT Decoder,Docker');
+          $('#favorites .star[data-fav="tool:jwt"]').click(); $('#favorites .star[data-fav="sheet:docker"]').click(); await wait(50);
+          T('overview: unstarring empties and hides the section', $('#favorites').hidden && !$('.cardw .star[data-fav="tool:jwt"]').classList.contains('on'));
+          return out; })()`);
+        for (const line of r2) line.startsWith("ok ") ? ok(line.slice(3)) : fail(line.slice(5), "check failed");
+        p.errors.length ? fail("overview favorites errors", p.errors.join(" | ")) : ok("overview: no script errors");
+      } catch (e) { fail("overview favorites", e.message); }
+      await p.close();
+    }
+
     // ---- collapsible menus
     console.log("Menus");
-    { const p = await openPage("index.html");
+    { const p = await openPage("all.html");
       await p.eval(`try{localStorage.clear()}catch(e){}`); await p.eval(`location.reload()`); await sleep(500);
       const s = await p.eval(`({groups:document.querySelectorAll('details.grp').length,open:document.querySelectorAll('details.grp[open]').length,peek:!!document.querySelector('details.grp .peek')})`);
       s.groups >= 12 && s.open === 0 && s.peek ? ok("landing: groups start collapsed with a preview", `${s.groups} groups`) : fail("landing groups", JSON.stringify(s));
@@ -169,18 +610,18 @@ const TOOL_CHECKS = {
     { const p = await openPage("toolbox.html#cron");
       await p.eval(`try{localStorage.clear()}catch(e){}`); await p.eval(`location.reload()`); await sleep(500);
       const s = await p.eval(`({groups:document.querySelectorAll('#tlist details.grp').length,open:[...document.querySelectorAll('#tlist details.grp[open]')].map(d=>d.dataset.g),sheets:!!document.querySelector('details[data-g="__sheets"]')})`);
-      s.groups >= 9 && s.open.length === 1 && s.open[0] === "Time & Numbers" && s.sheets ? ok("toolbox: only the active tool's group is open", s.open.join(",")) : fail("toolbox groups", JSON.stringify(s));
+      s.groups >= 9 && s.open.length === 2 && s.open.includes("__tools") && s.open.includes("Time & Numbers") && s.sheets ? ok("toolbox: only the active tool's group is open", s.open.join(",")) : fail("toolbox groups", JSON.stringify(s));
       await p.eval(`document.getElementById('expandAll').click()`);
       const all = await p.eval(`document.querySelectorAll('#tlist details.grp:not([open])').length`);
       all === 0 ? ok("toolbox: expand all (includes cheat sheets)") : fail("toolbox expand all", `${all} still closed`);
       await p.eval(`document.getElementById('collapseAll').click()`);
-      (await p.eval(`document.querySelectorAll('#tlist details.grp[open]').length`)) === 1 ? ok("toolbox: collapse all keeps the active group") : fail("toolbox collapse all", "unexpected open groups");
-      const f = await p.eval(`(()=>{const q=document.getElementById('tq');q.value='docker';q.dispatchEvent(new Event('input'));return [...document.querySelectorAll('#tlist a.t')].filter(a=>!a.hidden).map(a=>a.getAttribute('href'))})()`);
+      (await p.eval(`document.querySelectorAll('#tlist details.grp[open]').length`)) === 2 ? ok("toolbox: collapse all keeps the active group and its parent") : fail("toolbox collapse all", "unexpected open groups");
+      const f = await p.eval(`(()=>{const q=document.getElementById('tq');q.value='docker';q.dispatchEvent(new Event('input'));return [...document.querySelectorAll('#tlist .trow')].filter(r=>!r.hidden).map(r=>r.querySelector('a.t').getAttribute('href'))})()`);
       f.length === 1 && /docker\.html$/.test(f[0]) ? ok("toolbox: search finds cheat sheets too", f[0]) : fail("toolbox sheet search", JSON.stringify(f));
       const stillOpen = await p.eval(`[...document.querySelectorAll('#tlist details.grp')].filter(d=>!d.hidden&&d.open).length`);
       stillOpen === 2 ? ok("toolbox: search opens the matching group and its parent") : fail("toolbox search open", String(stillOpen));
       await p.eval(`(()=>{const q=document.getElementById('tq');q.value='';q.dispatchEvent(new Event('input'))})()`);
-      (await p.eval(`document.querySelectorAll('#tlist details.grp[open]').length`)) === 1 ? ok("toolbox: clearing search restores groups") : fail("toolbox restore", "wrong groups open");
+      (await p.eval(`document.querySelectorAll('#tlist details.grp[open]').length`)) === 2 ? ok("toolbox: clearing search restores groups") : fail("toolbox restore", "wrong groups open");
       await p.eval(`location.hash='#base64'`); await sleep(250);
       (await p.eval(`document.querySelector('#tlist details.grp[open]').dataset.g`)) !== undefined && (await p.eval(`[...document.querySelectorAll('#tlist details.grp[open]')].some(d=>d.dataset.g==='Encode & Decode')`)) ? ok("toolbox: navigating opens the new tool's group") : fail("toolbox navigate", "group not opened");
       p.errors.length ? fail("toolbox menu errors", p.errors.join(" | ")) : 0;

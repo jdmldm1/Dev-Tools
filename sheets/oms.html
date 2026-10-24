@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OMS Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/theme.css"><link rel="stylesheet" href="../assets/sheet.css"></head>
+<body><div id="app"></div>
+<script type="text/plain" id="sheet-src">
+title: OMS
+eyebrow: Open Mission Systems · version 2.5
+lede: The OMS standard on one page: the building blocks (mission package, platform, subsystem, service, isolator), the Abstract Service Bus and Critical Abstraction Layer, the four data exchanges, the tiered message sets and compliance, service and subsystem states, and the LA-CAL wire protocol. Read from the public OMS release documents and the open-arsenal/oms repository.
+footer: Sources: OMS 2.5 documents (released 22 January 2026): STD-001, STD-002, SPC-001, SPC-013, GDE-003 and the templates. Public documents, not intended for operational use; the official documents and their revision letters are authoritative.
+
+== What OMS is | open-arsenal/oms
+|| Item || Detail
+|| Purpose || An open architecture standard for mission systems built from replaceable parts that exchange UCI messages
+|| Version || 2.5, released 22 January 2026 (the Definition and Documentation set, revision letters per document)
+|| Builds on || UCI: OMS messages are defined by the UCI XSD
+|| Governance || OACWG (Open Architecture Collaborative Working Group)
+|| Repo layout || docs_official/, docs_markdown_unofficial/ (Markdown renderings), images/
+note: OMS is the second layer: UCI defines messages, OMS defines components, exchanges and compliance, AMS GRA places them in a mission system.
+
+== Building blocks | Units of Replaceability
+|| Term || Meaning
+|| Mission Package || A platform plus its subsystems, services and isolators
+|| Unit of Replaceability (UoR) || A modular component that can be replaced: a hardware subsystem or a software service
+|| Platform || The host: Abstract Service Bus, mission processing, time reference and synchronization, position information. Assessed through a Platform Description Document; it provides no capabilities of its own
+|| Subsystem || Hardware plus software with a Service Contract and a Subsystem Description Document
+|| Service || Software only, with a Service Contract
+|| Isolator || Isolation for safety or certification boundaries between components
+|| ASB (Abstract Service Bus) || The logical construct covering all OMS data exchanges, independent of the physical transport
+|| CAL (Critical Abstraction Layer) || Isolates applications from the platform's CAL implementation: publish and subscribe on topics, language-specific (Java, C++) and language-agnostic (OWP)
+note: OMS "Service" means a software unit with a contract. It is not a web service.
+
+== Four data exchanges | on the ASB
+|| Exchange || Content
+|| OMS Messaging || UCI messages, published and subscribed through the CAL
+|| Data Transfer || Bulk or file data referenced by messages (for example FileLocation / FileMetadata, ProductLocation / ProductMetadata)
+|| Special Signals || Discretes and time reference signals, for example 1 PPS and 10 MHz
+|| Security Information Exchanges || Security related exchanges (see the Cybersecurity guide, GDE-003)
+note: Only UCI-defined messages may be used on OMS Messaging. A non-OMS message is not compliant at any tier. Custom messages must follow the UCI Schema Style and Design Specification.
+
+== Message sets and compliance tiers | STD-001
+|| Set or tier || What it contains
+|| Approved vs unapproved || Approved messages are those the standard permits; unapproved are valid UCI but outside the approved set
+|| Tier 1 Required Subsystem Message Set || Per capability: *_Capability, *_CapabilityStatus, *_Command, *_CommandStatus, *_Activity for the capability types (for example AMTI, AO, COMINT, EA, ESM, PO, SAR, SMTI, Strike), plus SubsystemStatus (mandatory)
+|| Tier 1 Minimum Message Set || Adds consent and settings commands, Entity, file and product location and metadata, NavigationReport, PositionReport, ServiceStatus, SubsystemStateCommand, SubsystemSettingsCommand, SubsystemEraseCommand, SystemStatus, SubsystemStatusDataRequest, task messages and their data requests
+|| Tier 2 Minimum Message Set || Mission-level messages: activity plans, approval authority and policy, mission plans, orbit and route activity plans, route plans, metrics
+|| Tier 3 || Every message approved
+|| Compliance targets || Mission Package, Platform, Subsystem and Service, each assessed at tier 1, 2 or 3
+|| Requirements || Identified as RQMT STD-nnnnnn (about 104 distinct); traced in a Verification Cross Reference Matrix
+|| Assessment || By the government, by the prime or supplier (self), or by an external party; tailored by phase (proposal, PDR / CDR, test)
+note: The tier message lists above are summaries. Use the OMS Minimum Message Set tables in STD-001 for the exact list, then check each name in the XSD Schema Explorer.
+
+== States and status | what to publish
+|| Item || Detail
+|| ServiceStatus || Published by a service. Service states: INITIALIZING, NORMAL, DEGRADED, PAUSED, INOPERABLE
+|| Service control || Not externally commanded except ServiceLifecycleCommand to stop it
+|| SubsystemStatus || Mandatory for every subsystem. State enum is shared with SubsystemStateCommand; SHUTDOWN is terminal
+|| SubsystemStateCommand || Commands a subsystem state change; CALIBRATION and INITIATED_BIT are entered only this way
+|| Position || PositionReport (or PositionReportDetailed) for platform position information
+|| Startup, erase, shutdown || Defined sequences in the standard; erase uses SubsystemEraseCommand
+|| Health roll-up || SystemStatus summarizes the system
+note: Read the exact enum lists from SubsystemStateEnum and ServiceStateEnum in the schema (XSD Schema Explorer, Enumerations).
+
+== Artifacts and templates | what you fill in
+|| Document || Purpose
+|| STD-001 Standard || The requirements
+|| STD-002 Abbreviations and Glossary || Terms
+|| SPC-001 CAL Specification || The abstraction layer interface
+|| SPC-007 / SPC-008 || Java / C++ CAL interface generation
+|| SPC-005 OS Facade || Operating system abstraction
+|| SPC-013 Language-Agnostic CAL || The OWP protocol (initial public release)
+|| GDE-003 Cybersecurity Guide || Cyber guidance
+|| PDD || Platform Description Document (template and instructions)
+|| SDD || Subsystem Description Document
+|| Service Contract || Template and instructions for services
+|| MPW || Mission Package Worksheet
+|| MPDD || Mission Package Description Document
+|| Checklists || Mission package, platform, subsystem, service, isolator
+|| VDD-001 || Lists the documents and revisions in the release
+
+== LA-CAL / OWP protocol | SPC-013
+|| Item || Detail
+|| Transport || WebSocket with subprotocol "owp"
+|| Operations || INIT, PUB, SUB, UNSUB, INFO, MSG, +OK, -ERR
+|| Payload || OMS JSON: a UCI message mapped to JSON, validated against the UCI XSD
+|| Topic and token form || ^[A-Za-z0-9_\-.]+$ (letters, digits, underscore, hyphen, dot)
+|| Errors || Eight defined error codes returned with -ERR
+|| Requirements || Identified LACAL-000001 to LACAL-000014
+|| Test it || CAL Explorer connects, subscribes, publishes and validates; scripts/owp-mock-server.js provides a local server
+note: The AMS GRA starter kit includes Sleet, a real LA-CAL server in Rust, that you can point the CAL Explorer at.
+
+== Which tool for which task | dev-tools
+Toolbox: XSD Schema Explorer & Validator ## Look up a required message and its fields, validate samples
+Toolbox: Message Builder ## Build a status or command message and copy the OMS JSON
+Toolbox: CAL Explorer (OWP) ## Exercise an LA-CAL server
+Toolbox: NATS Explorer ## A NATS bus as a stand-in transport for UCI messages
+Toolbox: UCI Traffic Lab ## Check a capture for validity, missing status and latency
+Toolbox: Schema Diff ## Impact of a UCI version change on your message sets
+Cheat sheet: UCI ## Message patterns, naming and versioning
+Cheat sheet: AMS GRA ## Where OMS services run in the architecture
+</script>
+<script src="../assets/sheet.js"></script></body></html>

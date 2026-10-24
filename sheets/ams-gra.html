@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AMS GRA Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/theme.css"><link rel="stylesheet" href="../assets/sheet.css"></head>
+<body><div id="app"></div>
+<script type="text/plain" id="sheet-src">
+title: AMS GRA
+eyebrow: Agile Mission Suite Government Reference Architecture · version 14.0
+lede: The architecture in short: layers, buses, procurable units, skills and digital payloads, the infrastructure and time functions, how compliance is assessed, and the hello-world starter kit repositories you can run. Read from the public AMS GRA release and the open-arsenal repositories.
+footer: Sources: AMS GRA 14.0 (24 April 2026) volumes, the MEL IDDs and the hello-world starter kit READMEs. Public documents, not intended for operational use; the official volumes are authoritative.
+
+== What it is | open-arsenal/ams-gra
+|| Item || Detail
+|| Description || A government-owned, model-based reference architecture for mission systems; supersedes OCS 2.0
+|| Version || 14.0, released 24 April 2026 (starter kit 14.0)
+|| Repo folders || Architecture_Volumes, Compliance_Artifacts, Interface_Description_Documents, plus Executive_Summary.pdf and Glossary.pdf
+|| Tenets || Shareable agile / model-based environments, standardization and reuse, competitive procurement at the lowest level, faster technology adoption, maximum aperture processing effectiveness
+|| Relation to OMS / UCI || OMS services run on the Abstract Service Bus; UCI defines their messages
+note: Read the Executive Summary and Glossary first, then the Mission System volume.
+
+== Layers and buses | architecture
+|| Element || Meaning
+|| MFA || Multi-Function Aperture (RF and IR): the sensor front end
+|| MFP || Multi-Function Processing: digital processing platforms (DPPs) of types GPP, FPGA and GPU
+|| MPS || Mission Processing Subsystem: track management, resource management, system health, pilot-vehicle interface, multi-ship and aircraft systems
+|| ASB || Abstract Service Bus: OMS messaging between services
+|| ABB || Avionics Backplane Bus: high-speed transport of minimally processed aperture data
+|| ABB patterns || Send / receive, publish / subscribe, point to point, streaming, client / server, RDMA
+|| DPP API || POSIX on the GPP; a defined API per DPP type
+|| MEL || MFA Encapsulation Layer, with RF MEL and IR MEL interface description documents
+note: Each component lives on exactly one layer.
+
+== Minimum Procurable Units | MPU levels
+|| Level || Units
+|| Level 1 || OMS Services, AMS GRA Services, MFA Local Functions: fastest refresh, DevSecOps delivery
+|| Level 2 || Data Storage, DPP, Cryptographic Unit, Cross Domain Solution (CDS), Countermeasures Manager (CMM)
+|| Level 3 || MFA, Processor Chassis and Backplane (PCaB), Switch: coupled to the platform
+|| Skill || A mission-specific or agnostic aggregation of service and local function MPUs
+|| Digital Payload (DP) || The smallest deployable unit on one DPP; delivered as an OCI container; a service spans one or more DPs and services do not share a DP
+note: Each MPU has its own architecture volume and compliance requirements.
+
+== Infrastructure and time | MASI and distribution
+|| Topic || Detail
+|| MASI || Mission Agnostic Service Infrastructure: aggregate fault data; deploy, start, stop, shut down and redeploy containerized services through an OCI orchestration engine; monitor health and resources; versioning and configuration; networking connectivity
+|| MASI management interface || Component ID, state and diagnostics; may use UCI
+|| PTP || IEEE 1588 over ABB / ASB; switches act as transparent or boundary clocks; every DPP has a PTP port
+|| DGT || Distributed Guaranteed Time, to RF apertures
+|| Legacy timing || 1 PPS plus 10 MHz (1 V sinusoid, 50 ohm) per OMS
+|| Resource management || Loosely coupled across the layers
+|| Security framework || Cybersecurity, cyber resiliency, multi-level security, anti-tamper
+note: Exchanges are marked required, conditionally required or allowed per MPU.
+
+== Compliance | assessment approach
+|| Item || Detail
+|| Tiers || 0 to 3, plus a weighted compliance score
+|| Requirement ids || GRA-MS-nnn (mission system), GRA-MPU-nnn, GRA-MASI-nnn and similar
+|| Verification || Inspection, analysis, demonstration, test (ISO/IEC/IEEE 29148), traced in a Verification Cross Reference Matrix
+|| Roles || Mission system integrator, MPU providers, certification authorities, procuring authority
+
+== Starter kit repositories | open-arsenal, run with podman
+|| Repository || What it does
+|| ams-gra-hello-world-sk-getting-started || Shell scripts to bring the kit up (Linux or WSL, podman-compose)
+|| ams-gra-hello-world-sk-sim-supercell || Rust simulation controller: flight model, DIS entity state multicast, publishes UCI PositionReport
+|| ams-gra-hello-world-sk-sensors-squall || C++ RF and IR sensor simulation through the MELs
+|| ams-gra-hello-world-sk-infra-sleet || Rust LA-CAL server: OWP INIT / PUB / SUB / UNSUB, validates OMS JSON against the UCI XSD, topic and message routing, per-service TOML authorization, health and metrics endpoints
+|| ams-gra-hello-world-sk-interfaces-common / ir / rf-mel || C++ interface sets for the MELs
+|| ams-gra-hello-world-sk-skills-rf-fm-demod || Skill that publishes UCI SignalReport
+|| ams-gra-hello-world-sk-skills-ir-search-and-track || Skill that publishes UCI ObservationMeasurementReport
+|| ams-gra-hello-world-sk-viz-graupel / worldview || Converts DIS and UCI to a map feed; web globe viewer
+|| ams-gra-hello-world-sk-libraries-ams-math / ams-vita || C++ geometry and unit helpers; VITA 49.2 packet builders
+|| oms-sk-cal || Java CAL jars (api, jms, xml externalizer)
+|| oms-ghost-detector || Hackathon app showing OMS and UCI behavior
+note: Sleet is the practical way to test the CAL Explorer against a real LA-CAL.
+
+== Which tool for which task | dev-tools
+Toolbox: CAL Explorer (OWP) ## Connect to Sleet or the local mock and publish or subscribe
+Toolbox: UCI Traffic Lab ## Capture, replay and map the position traffic the simulation produces
+Toolbox: XSD Schema Explorer & Validator ## Check messages the skills publish
+Toolbox: Timestamp Converter ## Epoch, ISO 8601 and time zones for sensor data
+Toolbox: Coordinates, Distance & Units ## Radians, degrees, meters and knots
+Cheat sheet: OMS ## Components, tiers and the LA-CAL protocol
+Cheat sheet: UCI ## Messages, patterns and versioning
+</script>
+<script src="../assets/sheet.js"></script></body></html>

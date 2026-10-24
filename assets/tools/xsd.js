@@ -27,6 +27,8 @@
     const xsd = files.filter(f => /\.xsd$/i.test(f.name));
     return xsd.length ? xsd : files.filter(f => /\.xml$/i.test(f.name));
   };
+  lib.xsdPickFiles = pickSchemaFiles;
+  lib.idb = idb;                                      // the NATS explorer shares the remembered schema
 
   const KIND_LABEL = { element: "message", type: "type", member: "member", value: "value" };
   const CAT_LABEL = { msgtype: "msg type", data: "data", enum: "enum", id: "id", choice: "choice", base: "base", complex: "complex", simple: "simple" };
@@ -35,7 +37,7 @@
   const short = (s, n = 140) => { const t = (s || "").replace(/\s+/g, " ").trim(); return t.length > n ? t.slice(0, n - 1) + "…" : t; };
 
   DT.register({
-    id: "xsd", name: "XSD Schema Explorer & Validator", group: "XML & Mission Systems",
+    id: "xsd", name: "XSD Schema Explorer & Validator", group: "UCI",
     desc: "Load a whole schema release (for example the UCI .xsd files), then search it, browse messages and types with their documentation, trace where things are used, generate valid sample messages and validate XML messages against it. Files stay in your browser.",
     keywords: "xsd schema uci oms ams gra types enumeration facets elements complexType simpleType explorer message definition validate validator sample skeleton used by search",
     render(root) {

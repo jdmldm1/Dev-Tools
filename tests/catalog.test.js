@@ -62,3 +62,12 @@ test("toolbox.html includes every tool file", () => {
   for (const f of fs.readdirSync(path.join(root, "assets/tools"))) assert.ok(html.includes(`assets/tools/${f}`), f + " missing from toolbox.html");
   for (const m of html.matchAll(/src="([^"]+)"/g)) assert.ok(fs.existsSync(path.join(root, m[1])), "missing " + m[1]);
 });
+
+test("each tool's sidebar group matches its catalog entry", () => {
+  const registered = {};
+  for (const f of fs.readdirSync(path.join(root, "assets/tools"))) {
+    const src = fs.readFileSync(path.join(root, "assets/tools", f), "utf8");
+    for (const m of src.matchAll(/DT\.register\(\{\s*id:\s*"([^"]+)",\s*name:\s*"[^"]*",\s*group:\s*"([^"]+)"/g)) registered[m[1]] = m[2];
+  }
+  for (const t of tools) assert.equal(t.group, registered[t.id], `${t.id}: catalog says "${t.group}", the tool registers "${registered[t.id]}"`);
+});

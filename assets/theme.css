@@ -27,3 +27,11 @@ details.grp>summary .n{margin-left:auto;font:11px var(--mono);color:var(--muted)
 .mini-links{display:flex;gap:10px;font:11px var(--mono);margin:0 6px 4px}
 .mini-links button{all:unset;cursor:pointer;color:var(--muted)}
 .mini-links button:hover{color:var(--accent)}
+
+/* favorite stars */
+.star{all:unset;cursor:pointer;color:var(--muted);opacity:.5;font-size:15px;line-height:1;padding:3px 5px;border-radius:5px}
+.star::before{content:"\2606"}
+.star.on::before{content:"\2605"}
+.star:hover,.star:focus-visible{opacity:1;color:#e3b341}
+.star:focus-visible{outline:2px solid var(--accent)}
+.star.on{opacity:1;color:#e3b341}

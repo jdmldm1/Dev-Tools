@@ -1,0 +1,10 @@
+# Only what the image needs goes into the build context.
+*
+!index.html
+!all.html
+!toolbox.html
+!catalog.js
+!assets
+!sheets
+!docker/server
+docker/server/www

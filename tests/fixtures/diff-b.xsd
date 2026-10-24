@@ -1,0 +1,21 @@
+<?xml version="1.0"?><xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:t" elementFormDefault="qualified" version="001.0.0">
+  <xs:element name="Status" type="StatusType"/>
+  <xs:element name="Fresh" type="StatusType"/>
+  <xs:element name="Retyped" type="QuietType"/>
+  <xs:element name="Quiet" type="QuietType"/>
+  <xs:complexType name="StatusType"><xs:sequence>
+    <xs:element name="State" type="StateType"/>
+    <xs:element name="ID" type="xs:string"/>
+    <xs:element name="Level" type="LevelType"/>
+    <xs:element name="Extra" type="xs:string"/>
+    <xs:element name="Optional" type="xs:string" minOccurs="0"/>
+    <xs:element name="Count" type="xs:int" minOccurs="0" maxOccurs="3"/>
+    <xs:element name="Narrow" type="xs:string" minOccurs="1"/>
+    <xs:choice><xs:element name="ByName" type="xs:string"/><xs:element name="ByNum" type="xs:int"/><xs:element name="ByUuid" type="xs:string"/></xs:choice>
+  </xs:sequence></xs:complexType>
+  <xs:complexType name="QuietType"><xs:sequence><xs:element name="Q" type="xs:string"><xs:annotation><xs:documentation>different words</xs:documentation></xs:annotation></xs:element></xs:sequence></xs:complexType>
+  <xs:simpleType name="StateType"><xs:restriction base="xs:string"><xs:enumeration value="ON"/><xs:enumeration value="OFF"/><xs:enumeration value="STANDBY"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="LevelType"><xs:restriction base="xs:int"><xs:minInclusive value="1"/><xs:maxInclusive value="20"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="CodeType"><xs:restriction base="xs:string"><xs:pattern value="[A-Z]{4}"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="Fresh"><xs:restriction base="xs:string"/></xs:simpleType>
+</xs:schema>
