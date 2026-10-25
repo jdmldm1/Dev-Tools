@@ -66,6 +66,7 @@ window.CATALOG = {
     { id: "ucilab", title: "UCI Traffic Lab", group: "UCI", blurb: "Load a capture: who is on the bus, command transactions, validity and latency, a map of tracks, and replay into NATS or a CAL." },
     { id: "msgbuilder", title: "Message Builder", group: "UCI", blurb: "Compose a UCI message from a schema-generated form with live XML, OMS JSON and validation." },
     { id: "cal", title: "CAL Explorer (OWP)", group: "UCI", blurb: "OMS Language-Agnostic CAL over WebSocket: subscribe, graph, publish, decode OMS JSON against any schema." },
+    { id: "bridge", title: "Bridge Compare (NATS vs CAL)", group: "UCI", blurb: "Pair the same UCI message arriving over NATS and an LA-CAL: crossing time, missing messages, field differences." },
     { id: "xml", title: "XML Format, Validate & Convert", group: "XML & Mission Systems", blurb: "Well-formedness with line/column, pretty-print, XML ⇄ JSON, paths, XPath." },
     { id: "xsd", title: "XSD Schema Explorer & Validator", group: "UCI", blurb: "Load a schema release; search, browse, trace usage, generate and validate messages." },
     { id: "geo", title: "Coordinates, Distance & Units", group: "XML & Mission Systems", blurb: "Lat/lon DMS ↔ radians, distance and bearing, kt/nmi/FL." },

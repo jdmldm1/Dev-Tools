@@ -5,7 +5,7 @@
      rand:1-100  pick:a|b|c                      a random integer, or one of the choices
      var:name                                    from the scenario's variables
      in:Path                                     a field of the message being answered (a trailing path, e.g. in:SystemID)
-     topic                                       the topic or subject of the message being answered
+     topic  replyto                              the topic or subject of the message being answered, and its reply-to subject (NATS requests)
    Scenario: [{ delay (ms before this step), topic, text, note }] played in order, optionally looped.
    Responder rule: { id, name, enabled, match: { topic, message, query }, reply: { topic, text, delay } }. */
 (function () {
@@ -26,6 +26,7 @@
         case "epochMs": return String(now.getTime());
         case "counter": return String(ctx.counter || 0);
         case "topic": case "subject": return ctx.topic === undefined ? "" : String(ctx.topic);
+        case "replyto": return ctx.replyTo === undefined ? "" : String(ctx.replyTo);
         case "rand": {
           const m = /^(-?\d+)\s*-\s*(-?\d+)$/.exec(arg); if (!m) throw new Error(`{{${expr}}}: use rand:MIN-MAX, for example rand:1-100`);
           const lo = +m[1], hi = +m[2]; return String(lo + Math.floor(Math.random() * (hi - lo + 1)));
@@ -38,7 +39,7 @@
           for (const [p, v] of ctx.fields) { const q = p.replace(/\[\d+\]/g, "").toLowerCase(); if (q === want || q.endsWith("." + want)) return String(v); }
           throw new Error(`{{${expr}}}: the incoming message has no field "${arg}"`);
         }
-        default: throw new Error(`Unknown variable {{${expr}}}. Known: uuid, now, epoch, epochMs, counter, rand:A-B, pick:a|b, var:name, in:Path, topic.`);
+        default: throw new Error(`Unknown variable {{${expr}}}. Known: uuid, now, epoch, epochMs, counter, rand:A-B, pick:a|b, var:name, in:Path, topic, replyto.`);
       }
     });
   };
@@ -46,7 +47,7 @@
   lib.templateCheck = (text, { vars = {}, hasIncoming = false } = {}) => {
     for (const expr of lib.templateVars(text)) {
       const [name, ...rest] = expr.split(":"), arg = rest.join(":");
-      if (["uuid", "now", "epoch", "epochMs", "counter", "topic", "subject"].includes(name)) continue;
+      if (["uuid", "now", "epoch", "epochMs", "counter", "topic", "subject", "replyto"].includes(name)) continue;
       if (name === "rand") { if (!/^-?\d+\s*-\s*-?\d+$/.test(arg)) throw new Error(`{{${expr}}}: use rand:MIN-MAX, for example rand:1-100`); }
       else if (name === "pick") { if (!arg) throw new Error(`{{${expr}}}: use pick:a|b|c`); }
       else if (name === "var") { if (!(arg in vars)) throw new Error(`{{${expr}}}: variable "${arg}" is not defined`); }
@@ -113,8 +114,8 @@
   };
   /* -> { topic, text, delay } with the templates filled in from the incoming message. */
   lib.responderBuild = function (rule, m, { counter = 0, vars = {} } = {}) {
-    const fields = lib.payloadFields(m.text).fields, ctx = { counter, vars, fields, topic: m.topic };
+    const fields = lib.payloadFields(m.text).fields, ctx = { counter, vars, fields, topic: m.topic, replyTo: m.replyTo };
     const rp = rule.reply || {};
-    return { topic: lib.template(rp.topic || "", ctx), text: lib.template(rp.text || "", ctx), delay: Math.max(0, Number(rp.delay) || 0) };
+    return { topic: rp.topic ? lib.template(rp.topic, ctx) : (m.replyTo || ""), text: lib.template(rp.text || "", ctx), delay: Math.max(0, Number(rp.delay) || 0) };
   };
 })();

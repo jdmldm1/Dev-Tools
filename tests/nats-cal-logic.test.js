@@ -49,6 +49,7 @@ test("fieldQuery: comparisons, trailing paths, and/or, text and topic", () => {
   assert.ok(q("topic = uci.alpha").test(f, { topic: "uci.alpha" }));
   assert.ok(q("topic ~ alpha").test(f, { topic: "uci.alpha" }));
   assert.equal(q("").ok, false);
+  assert.match(q("temp >").error, /Missing a value/);
   assert.equal(q("x ~ /(/").ok, false);
   assert.ok(lib.fieldQuery(`{"x":"a b"}`.length ? "x = 1" : "").ok);
   assert.ok(lib.fieldQuery("count > 3").test(lib.payloadFields(`{"count":5}`).fields));

@@ -285,6 +285,10 @@
             <div class="col"><label class="l" for="pass">Password</label><input type="password" id="pass" class="mono" autocomplete="off"></div>
             <div class="col"><label class="l" for="tok">…or token</label><input type="text" id="tok" class="mono" autocomplete="off"></div>
           </div>
+          <div class="two" id="creds2" style="margin-top:10px">
+            <div class="col"><label class="l" for="credf">…or a .creds file (JWT)</label><input type="file" id="credf" accept=".creds,text/plain"><div class="hint" id="credi"></div></div>
+            <div class="col"><label class="l" for="nkseed">…or an NKey seed</label><input type="password" id="nkseed" class="mono" autocomplete="off" data-noshare placeholder="SU…"></div>
+          </div>
           <div class="btns" style="align-items:center"><button class="btn primary" id="conn" type="button">Connect</button><button class="btn" id="disc" type="button" hidden>Disconnect</button><label class="hint" title="Reconnects to the last server you connected to without credentials"><input type="checkbox" id="auto"> connect automatically when I open this page</label></div>
           <div class="status" id="cst"></div>
           <div id="info"></div>
@@ -300,7 +304,7 @@
           </details>
         </div>
         <div id="work" hidden>
-          <div class="tabs nav" role="tablist"><button class="tab on" data-t="sub" type="button">Live</button><button class="tab" data-t="an" type="button">Analyze</button><button class="tab" data-t="pub" type="button">Publish &amp; Request</button><button class="tab" data-t="js" type="button">JetStream</button></div>
+          <div class="tabs nav" role="tablist"><button class="tab on" data-t="sub" type="button">Live</button><button class="tab" data-t="an" type="button">Analyze</button><button class="tab" data-t="pub" type="button">Publish &amp; Request</button><button class="tab" data-t="js" type="button">JetStream</button><button class="tab" data-t="kv" type="button">KV &amp; Objects</button><button class="tab" data-t="lat" type="button">Latency</button><button class="tab" data-t="srv" type="button">Server</button><button class="tab" data-t="resp" type="button">Responder</button><button class="tab" data-t="scn" type="button">Scenario</button></div>
 
           <section data-p="sub">
             <div class="opts" style="margin:0 0 4px">
@@ -351,8 +355,15 @@
             <div id="pres"></div>
           </section>
 
+<section data-p="kv" hidden><div id="x-kv"></div></section>
+          <section data-p="lat" hidden><div id="x-lat"></div></section>
+          <section data-p="srv" hidden><div id="x-srv"></div></section>
+          <section data-p="resp" hidden><div id="x-resp"></div></section>
+          <section data-p="scn" hidden><div id="x-scn"></div></section>
+
           <section data-p="js" hidden>
             <div class="opts"><button class="btn primary" id="jref" type="button">Refresh</button><label>Domain <input type="text" id="jdom" class="mono" placeholder="optional" style="width:160px"></label></div>
+            <div id="x-jsadm"></div>
             <div class="status" id="jst"></div>
             <div id="jacct"></div>
             <div id="jgraph"></div>
@@ -391,13 +402,14 @@
         if (t === "js" && !jsLoaded) refreshJs();
         if (t === "sub") drawGraphs(true);
         if (t === "an") mountLab();
+        ext.show(t);
       }
       root.querySelectorAll(".tabs.nav .tab").forEach(b => { b.onclick = () => showTab(b.dataset.t); });
 
       function disconnected(msg, kind) {
         clearInterval(gTimer); gTimer = 0;
         $("#work").hidden = true; $("#disc").hidden = true; $("#conn").hidden = false; $("#conn").disabled = false;
-        $("#info").innerHTML = ""; $("#creds").style.display = ""; subList.length = 0; renderSubs(); jsLoaded = false;
+        $("#info").innerHTML = ""; $("#creds").style.display = ""; $("#creds2").style.display = ""; subList.length = 0; renderSubs(); jsLoaded = false;
         status("#cst", kind || "", msg);
       }
       async function connect() {
@@ -407,12 +419,12 @@
         client.onclose = reason => disconnected("Connection lost: " + reason + ".", "err");
         client.onerror = msg => status("#swarn", "warn", "Server: " + msg);
         try {
-          const info = await client.connect(url, { user: $("#user").value, pass: $("#pass").value, token: $("#tok").value.trim() });
-          try { localStorage.setItem("dt.nats.url", url); localStorage.setItem("dt.nats.noauth", $("#user").value || $("#pass").value || $("#tok").value ? "0" : "1"); } catch (_) { /* storage blocked */ }
+          const info = await client.connect(url, { user: $("#user").value, pass: $("#pass").value, token: $("#tok").value.trim(), creds: credsParsed || undefined, nkeySeed: !credsParsed && $("#nkseed").value.trim() ? $("#nkseed").value.trim() : undefined });
+          try { localStorage.setItem("dt.nats.url", url); localStorage.setItem("dt.nats.noauth", $("#user").value || $("#pass").value || $("#tok").value || credsParsed || $("#nkseed").value ? "0" : "1"); } catch (_) { /* storage blocked */ }
           const rows = [["server", info.server_name || info.server_id], ["version", info.version], ["go", info.go], ["host", `${info.host}:${info.port}`], ["max payload", lib.bytesLabel(info.max_payload || 0)],
             ["headers", info.headers ? "yes" : "no"], ["JetStream", info.jetstream ? "yes" : "no / unknown"], ["auth required", info.auth_required ? "yes" : "no"], ["client id", info.client_id], ["cluster", info.cluster || "-"]];
           $("#info").innerHTML = `<div class="hint" style="margin:4px 0">${esc(info.server_name || "server")} · v${esc(info.version)} · ${info.jetstream ? "JetStream" : "no JetStream"} · max payload ${esc(lib.bytesLabel(info.max_payload || 0))} · client ${esc(String(info.client_id))}</div><details class="hint"><summary>all server info</summary>${DT.kv(rows.filter(r => r[1] !== undefined && r[1] !== ""))}</details>`;
-          $("#creds").style.display = "none";
+          $("#creds").style.display = "none"; $("#creds2").style.display = "none";
           $("#conn").hidden = true; $("#disc").hidden = false; $("#work").hidden = false;
           status("#cst", "ok", "Connected to " + url);
           gTimer = setInterval(tick, 1000);
@@ -427,6 +439,13 @@
           status("#cst", "err", /authorization|authentication/i.test(e.message) ? e.message + " Set a user/password or token above." : e.message);
         }
       }
+      let credsParsed = null;
+      $("#credf").onchange = async e => {
+        credsParsed = null; $("#credi").textContent = "";
+        const f = e.target.files[0]; if (!f) return;
+        try { credsParsed = lib.natsParseCreds(await f.text()); $("#credi").textContent = "Loaded " + f.name + ". The key stays in this page and is never saved."; }
+        catch (err) { $("#credi").textContent = err.message; }
+      };
       $("#conn").onclick = connect;
       $("#disc").onclick = () => { client.close(); disconnected("Disconnected."); };
       $("#url").addEventListener("keydown", e => { if (e.key === "Enter") connect(); });
@@ -443,7 +462,15 @@
           renderSubs(); draw();
         },
         getHide: () => $("#shide").checked, setHide: v => { $("#shide").checked = v; hideInternal = v; },
+        getFilter: () => $("#sf").value, setFilter: v => { $("#sf").value = v; draw(); }, hasSchema: () => !!model,
       });
+
+      /* ----- latency, server, KV, JetStream admin, diff, responder, scenario (nats-panels.js) ----- */
+      const ext = lib.natsPanels({
+        root, $, client, status, api: (s, b) => api(s, b), paged: (s, k) => paged(s, k), getModel: () => model, msgs: () => msgs, subjects: () => subj,
+        rootOf: m => quickRoot(m.payload), refreshJs: () => refreshJs(), openStream: n => openStream(n),
+      });
+      ext.jsToolbar($("#x-jsadm"));
 
       /* ----- decoding XML payloads ----- */
       const decodeFor = (m, validate) => {
@@ -519,11 +546,13 @@
       $("#subs").onclick = e => { const c = e.target.closest(".chip"); if (!c) return; const s = subList.splice(+c.dataset.i, 1)[0]; if (s) s.unsubscribe(); renderSubs(); };
       function draw() {
         timer = 0;
-        const f = $("#sf").value.trim().toLowerCase(), rows = [];
+        const f = $("#sf").value.trim().toLowerCase(), rows = [], wq = /^where\s+/i.test($("#sf").value.trim()) ? lib.fieldQuery($("#sf").value.trim().replace(/^where\s+/i, "")) : null;
+        if (wq && !wq.ok) status("#swarn", "warn", wq.error); else if (wq) status("#swarn", "", "");
         for (let i = msgs.length - 1; i >= 0 && rows.length < MAX_ROWS; i--) {
           const m = msgs[i];
           if (typeFilter && m.root !== typeFilter) continue;
-          if (f) { m.lc = m.lc || (m.subject + " " + TD.decode(m.payload.subarray(0, 4000))).toLowerCase(); if (!m.lc.includes(f)) continue; }
+          if (wq) { if (wq.ok) { m.fields = m.fields || lib.payloadFields(m.payload).fields; if (!wq.test(m.fields, { topic: m.subject })) continue; } }
+          else if (f) { m.lc = m.lc || (m.subject + " " + TD.decode(m.payload.subarray(0, 4000))).toLowerCase(); if (!m.lc.includes(f)) continue; }
           const unk = model && m.root && !model.elements.has(m.root);
           rows.push(`<tr data-n="${m.n}"${m === selected ? ' class="on"' : ""}><td class="t">${hhmmss(m.t)}</td><td class="s">${esc(m.subject)}</td><td class="ty">${m.root ? `<span${unk ? ' class="unk" title="Not in the loaded schema"' : ""}>${esc(m.root)}</span>` : ""}</td><td class="t">${m.payload.length} B</td><td class="p">${esc(m.pv || (m.pv = preview(m)))}</td></tr>`);
         }
@@ -542,11 +571,14 @@
       function onMsg(m) {
         total++;
         if ((total & 1023) === 0 && !root.isConnected) { client.close(); return; }        // the page moved on to another tool
+        ext.onMsg(m, Date.now());
         const c0 = m.subject.charCodeAt(0);
         if (hideInternal && (c0 === 36 || c0 === 95) && internal(m.subject)) return;
         const now = Date.now();
-        ops.record(m.subject);
         m.root = quickRoot(m.payload); tally(m, now);
+        ops.record(m.subject, { type: m.root, text: () => TD.decode(m.payload),
+          invalid: () => { const d = m.payload.length && m.root ? decodeFor(m, true) : null; return d && d.known && d.validation ? !d.validation.ok : undefined; },
+          reason: () => { const e = m._d && m._d.validation && m._d.validation.errors[0]; return e ? e.message : "failed schema validation"; } });
         if (paused || (stride > 1 && ++strideN % stride)) return;                         // above ~20k msg/s only every Nth message goes into the feed; counts stay exact
         m.n = total; m.t = now;
         msgs.push(m);
@@ -569,7 +601,7 @@
         const tr = e.target.closest("tr[data-n]"); if (!tr) return;
         selected = msgs.find(m => m.n === +tr.dataset.n); if (!selected) return;
         $("#feed").querySelectorAll("tr.on").forEach(r => r.classList.remove("on")); tr.classList.add("on");
-        $("#sdet").replaceChildren(detail(selected, detailOpts));
+        $("#sdet").replaceChildren(detail(selected, detailOpts)); ext.decorateDetail($("#sdet").firstChild, selected);
       };
       $("#ssave").onclick = () => {
         const lines = msgs.map(m => { const v = lib.natsView(m.payload); return JSON.stringify({ time: new Date(m.t).toISOString(), subject: m.subject, reply: m.reply || undefined, headers: m.headers.length ? m.headers : undefined, ...(v.kind === "binary" ? { payload_base64: bytesToB64(m.payload) } : { payload: TD.decode(m.payload) }) }); });
@@ -584,7 +616,7 @@
       const plotInto = (host, html) => { host.querySelector(".plot").innerHTML = html; };
       function tick() {
         if (!root.isConnected) { client.close(); clearInterval(gTimer); return; }
-        ops.tick();
+        ops.tick(); ext.tick();
         const last = secs.get(Math.floor(Date.now() / 1000) - 1); stride = last && last.n > 20000 ? Math.ceil(last.n / 10000) : 1;
         const cut = Math.floor(Date.now() / 1000) - 620; for (const k of secs.keys()) if (k < cut) secs.delete(k);
         if (activeTab === "sub") drawGraphs(false);
@@ -835,6 +867,7 @@
           klist.onclick = e => { const tr = e.target.closest("tr[data-k]"); if (tr) { det.querySelector("#gsub").value = tr.dataset.k; get({ last_by_subj: tr.dataset.k }); } };
           det.querySelector("#gseqb").onclick = () => get({ seq: +det.querySelector("#gseq").value });
           det.querySelector("#gsubb").onclick = () => get({ last_by_subj: det.querySelector("#gsub").value.trim() });
+          ext.streamAdmin(det, name, consumers, () => openStream(name)); ext.lagWatch(det, name);
         } catch (e) { det.innerHTML = ""; status("#jst", "err", e.message); }
       }
 
@@ -856,6 +889,7 @@
       }
       if (remembered && autoOn && noAuth) connect();
       return () => {
+        ext.close();
         if (current) { try { current.close(); } catch (_) {} current = null; }
       };
     },

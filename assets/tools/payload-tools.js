@@ -46,8 +46,17 @@
     return { kind: "text", fields };
   };
 
-  /* { kind, same, changes: [{ path, type: "added" | "removed" | "changed", a, b }] }. Plain text compares as a whole (use lib.lineDiff to show it). */
-  lib.payloadDiff = function (a, b) {
+  /* Loose equality for comparing the same data from two encodings: 1 = 1.0 = "1", true = "TRUE", surrounding spaces ignored. */
+  const looseEq = (x, y) => {
+    if (x === y) return true;
+    const n = v => (typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" && !isNaN(Number(v)) ? Number(v) : NaN);
+    if (!isNaN(n(x)) && !isNaN(n(y))) return Math.abs(n(x) - n(y)) <= 1e-9 * Math.max(1, Math.abs(n(x)));
+    return String(x).trim().toLowerCase() === String(y).trim().toLowerCase();
+  };
+  lib.looseEq = looseEq;
+  /* { kind, same, changes: [{ path, type: "added" | "removed" | "changed", a, b }] }. Plain text compares as a whole (use lib.lineDiff to show it).
+     opts.loose compares values with looseEq. */
+  lib.payloadDiff = function (a, b, opts = {}) {
     const A = lib.payloadFields(a), B = lib.payloadFields(b);
     if (A.kind === "text" || B.kind === "text" || A.kind !== B.kind) {
       const ta = textOf(a), tb = textOf(b);
@@ -58,7 +67,7 @@
       const ha = A.fields.has(p), hb = B.fields.has(p), va = A.fields.get(p), vb = B.fields.get(p);
       if (ha && !hb) changes.push({ path: p, type: "removed", a: va, b: undefined });
       else if (!ha && hb) changes.push({ path: p, type: "added", a: undefined, b: vb });
-      else if (va !== vb) changes.push({ path: p, type: "changed", a: va, b: vb });
+      else if (opts.loose ? !looseEq(va, vb) : va !== vb) changes.push({ path: p, type: "changed", a: va, b: vb });
     }
     return { kind: A.kind, structured: true, same: !changes.length, changes };
   };
@@ -83,6 +92,7 @@
         if (ex) { terms.push({ path: ex[1], op: "exists" }); continue; }
         const m = /^([^\s=!<>~]+)\s*(!=|>=|<=|=|>|<|~)\s*(.*)$/.exec(s);
         if (!m) { terms.push({ op: "text", value: s.toLowerCase() }); continue; }
+        if (!m[3].trim()) return { ok: false, error: `Missing a value after "${m[2]}" in "${s}".` };
         let value = m[3].trim().replace(/^"(.*)"$/, "$1");
         let re = null;
         if (m[2] === "~") { const r = /^\/(.+)\/([a-z]*)$/.exec(value); if (r) { try { re = new RegExp(r[1], r[2].includes("i") ? r[2] : r[2] + "i"); } catch (e) { return { ok: false, error: "Bad regular expression: " + e.message }; } } }

@@ -80,6 +80,7 @@ const TOOL_CHECKS = {
   schemadiff: ["two loaders and no results until both schemas are loaded", `${SET} return $$('#sa,#sb').length===2 && $('#out').hidden && $$('button').some(b=>/Use the remembered schema/.test(b.textContent));`],
   ucilab: ["empty lab with the Bus, Transactions, Analysis, Map and Replay tabs", `${SET} return $$('.tabs.lab .tab').map(b=>b.textContent).join()==='Bus,Transactions,Analysis,Map,Replay' && /Nothing loaded/.test($('#sum').textContent);`],
   msgbuilder: ["hidden until a schema is loaded", `${SET} return $('#bw').hidden && !$('#nomodel').hidden;`],
+  bridge: ["both connection panels and an empty comparison", `${SET} return !!$('#go') && !!$('#csubs') && !!$('#nsub') && $('#tiles').textContent.includes('Paired') && /No pairs yet/.test($('#pairs').textContent);`],
   qr: ["version 1 code for a short text", `${SET} set('#in','hello'); await wait(300); return /Version 1/.test($('#st').textContent) && !!$('#qr svg path');`],
   httpreq: ["POST body to curl and fetch", `${SET} set('#url','https://x.test/a'); set('#method','POST'); set('#body','{"a":1}'); await wait(300); const o=$('#out').value; set('#lang','fetch'); await wait(200); return o.includes('curl -X POST') && o.includes('--data-raw') && $('#out').value.includes('fetch("https://x.test/a"');`],
   proto: ["example outline, lint and JSON sample", `${SET} click('#ex'); await wait(300); return $('#out').value.includes('message Order') && $('#json').value.includes('"createdAt"') && $('#st').className.includes('ok');`],
@@ -522,6 +523,219 @@ const TOOL_CHECKS = {
       } catch (e) { fail("nats live", e.message); }
       await p.close();
     } else console.log("NATS explorer (live): skipped, set NATS_WS=ws://host:port to run");
+
+    // ---- NATS explorer extras against a real server: latency, diff, alerts, field filter, JetStream admin, KV, objects, responder, scenario, $SYS, NKeys
+    if (process.env.NATS_WS) {
+      console.log("NATS explorer extras (live)");
+      const W = JSON.stringify(process.env.NATS_WS);
+      const p = await openPage("toolbox.html#nats");
+      try {
+        await p.eval(`localStorage.clear()`); await p.eval(`location.reload()`); await sleep(700);
+        const res = await p.eval(`(async()=>{${SET}
+          const L=DT.lib, enc=new TextEncoder(), dec=new TextDecoder(), out=[];
+          const T=(n,c)=>{out.push((c?'ok ':'FAIL ')+n); return c;};
+          try {
+          const until=async(f,ms=4000)=>{const t=Date.now();while(Date.now()-t<ms){try{if(f())return true}catch(e){} await wait(40)}return false};
+          const tab=async t=>{ $('.tabs.nav .tab[data-t="'+t+'"]').click(); await wait(150); };
+          const side=new L.NatsClient(); await side.connect(${W});
+          for(const n of ['ADMIN','KV_dtkv','OBJ_dtobj']) await side.jsApi('STREAM.DELETE.'+n).catch(()=>{});
+          set('#url',${W}); click('#conn');
+          T('connects', await until(()=>!$('#work').hidden));
+
+          /* latency */
+          side.subscribe('svc.echo',m=>{ if(m.reply) side.publish(m.reply,enc.encode('pong')) });
+          for(let i=0;i<4;i++) await side.request('svc.echo',enc.encode('ping'),{timeout:2000});
+          await tab('lat'); set('#lto','1'); $('#lto').dispatchEvent(new Event('change'));
+          side.publish('svc.void',enc.encode('x'),{reply:'_INBOX.nobody.1'});
+          await wait(2300);
+          const lrow=[...document.querySelectorAll('#ltbl tbody tr')].find(r=>r.textContent.includes('svc.echo'));
+          T('latency: replies are paired with requests', !!lrow && lrow.children[2].textContent==='4' && /ms/.test(lrow.children[6].textContent));
+          const nrow=[...document.querySelectorAll('#ltbl tbody tr')].find(r=>r.textContent.includes('svc.void'));
+          T('latency: unanswered requests are counted after the timeout', !!nrow && nrow.children[3].textContent==='1');
+          T('latency: tiles and chart render', /Requests seen/.test($('#ltiles').textContent) && !!$('#lchart svg'));
+
+          /* diff between two messages on one subject */
+          await tab('sub');
+          side.publish('diff.t',enc.encode('{"temp":10,"unit":"C","ok":true}')); await wait(60);
+          side.publish('diff.t',enc.encode('{"temp":42,"unit":"C","extra":1}'));
+          T('feed shows both', await until(()=>document.querySelectorAll('#feed tr[data-n]').length>=2));
+          set('#sf','diff.t'); await wait(300);
+          $('#feed tr[data-n]').click(); await wait(200);
+          const dbtn=[...document.querySelectorAll('#sdet .btn')].find(b=>b.textContent==='Diff with previous');
+          T('diff buttons are offered', !!dbtn);
+          dbtn.click(); await wait(200);
+          const dtxt=$('#sdet .diffout').textContent;
+          T('diff lists changed, added and removed fields', /temp/.test(dtxt)&&/extra/.test(dtxt)&&/ok/.test(dtxt)&&/3 fields differ/.test(dtxt));
+
+          /* field query in the feed filter */
+          side.publish('fq.a',enc.encode('{"Sensor":{"temp":10}}')); side.publish('fq.b',enc.encode('{"Sensor":{"temp":45}}'));
+          await wait(300); set('#sf','where temp > 30'); await wait(300);
+          const fq=[...document.querySelectorAll('#feed tr[data-n]')].map(r=>r.textContent);
+          T('field query filters the feed', fq.some(r=>r.includes('fq.b')) && !fq.some(r=>r.includes('fq.a')) && !fq.some(r=>r.includes('diff.t') && false));
+          set('#sf','where temp >'); await wait(300);
+          T('a bad query is explained', /Missing a value/.test($('#swarn').textContent));
+          set('#sf','');
+
+          /* content alerts */
+          $('#ops summary').click();
+          set('#asub','alerts.>'); set('#akind','match'); $('#akind').dispatchEvent(new Event('change')); set('#aval','BOOM'); click('#aadd'); await wait(100);
+          T('content alert added', $$('#alist .chip').length===1 && $('#alist').textContent.includes('contains BOOM'));
+          side.publish('alerts.x',enc.encode('all fine')); side.publish('alerts.x',enc.encode('there was a BOOM here'));
+          T('content alert fires', await until(()=>/BOOM/.test($('#abanner').textContent),3500));
+          $('#ahist summary').click(); await wait(1200);
+          T('alert history lists the message', /BOOM/.test($('#ahrows').textContent));
+
+          /* JetStream administration */
+          await tab('js'); click('#jref'); await until(()=>/stream/.test($('#jst').textContent));
+          T('create button is locked until changes are allowed', $('#jcreate').hidden);
+          $('#jwr').click(); await wait(50);
+          T('allow changes unlocks it', !$('#jcreate').hidden);
+          click('#jcreate'); set('#jfn','ADMIN'); set('#jfs','admin.>'); set('#jfst','memory'); click('#jfgo');
+          T('stream is created and listed', await until(()=>[...document.querySelectorAll('#jstreams tr[data-s]')].some(r=>r.dataset.s==='ADMIN')));
+          for(let i=1;i<=5;i++) side.publish('admin.m'+i,enc.encode('msg'+i));
+          await wait(300);
+          $('#jstreams tr[data-s="ADMIN"]').click();
+          T('stream opens with admin block and lag chart', await until(()=>!!$('#jdet #pgo') && !!$('#jdet .chart h3') && /lag/i.test($('#jdet').textContent)));
+          set('#cn','worker'); set('#cf','admin.>'); click('#cgo');
+          T('consumer is added', await until(()=>/worker/.test($('#jdet').textContent) && /Add consumer: done/.test($('#ast2').textContent)));
+          window.confirm=()=>true;
+          await until(()=>!!$('#jdet #pm'));
+          set('#pm','keep'); $('#pm').dispatchEvent(new Event('change')); set('#pv','2'); click('#pgo');
+          T('purge keeps the newest messages', await until(()=>/Purge: done/.test($('#ast2').textContent)));
+          const info=await side.jsApi('STREAM.INFO.ADMIN');
+          T('purge really removed messages', info.state.messages===2);
+          await until(()=>!!$('#jdet #cdgo')); click('#cdgo');
+          T('consumer is deleted', await until(()=>/Delete consumer: done/.test($('#ast2').textContent)));
+          const lagTxt=await until(()=>/worker|No consumers/.test($('#jdet .chart').textContent),4500);
+          T('lag chart is drawn', lagTxt || !!$('#jdet .chart'));
+          await until(()=>!!$('#jdet #dgo')); click('#dgo');
+          T('stream is deleted', await until(()=>![...document.querySelectorAll('#jstreams tr[data-s]')].some(r=>r.dataset.s==='ADMIN'),5000));
+
+          /* KV */
+          await side.jsApi('STREAM.CREATE.KV_dtkv',{name:'KV_dtkv',subjects:['$KV.dtkv.>'],storage:'memory',max_msgs_per_subject:10,allow_rollup_hdrs:true,allow_direct:true});
+          side.publish('$KV.dtkv.color',enc.encode('green'));
+          await tab('kv'); click('#kvref');
+          T('KV bucket is offered', await until(()=>[...$('#kvb').options].some(o=>o.value==='KV_dtkv')));
+          $('#kvb').value='KV_dtkv'; $('#kvb').dispatchEvent(new Event('change'));
+          T('keys are listed', await until(()=>[...document.querySelectorAll('#kvkeys tr[data-k]')].some(r=>r.dataset.k==='color')));
+          $('#kvkeys tr[data-k="color"]').click();
+          T('key value is shown', await until(()=>$('#kvval') && $('#kvval').textContent==='green'));
+          T('edit buttons are hidden until allowed', !$('#kvedit'));
+          $('#kvw').click(); await wait(150);
+          T('edit buttons appear when allowed', !!$('#kvedit'));
+          click('#kvedit'); set('#kvnv','blue'); click('#kvsave');
+          T('edit is saved with compare-and-set', await until(()=>/Saved color at revision/.test($('#kvst').textContent) && $('#kvval').textContent==='blue'));
+          const entry=await L.kv.entry((s,b)=>side.jsApi(s,b),'dtkv','color');
+          side.publish('$KV.dtkv.color',enc.encode('red'),{}); await wait(200);
+          click('#kvedit'); set('#kvnv','stale write');
+          // another writer changed the key after we opened it: our save must be refused
+          click('#kvsave');
+          T('stale edit is refused', await until(()=>/changed this key|wrong last sequence/i.test($('#kvst').textContent)));
+          $('#kvkeys tr[data-k="color"]').click(); await until(()=>$('#kvval') && $('#kvval').textContent==='red');
+          click('#kvhist'); T('history lists every revision', await until(()=>$$('#kvhistbox tbody tr').length>=3));
+          set('#kvnk','fresh.key'); click('#kvnew'); set('#kvnv','first'); click('#kvcreate');
+          T('new key is created', await until(()=>/Created fresh.key/.test($('#kvst').textContent)));
+          window.confirm=()=>true; click('#kvdel');
+          T('delete leaves a marker', await until(()=>/DEL/.test($('#kvbody').textContent) && /deleted marker/.test($('#kvdet').textContent)));
+          $('#kvwatch').click(); await wait(200); side.publish('$KV.dtkv.live1',enc.encode('x'));
+          T('watch shows live changes', await until(()=>/live1/.test($('#kvch') ? $('#kvch').textContent : '')));
+
+          /* object store */
+          await side.jsApi('STREAM.CREATE.OBJ_dtobj',{name:'OBJ_dtobj',subjects:['$O.dtobj.C.>','$O.dtobj.M.>'],storage:'memory',allow_rollup_hdrs:true});
+          const content=enc.encode('hello object store!'), h=new Uint8Array(await crypto.subtle.digest('SHA-256',content));
+          let s=''; for(const b of h) s+=String.fromCharCode(b);
+          const digest='SHA-256='+btoa(s).replace(/[+]/g,'-').replace(/[/]/g,'_');
+          side.publish('$O.dtobj.C.NUID1',content.subarray(0,10)); side.publish('$O.dtobj.C.NUID1',content.subarray(10));
+          side.publish(L.obj.metaSubject('dtobj','docs/readme.txt'),enc.encode(JSON.stringify({name:'docs/readme.txt',bucket:'dtobj',nuid:'NUID1',size:content.length,chunks:2,digest,mtime:'2025-01-01T00:00:00Z'})));
+          await wait(300);
+          click('#kvref'); await until(()=>[...$('#kvb').options].some(o=>o.value==='OBJ_dtobj'));
+          $('#kvb').value='OBJ_dtobj'; $('#kvb').dispatchEvent(new Event('change'));
+          T('objects are listed', await until(()=>/docs[/]readme.txt/.test($('#kvbody').textContent)));
+          $('#kvbody button[data-i]').click();
+          T('download is verified against size and SHA-256', await until(()=>/SHA-256 ok/.test($('#kvst').textContent) && /size ok/.test($('#kvst').textContent)));
+
+          /* responder */
+          await tab('resp');
+          set('#rmt','rq.>'); set('#rrx','{"ok":true,"n":{{counter}},"echo":"{{in:name}}"}'); click('#radd'); await wait(100);
+          T('responder rule is added', $$('#rlist tr[data-i]').length===1);
+          const r1=await side.request('rq.hello',enc.encode('{"name":"ada"}'),{timeout:2000});
+          const r2=await side.request('rq.hello',enc.encode('{"name":"lin"}'),{timeout:2000});
+          T('responder answers on the reply-to subject', dec.decode(r1.payload)==='{"ok":true,"n":1,"echo":"ada"}' && dec.decode(r2.payload).includes('"n":2'));
+          T('replies are logged', await until(()=>$$('#rlog tr').length>=2 && /rq.hello|_INBOX/.test($('#rlog').textContent)));
+          set('#rrx','');
+
+          /* scenario */
+          await tab('scn');
+          const got=[]; side.subscribe('scn.>',m=>got.push(m.subject+'='+dec.decode(m.payload)));
+          set('#scvars','{"who":"ada"}');
+          set('#sctop','scn.one.{{counter}}'); set('#sctxt','first {{var:who}}'); click('#scadd');
+          set('#sctop','scn.two'); set('#sctxt','second'); set('#scdel','120'); click('#scadd');
+          click('#scrun');
+          T('scenario plays in order with its delay', await until(()=>got.length===2,3000) && got[0]==='scn.one.1=first ada' && got[1]==='scn.two=second');
+          T('scenario status reports completion', await until(()=>/Done. 2 messages sent/.test($('#scst').textContent)));
+          click('#sccap');
+          T('capture from the feed adds steps', $$('#sclist tr[data-i]').length>2);
+
+          side.close();
+        } catch(e){ out.push('FAIL exception: '+e.message+' '+(e.stack||'').split('\\n')[1]); }
+        return out; })()`);
+        for (const line of res) line.startsWith("ok ") ? ok(line.slice(3)) : fail(line.slice(5), "check failed");
+        p.errors.length ? fail("nats extras errors", p.errors.join(" | ")) : ok("no script errors");
+      } catch (e) { fail("nats extras live", e.message); }
+      await p.close();
+
+      // ---- $SYS monitoring: connect as a system-account user (the test server uses sys / sys)
+      const q = await openPage("toolbox.html#nats");
+      try {
+        await q.eval(`localStorage.clear()`); await q.eval(`location.reload()`); await sleep(700);
+        const r2 = await q.eval(`(async()=>{${SET}
+          const out=[]; const T=(n,c)=>{out.push((c?'ok ':'FAIL ')+n); return c;};
+          const until=async(f,ms=5000)=>{const t=Date.now();while(Date.now()-t<ms){try{if(f())return true}catch(e){} await wait(40)}return false};
+          set('#url',${W}); set('#user','sys'); set('#pass','sys'); click('#conn');
+          T('connects as the system user', await until(()=>!$('#work').hidden));
+          $('.tabs.nav .tab[data-t="srv"]').click();
+          T('server table lists the server', await until(()=>/dt-test/.test($('#sservers').textContent),6000));
+          T('connections are listed', await until(()=>$$('#sconns tbody tr').length>=1));
+          T('subject usage section renders', /Subject usage/.test($('#susage').textContent));
+          T('status reports counts', /server/.test($('#sstat').textContent));
+          return out; })()`);
+        for (const line of r2) line.startsWith("ok ") ? ok(line.slice(3)) : fail(line.slice(5), "check failed");
+        // an application user sees an explanation instead
+        await q.eval(`location.reload()`); await sleep(900);
+        const r3 = await q.eval(`(async()=>{${SET}
+          const until=async(f,ms=6000)=>{const t=Date.now();while(Date.now()-t<ms){try{if(f())return true}catch(e){} await wait(40)}return false};
+          set('#url',${W}); click('#conn'); await until(()=>!$('#work').hidden);
+          $('.tabs.nav .tab[data-t="srv"]').click();
+          return await until(()=>/system account|No server answered/.test($('#sstat').textContent)); })()`);
+        r3 ? ok("an application account gets an explanation, not an error") : fail("sys explanation", "no message: " + await q.eval(`document.querySelector('#sstat').textContent`));
+        q.errors.length ? fail("sys errors", q.errors.join(" | ")) : ok("no script errors");
+      } catch (e) { fail("nats sys live", e.message); }
+      await q.close();
+
+      // ---- NKey authentication (needs a second server: NATS_NKEY_WS plus NATS_NKEY_SEED, see DOCS.md)
+      if (process.env.NATS_NKEY_WS && process.env.NATS_NKEY_SEED) {
+        const k = await openPage("toolbox.html#nats");
+        try {
+          await k.eval(`localStorage.clear()`); await k.eval(`location.reload()`); await sleep(700);
+          const KW = JSON.stringify(process.env.NATS_NKEY_WS), KS = JSON.stringify(process.env.NATS_NKEY_SEED);
+          const r4 = await k.eval(`(async()=>{${SET}
+            const out=[]; const T=(n,c)=>{out.push((c?'ok ':'FAIL ')+n); return c;};
+            const until=async(f,ms=5000)=>{const t=Date.now();while(Date.now()-t<ms){try{if(f())return true}catch(e){} await wait(40)}return false};
+            set('#url',${KW}); click('#conn');
+            T('without a key the server refuses', await until(()=>/uthori[sz]ation/i.test($('#cst').textContent)));
+            set('#nkseed','SUAAAA'); click('#conn');
+            T('a mistyped seed is explained', await until(()=>/checksum|wrong length|typo/i.test($('#cst').textContent)));
+            set('#nkseed',${KS}); click('#conn');
+            T('with the seed it connects', await until(()=>!$('#work').hidden));
+            T('the seed is not remembered', !JSON.stringify(localStorage).includes(${KS}));
+            return out; })()`);
+          for (const line of r4) line.startsWith("ok ") ? ok(line.slice(3)) : fail(line.slice(5), "check failed");
+          k.errors.length ? fail("nkey errors", k.errors.join(" | ")) : ok("no script errors");
+        } catch (e) { fail("nats nkey live", e.message); }
+        await k.close();
+      } else console.log("  (NKey checks skipped: set NATS_NKEY_WS and NATS_NKEY_SEED)");
+    }
+
 
     // ---- favorites (stars)
     console.log("Favorites");
