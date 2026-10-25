@@ -23,7 +23,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: dev-tools
-          image: dev-tools:1.2.0
+          image: dev-tools:1.3.0
           env:
             - { name: PORT, value: "9999" }
           ports:

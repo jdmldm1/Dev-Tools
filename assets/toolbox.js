@@ -8,7 +8,7 @@
     register(t) { tools.push(t); },
     tools: () => tools,
     /* Extension points for shell add-ons (share links, send-to, palette): fn(tool, root) runs after a tool renders. */
-    hooks: { show: [] },
+    hooks: { show: [], cleanup: [] },
     onShow(fn) { DT.hooks.show.push(fn); },
     /* Hash is "#tool" or "#tool?key=value": the id and the query part. */
     route() { const h = location.hash.slice(1), i = h.indexOf("?"); return { id: i < 0 ? h : h.slice(0, i), params: new URLSearchParams(i < 0 ? "" : h.slice(i + 1)) }; },
@@ -42,7 +42,7 @@
       });
     },
     /* Set a status line. Only the status classes change, so other classes (and anything that selects by them) survive. */
-    status(el, kind, msg) { el.classList.remove("ok", "err", "warn"); el.classList.add("status"); if (kind) el.classList.add(kind); el.textContent = msg || ""; },
+    status(el, kind, msg) { el.classList.remove("ok", "err", "warn"); el.classList.add("status"); el.setAttribute("aria-live", kind === "err" ? "assertive" : "polite"); if (kind) el.classList.add(kind); el.textContent = msg || ""; },
     /* Key/value table whose values have a copy button. rows: [[key, value]] */
     kv(rows) {
       return `<table class="kv"><tbody>${rows.map(([k, v]) => `<tr><td class="k">${DT.esc(k)}</td><td class="v">${DT.esc(v)}</td><td class="cp"><button class="mini" type="button" data-copytext="${DT.esc(v)}">copy</button></td></tr>`).join("")}</tbody></table>`;
@@ -109,6 +109,7 @@
 
     let activeCleanup = null;
     function show() {
+      DT.hooks.cleanup.splice(0).forEach(fn => { try { fn(); } catch (err) { console.error("cleanup hook:", err); } });
       if (typeof activeCleanup === "function") {
         try { activeCleanup(); } catch (err) { console.error("Error during tool cleanup:", err); }
         activeCleanup = null;

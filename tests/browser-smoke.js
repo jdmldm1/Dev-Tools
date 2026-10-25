@@ -634,6 +634,54 @@ const TOOL_CHECKS = {
       await p.close();
     }
 
+    // ---- accessibility: every control in every tool has an accessible name
+    console.log("Accessibility");
+    for (const tl of catalog.tools) {
+      const p = await openPage("toolbox.html#" + tl.id);
+      try {
+        await sleep(450);
+        const bad = await p.eval(`(()=>{const out=[];document.querySelectorAll('#tool input:not([type=hidden]),#tool select,#tool textarea').forEach(el=>{const n=(el.getAttribute('aria-label')||'').trim()||el.getAttribute('aria-labelledby')||(el.labels&&el.labels.length?'l':'')||(el.getAttribute('title')||'').trim();if(!n)out.push(el.tagName+'#'+el.id)});return out})()`);
+        bad.length ? fail("a11y " + tl.id, "unnamed: " + bad.join(", ")) : ok("a11y " + tl.id);
+      } catch (e) { fail("a11y " + tl.id, e.message); }
+      await p.close();
+    }
+    { const p = await openPage("toolbox.html#json");
+      try {
+        const r = await p.eval(`(()=>{const sk=document.querySelector('.skip');sk.focus();sk.click();return {skip:!!sk,focused:document.activeElement.id,live:document.querySelector('#st')?document.querySelector('#st').getAttribute('aria-live'):'none'}})()`);
+        r.skip && r.focused === "main" ? ok("skip link moves focus to the main area") : fail("skip link", JSON.stringify(r));
+      } catch (e) { fail("skip link", e.message); }
+      await p.close(); }
+
+    // ---- NATS explorer: saved profiles and alerts (no server needed)
+    console.log("NATS profiles and alerts");
+    {
+      const p = await openPage("toolbox.html#nats");
+      try {
+        await p.eval(`localStorage.clear()`); await p.eval(`location.reload()`); await sleep(600);
+        const r = await p.eval(`(async()=>{${SET}
+          const out=[]; const T=(n,c)=>out.push((c?'ok ':'FAIL ')+n);
+          T('profiles panel is there before connecting', !!$('#ops') && $('#pf').options.length===1 && $('#pf').value==='');
+          set('#url','ws://lab.test:8080'); set('#user','admin'); set('#pass','hunter2');
+          window.prompt=()=> 'lab'; click('#pfsave'); await wait(50);
+          T('saving adds the profile', $('#pf').value==='lab');
+          T('credentials are not stored', !localStorage.getItem('dt.nats.profiles').includes('hunter2') && !localStorage.getItem('dt.nats.profiles').includes('admin'));
+          set('#url','ws://other:1'); click('#pfload'); await wait(50);
+          T('loading restores the URL', $('#url').value==='ws://lab.test:8080');
+          set('#asub','orders.*'); set('#aval','5'); click('#aadd'); await wait(50);
+          T('an alert rule appears as a chip', $$('#alist .chip').length===1 && $('#alist').textContent.includes('orders.*'));
+          set('#asub','bad subject'); click('#aadd'); await wait(50);
+          T('an invalid pattern is refused', $$('#alist .chip').length===1 && $('#ast').textContent.includes('valid subject'));
+          $('#alist .chip').click(); await wait(50);
+          T('clicking a chip removes the alert', $$('#alist .chip').length===0);
+          return out; })()`);
+        for (const line of r) line.startsWith("ok ") ? ok(line.slice(3)) : fail(line.slice(5), "check failed");
+        await p.eval(`location.reload()`); await sleep(600);
+        (await p.eval(`document.querySelector('#pf').value==='lab'`)) ? ok("profiles survive a reload") : fail("profiles reload", "profile missing");
+        p.errors.length ? fail("nats ops errors", p.errors.join(" | ")) : ok("no script errors");
+      } catch (e) { fail("nats profiles", e.message); }
+      await p.close();
+    }
+
     // ---- over http: command search across sheets, service worker precache
     console.log("Over http");
     {

@@ -285,6 +285,7 @@
           <div class="btns" style="align-items:center"><button class="btn primary" id="conn" type="button">Connect</button><button class="btn" id="disc" type="button" hidden>Disconnect</button><label class="hint" title="Reconnects to the last server you connected to without credentials"><input type="checkbox" id="auto"> connect automatically when I open this page</label></div>
           <div class="status" id="cst"></div>
           <div id="info"></div>
+          <div id="opshost"></div>
           ${lib.schemaPanelHtml("XML / UCI messages")}
           <details class="hint"><summary>The server needs a WebSocket listener</summary>
             <p>Add this to the server config (or the NATS Helm values) and restart. Browsers cannot speak the plain TCP protocol on 4222.</p>
@@ -413,7 +414,10 @@
           status("#cst", "ok", "Connected to " + url);
           gTimer = setInterval(tick, 1000);
           if (pendingPub) { pendingPub = false; showTab("pub"); }
-          try { subList.push(client.subscribe(">", onMsg)); renderSubs(); } catch (e) { status("#swarn", "warn", "Could not subscribe to >: " + e.message); }
+          for (const s of ops.takeSubs()) {
+            try { subList.push(client.subscribe(s.subject, onMsg, { queue: s.queue || "" })); } catch (e) { status("#swarn", "warn", `Could not subscribe to ${s.subject}: ${e.message}`); }
+          }
+          renderSubs();
           draw(); drawGraphs(true);
         } catch (e) {
           $("#conn").disabled = false;
@@ -424,6 +428,19 @@
       $("#disc").onclick = () => { client.close(); disconnected("Disconnected."); };
       $("#url").addEventListener("keydown", e => { if (e.key === "Enter") connect(); });
       window.addEventListener("pagehide", () => client.close(), { once: true });
+
+      /* ----- profiles and alerts ----- */
+      const ops = lib.natsOps($("#opshost"), {
+        getUrl: () => $("#url").value.trim(), setUrl: u => { $("#url").value = u; },
+        getSubs: () => subList.map(s => ({ subject: s.subject, queue: s.queue || "" })),
+        connected: () => !$("#work").hidden,
+        resubscribe: list => {
+          subList.splice(0).forEach(s => s.unsubscribe());
+          for (const s of list) { try { subList.push(client.subscribe(s.subject, onMsg, { queue: s.queue || "" })); } catch (e) { status("#swarn", "warn", `Could not subscribe to ${s.subject}: ${e.message}`); } }
+          renderSubs(); draw();
+        },
+        getHide: () => $("#shide").checked, setHide: v => { $("#shide").checked = v; hideInternal = v; },
+      });
 
       /* ----- decoding XML payloads ----- */
       const decodeFor = (m, validate) => {
@@ -525,6 +542,7 @@
         const c0 = m.subject.charCodeAt(0);
         if (hideInternal && (c0 === 36 || c0 === 95) && internal(m.subject)) return;
         const now = Date.now();
+        ops.record(m.subject);
         m.root = quickRoot(m.payload); tally(m, now);
         if (paused || (stride > 1 && ++strideN % stride)) return;                         // above ~20k msg/s only every Nth message goes into the feed; counts stay exact
         m.n = total; m.t = now;
@@ -563,6 +581,7 @@
       const plotInto = (host, html) => { host.querySelector(".plot").innerHTML = html; };
       function tick() {
         if (!root.isConnected) { client.close(); clearInterval(gTimer); return; }
+        ops.tick();
         const last = secs.get(Math.floor(Date.now() / 1000) - 1); stride = last && last.n > 20000 ? Math.ceil(last.n / 10000) : 1;
         const cut = Math.floor(Date.now() / 1000) - 620; for (const k of secs.keys()) if (k < cut) secs.delete(k);
         if (activeTab === "sub") drawGraphs(false);

@@ -104,13 +104,13 @@
           <div class="hint">Accepts 34.05, -118.24, 34°03′08″N, 34 3.13 N, N34 03 08, 340308N / 1181437W, or 0.5942 rad.</div>
           <div class="status" id="cst"></div><div id="cout"></div></div>
         <div class="panel"><div class="lbl" style="margin-bottom:8px">Distance & bearing between two points</div>
-          <div class="opts"><label>A <input type="text" id="alat" class="mono" placeholder="lat" value="34.0522" style="width:130px"><input type="text" id="alon" class="mono" placeholder="lon" value="-118.2437" style="width:130px"></label>
-            <label>B <input type="text" id="blat" class="mono" placeholder="lat" value="36.1699" style="width:130px"><input type="text" id="blon" class="mono" placeholder="lon" value="-115.1398" style="width:130px"></label></div>
+          <div class="opts"><label>A <input type="text" id="alat" class="mono" placeholder="lat" value="34.0522" style="width:130px"><input type="text" id="alon" aria-label="Point A longitude" class="mono" placeholder="lon" value="-118.2437" style="width:130px"></label>
+            <label>B <input type="text" id="blat" class="mono" placeholder="lat" value="36.1699" style="width:130px"><input type="text" id="blon" aria-label="Point B longitude" class="mono" placeholder="lon" value="-115.1398" style="width:130px"></label></div>
           <div class="status" id="dst"></div><div id="dout"></div>
           <div class="opts"><span class="lbl">Project from A</span><label>bearing° <input type="number" id="pb" value="45" step="any" style="width:90px"></label><label>distance <input type="number" id="pd" value="100" step="any" style="width:110px"></label><select id="pu" class="mono"><option>km</option><option>nmi</option><option>m</option><option>mi</option><option>ft</option></select></div>
           <div id="pout"></div></div>
         <div class="panel"><div class="lbl" style="margin-bottom:8px">Units</div>
-          <div class="opts"><select id="cat" class="mono">${Object.keys(CATS).map(c => `<option>${c}</option>`).join("")}</select><input type="number" id="val" value="250" step="any" class="mono" style="width:140px"><select id="from" class="mono"></select></div>
+          <div class="opts"><select id="cat" aria-label="Unit category" class="mono">${Object.keys(CATS).map(c => `<option>${c}</option>`).join("")}</select><input type="number" id="val" aria-label="Value to convert" value="250" step="any" class="mono" style="width:140px"><select id="from" aria-label="From unit" class="mono"></select></div>
           <div id="uout"></div></div>`;
       const $ = s => root.querySelector(s);
       function coord() {

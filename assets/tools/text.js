@@ -49,8 +49,8 @@
         <div class="col"><label class="l" for="t">Text</label><textarea id="t" spellcheck="false" placeholder="Paste lines here"></textarea></div>
         <div class="hint mono" id="stats" style="margin:6px 0"></div>
         <div class="opts">
-          <select id="op" class="mono" style="max-width:340px">${ops.map(([k, o]) => `<option value="${k}">${DT.esc(o.name)}</option>`).join("")}</select>
-          <input type="text" id="a1" class="mono" style="width:200px" hidden><input type="text" id="a2" class="mono" style="width:200px" hidden>
+          <select id="op" aria-label="Operation" class="mono" style="max-width:340px">${ops.map(([k, o]) => `<option value="${k}">${DT.esc(o.name)}</option>`).join("")}</select>
+          <input type="text" id="a1" aria-label="First argument" class="mono" style="width:200px" hidden><input type="text" id="a2" aria-label="Second argument" class="mono" style="width:200px" hidden>
           <button class="btn primary" id="apply" type="button">Apply</button><button class="btn" id="undo" type="button" disabled>Undo</button>
           <button class="btn" data-copy="#t" type="button">Copy</button><button class="btn" data-clear="#t" type="button">Clear</button>
         </div>

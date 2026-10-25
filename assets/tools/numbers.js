@@ -51,7 +51,7 @@
         <div class="panel"><div class="opts"><span class="lbl">Bits</span> <label>Width <select id="w"><option>8</option><option>16</option><option selected>32</option><option>64</option></select></label><span class="hint">click a bit to flip it</span></div>
           <div class="bits" id="bits"></div><div id="tc" style="margin-top:12px"></div></div>
         <div class="panel"><div class="lbl" style="margin-bottom:8px">Data size</div>
-          <div class="opts"><input type="number" id="sz" value="1.5" step="any" class="mono" style="width:140px"><select id="su" class="mono">${Object.keys(UNITS).map(u => `<option ${u === "GiB" ? "selected" : ""}>${u}</option>`).join("")}</select></div><div id="szo"></div></div>`;
+          <div class="opts"><input type="number" id="sz" aria-label="Size" value="1.5" step="any" class="mono" style="width:140px"><select id="su" aria-label="Size unit" class="mono">${Object.keys(UNITS).map(u => `<option ${u === "GiB" ? "selected" : ""}>${u}</option>`).join("")}</select></div><div id="szo"></div></div>`;
       const $ = s => root.querySelector(s);
       const bases = { dec: 10, hex: 16, bin: 2, oct: 8 };
       let value = 255n;

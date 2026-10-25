@@ -53,6 +53,30 @@
 
   if (typeof document === "undefined" || !document) return;
 
+  /* ---- accessible names ----
+     Tools label most controls; this gives the rest a name from (in order) the placeholder, the nearest text before the control, or the id.
+     It runs after each render and again when a tool adds controls later (tabs, connect panels). */
+  const hasName = el => !!((el.getAttribute("aria-label") || "").trim() || el.getAttribute("aria-labelledby") || (el.labels && el.labels.length && [...el.labels].some(l => l.textContent.trim())) || (el.getAttribute("title") || "").trim());
+  function nameFor(el) {
+    const ph = (el.getAttribute("placeholder") || "").replace(/[….]+$/, "").trim();
+    if (ph) return ph;
+    for (let n = el.previousSibling, hops = 0; n && hops < 4; n = n.previousSibling, hops++) {
+      const t = (n.nodeType === 3 ? n.textContent : n.nodeType === 1 && !/^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(n.tagName) && !n.querySelector("input,select,textarea") ? n.textContent : "").trim();
+      if (t && t.length <= 40) return t.replace(/[:：]s*$/, "");
+    }
+    if (el.type === "file") return "Choose file";
+    return (el.id || el.name || el.type || "field").replace(/[-_]+/g, " ");
+  }
+  DT.nameControls = function (root) {
+    root.querySelectorAll("input:not([type=hidden]), select, textarea").forEach(el => { if (!hasName(el)) el.setAttribute("aria-label", nameFor(el)); });
+  };
+  DT.onShow((tool, root) => {
+    DT.nameControls(root);
+    const mo = new MutationObserver(DT.debounce(() => DT.nameControls(root), 150));
+    mo.observe(root, { childList: true, subtree: true });
+    DT.hooks.cleanup.push(() => mo.disconnect());
+  });
+
   /* ---- toast ---- */
   let toastTimer;
   DT.toast = function (msg, action) {

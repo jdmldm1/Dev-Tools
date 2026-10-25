@@ -85,3 +85,6 @@ h1 .icon{width:28px;height:28px;margin-right:10px;vertical-align:-4px}
   .grid{columns:2 300px}.card{break-inside:avoid;border-color:#bbb}
   .row pre,td:first-child{color:#000}
 }
+
+/* the hidden attribute must win over any display rule */
+[hidden]{display:none!important}

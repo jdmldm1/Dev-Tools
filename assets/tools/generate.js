@@ -59,7 +59,7 @@
           <div class="opts"><label>Type <select id="kind">${Object.entries(KINDS).map(([k, v]) => `<option value="${k}">${DT.esc(v.name)}</option>`).join("")}</select></label>
             <label>Count <input type="number" id="count" value="5" min="1" max="500" style="width:80px"></label>
             <button class="btn primary" id="gen" type="button">Generate</button><button class="btn" data-copy="#out" type="button">Copy all</button></div>
-          <textarea id="out" class="md" readonly spellcheck="false"></textarea>
+          <textarea id="out" aria-label="Generated values" class="md" readonly spellcheck="false"></textarea>
         </div>
         <div class="panel">
           <div class="lbl" style="margin-bottom:8px">Password</div>
@@ -70,7 +70,7 @@
             <label><input type="checkbox" id="pa"> avoid look-alikes (Il1O0)</label>
             <button class="btn primary" id="pgen" type="button">Generate</button>
           </div>
-          <div class="opts"><input type="text" id="pw" class="mono" readonly style="max-width:520px"><button class="btn" data-copy="#pw" type="button">Copy</button></div>
+          <div class="opts"><input type="text" id="pw" aria-label="Generated password" class="mono" readonly style="max-width:520px"><button class="btn" data-copy="#pw" type="button">Copy</button></div>
           <div class="status" id="pst"></div>
         </div>`;
       const $ = s => root.querySelector(s);

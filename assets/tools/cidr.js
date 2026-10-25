@@ -66,10 +66,10 @@
         <div class="opts"><input type="text" id="in" class="mono" style="max-width:300px" value="192.168.10.37/26" spellcheck="false" aria-label="CIDR"><span class="hint">e.g. 10.0.0.0/16 or "172.16.0.0 255.255.0.0"</span></div>
         <div class="status" id="st"></div><div id="res"></div>
         <div class="two">
-          <div class="panel"><div class="lbl" style="margin-bottom:8px">Is this IP inside the network?</div><div class="opts"><input type="text" id="ip" class="mono" placeholder="192.168.10.50" style="max-width:220px"></div><div id="ipr" class="mono"></div></div>
+          <div class="panel"><div class="lbl" style="margin-bottom:8px">Is this IP inside the network?</div><div class="opts"><input type="text" id="ip" aria-label="IP address" class="mono" placeholder="192.168.10.50" style="max-width:220px"></div><div id="ipr" class="mono"></div></div>
           <div class="panel"><div class="lbl" style="margin-bottom:8px">Split into subnets</div><div class="opts"><label>New prefix /<input type="number" id="np" min="1" max="32" value="28" style="width:80px"></label></div><div id="spl" class="mono" style="max-height:200px;overflow:auto"></div></div>
         </div>
-        <div class="panel"><div class="lbl" style="margin-bottom:8px">IP range → CIDR blocks</div><div class="opts"><input type="text" id="r1" class="mono" placeholder="10.0.0.5" style="width:170px"><span>to</span><input type="text" id="r2" class="mono" placeholder="10.0.0.200" style="width:170px"></div><div id="rr" class="mono"></div></div>
+        <div class="panel"><div class="lbl" style="margin-bottom:8px">IP range → CIDR blocks</div><div class="opts"><input type="text" id="r1" aria-label="Range start" class="mono" placeholder="10.0.0.5" style="width:170px"><span>to</span><input type="text" id="r2" aria-label="Range end" class="mono" placeholder="10.0.0.200" style="width:170px"></div><div id="rr" class="mono"></div></div>
         <p class="hint">IPv4 only. /31 (point-to-point) and /32 (single host) report all addresses as usable, per RFC 3021.</p>`;
       const $ = s => root.querySelector(s);
       function main() {

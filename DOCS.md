@@ -8,13 +8,13 @@ Open `index.html`: it goes straight to the XSD Schema Explorer (`toolbox.html#xs
 
 | Group | Sheets |
 |-------|--------|
-| CLI & DevOps | Git, GitHub CLI, GitLab CLI, Docker, kubectl, NATS |
-| Shell & System | Linux & SSH, Bash, PowerShell, curl, jq, Vim |
-| Languages & Data | Go, C#, Python, JavaScript / TypeScript, SQL, Regex |
-| Web | HTTP, Markdown |
+| CLI & DevOps | Git, GitHub CLI, GitLab CLI, Docker, kubectl, NATS, Terraform, Helm |
+| Shell & System | Linux & SSH, Bash, PowerShell, curl, jq, Vim, Make & CMake |
+| Languages & Data | Go, C#, Rust, Python, JavaScript, TypeScript, SQL, PostgreSQL (psql, JSONB, SQLite notes), Regex |
+| Web | HTTP, React, Svelte, Markdown |
 | XML & Mission Systems | XML / XPath / XSD, UCI · OMS · AMS GRA (repos, versions, and what the UCI 2.6 schema contains) |
 
-Every sheet has a filter box, section chips and click-to-copy commands.
+Every sheet has a filter box, section chips and click-to-copy commands. The overview (`all.html`) also searches the commands inside every sheet and links to the sheet pre-filtered (`sheets/<id>.html?q=...`).
 
 ## Toolbox (`toolbox.html`)
 
@@ -22,15 +22,24 @@ Every sheet has a filter box, section chips and click-to-copy commands.
 |-------|-------|
 | Format & Validate | JSON formatter / validator (line + column errors), Regex tester (worker timeout guards against catastrophic backtracking), Text diff |
 | Encode & Decode | Base64 (text + files), URL encode / decode / parse, Escape / unescape (HTML, XML, JSON, JS, regex, SQL, shell, CSV, Unicode) |
-| Translate | JSON ⇄ YAML, CSV ⇄ JSON, JSON → code types (TypeScript, Go, C#, Python, Rust), curl → fetch / Python / PowerShell / Go / C# |
-| Generate | UUID v4 / v7, ULID, random keys, password generator |
+| Translate | JSON ⇄ YAML, CSV ⇄ JSON, JSON → code types (TypeScript, Go, C#, Python, Rust), curl → fetch / Python / PowerShell / Go / C#, **HTTP request builder** (method, headers, auth, body → curl / fetch / Python / PowerShell / Go / C#), **Protobuf viewer** (.proto outline, field-number lint, proto3 JSON sample) |
+| Generate | UUID v4 / v7, ULID, random keys, password generator, **QR code generator** (text, URL or Wi-Fi; SVG and PNG; own encoder, versions 1-40, checked against a reference library) |
 | Time & Numbers | Timestamp converter, Cron explainer (+ next runs), Number bases & bits, Color converter + WCAG contrast |
-| Text | Case converter, Text utilities (sort, dedupe, number, join, split, replace, counts) |
+| Text | Case converter, Text utilities (sort, dedupe, number, join, split, replace, counts), **Unicode inspector** (code points, UTF-8/16 bytes, invisible and bidi characters, normalization) |
 | UCI | **XSD Schema Explorer & Validator**, **Schema Diff**, **Message Builder**, **UCI Traffic Lab**, **NATS Explorer**, **CAL Explorer (OWP)** |
-| Network & Security | JWT decoder + HMAC verify, Hash & HMAC, chmod calculator, CIDR / subnet calculator |
+| Network & Security | JWT decoder + HMAC verify, Hash & HMAC, **TOTP / 2FA code** (RFC 6238, otpauth:// URIs), chmod calculator, CIDR / subnet calculator |
 | XML & Mission Systems | XML format / validate / convert, Coordinates / distance / units, Bytes (hex dump, endianness, CRC) |
 
 Deep link to a tool with `toolbox.html#jwt`, `toolbox.html#xsd`, etc.
+
+### Shell features (all tools)
+
+- **Share links.** "Share link" copies `toolbox.html#tool?s=...`: the tool's changed inputs, deflated and base64url-encoded. Opening it restores them. Links over about 6 KB are refused (copy the text instead). UCI tools (NATS, CAL, Traffic Lab and so on) and password / secret / token fields are never put in a link; mark any field `data-noshare` to keep it out.
+- **Send output to…** moves a tool's output into another tool's input (for example Base64 → URL, JWT payload → JSON).
+- **Command palette.** `Ctrl/Cmd + K` jumps to any tool or sheet or runs an action (copy share link, switch theme, expand or collapse the sidebar). `/` still focuses the sidebar search.
+- **Theme.** Dark by default; the sidebar's `theme:` button cycles dark, light and auto (follows the system). Sheets, the overview and the older standalone sheets follow the same setting. Printing a sheet uses a plain black-on-white layout.
+- **Offline.** A service worker precaches every script, stylesheet and sheet the pages reference, keeps them in a cache named after the version in `package.json`, and shows a "new version is ready" toast when an update is installed. Install it from the browser as an app (`manifest.json`).
+- **Accessibility.** Controls without a label get an accessible name automatically (placeholder, nearby text, or id), status lines are live regions, and there is a skip link. The smoke test fails if any tool has an unnamed control.
 
 ### XSD Schema Explorer & Validator
 
@@ -59,6 +68,8 @@ Talks to a NATS server over WebSocket (the server needs a `websocket { port: 808
 **How much traffic it takes.** Measured in headless Chrome against a local nats-server with the explorer subscribed to `>`, schema loaded, filter and a plotted field active: ~500,000 msgs/s of small JSON (3 million messages in 6 s, none lost, page stays responsive within ~35 ms), ~130,000 msgs/s of 900 B UCI XML and ~120,000 msgs/s of 1 KB messages (about 120 MB/s, limited by the load generator, not the page), and ~300,000 msgs/s spread over 50,000 distinct subjects (~75 MB of heap). What keeps it fast: nothing on the hot path touches the DOM; the feed redraws at most every 120 ms; message decoding and validation happen only for the message you open. Above ~20,000 msgs/s the feed shows every Nth message (the status line says so) while counts, rates, charts and the type/subject statistics stay exact; the feed keeps the last 2,000, and at most 50,000 distinct subjects are tracked (the tile shows `+` past that). Limits to know: a server drops a client that cannot keep up (slow consumer), so on a very busy bus subscribe to the subjects you need instead of `>`; a background tab is throttled by the browser; plotting a field parses at most 25 messages/s per series. `node scripts/nats-blast.js 100000 10 json` generates load against your own server to check (kinds: json, json1k, xml, many).
 
 `node scripts/nats-demo.js ws://127.0.0.1:18080` feeds a server with sample traffic to look at: UCI messages generated from the schema (`uci.<system>.<Message>`, about 1 in 12 deliberately invalid), sensors, logs, orders, request/reply services, JetStream streams and consumers, and KV buckets. It uses `UCI_SCHEMA_DIR` (or the folder named below), else a small demo schema.
+
+**Profiles and alerts.** The "Profiles & alerts" section above the schema loader saves a connection profile (URL, subscriptions, hide-internal switch; never credentials) in this browser, with export and import as JSON. Alerts watch subjects while connected: "rate above N msg/s" (average over 5 s) and "silent for N seconds". They show a red banner and a toast when they start firing.
 
 ### CAL Explorer (OWP)
 
@@ -150,7 +161,7 @@ The image is about **1.2 MB** (`docker save` size; `docker images` may show doub
 
 The pages run in your browser, so the NATS WebSocket address you type is resolved from your machine, not from the container. The server code is in `docker/server`; to run its tests without Docker, copy the served files into `docker/server/www` and gzip them (the Dockerfile shows how).
 
-**Zarf.** `zarf.yaml` packages the image with a Deployment and Service (non-root, read-only filesystem, `/healthz` probes) for air-gapped Kubernetes: `docker build -t dev-tools:1.2.0 .`, `zarf package create .`, `zarf package deploy zarf-package-dev-tools-*.tar.zst --confirm`, then `kubectl -n dev-tools port-forward svc/dev-tools 9999:9999`. Keep the image tag in `zarf.yaml` and `zarf/dev-tools.yaml` equal to `package.json`.
+**Zarf.** `zarf.yaml` packages the image with a Deployment and Service (non-root, read-only filesystem, `/healthz` probes) for air-gapped Kubernetes: `docker build -t dev-tools:1.3.0 .`, `zarf package create .`, `zarf package deploy zarf-package-dev-tools-*.tar.zst --confirm`, then `kubectl -n dev-tools port-forward svc/dev-tools 9999:9999`. Keep the image tag in `zarf.yaml` and `zarf/dev-tools.yaml` equal to `package.json`.
 
 ## Layout
 
@@ -162,9 +173,14 @@ scripts/              nats-demo.js (sample traffic), nats-blast.js (load generat
 all.html              overview of every sheet and tool (search + collapsible groups)
 catalog.js            list of sheets and tools shown on the landing page and in the sidebar
 toolbox.html          tool shell (collapsible sidebar + hash router)
+sw.js, manifest.json  offline service worker (version must match package.json) and install manifest
 sheets/*.html         one page per cheat sheet
 assets/
-  theme.css           shared dark theme       groups.js   collapsible groups with remembered state
+  theme.css|js        shared theme (dark default, light, print); theme.js runs in <head> and remembers the choice
+  groups.js           collapsible groups with remembered state
+  shell.js            share links, send-to, command palette, toast, accessible names (built on hooks in toolbox.js)
+  sheet-index.js      turns a sheet page into searchable rows for the overview's command search
+  icon.svg            favicon and app icon
   sheet.css|js        renderer for plain-text cheat sheets
   toolbox.css|js      tool shell and shared helpers (DT)
   tools/*.js          one file per tool; xsd-model.js, xsd-validate.js, xsd-sample.js, xsd-diagram.js are the XSD libraries behind xsd.js; nats-uci.js (schema-aware decoding), nats-charts.js (SVG charts), schema-panel.js and cal-owp.js back nats.js and cal.js; schema-diff-lib.js, uci-analysis.js, traffic-lab.js and world-map.js back the diff, lab and analyze views
@@ -205,7 +221,7 @@ The first eight sheets (Git, GitHub CLI, GitLab CLI, Docker, kubectl, NATS, Go, 
 ## Tests
 
 ```
-npm test            # 135 unit tests, Node 18+, no dependencies (UCI integration tests skip if the schema folder is absent)
+npm test            # 169 unit tests, Node 18+, no dependencies (UCI integration tests skip if the schema folder is absent)
 npm run smoke       # drives headless Chrome/Edge through every page and tool, menus, and the XSD explorer on the real UCI files
                     # NATS_WS=ws://127.0.0.1:8080 npm run smoke also drives the NATS Explorer against a real JetStream-enabled nats-server
 npm run crosscheck  # compares the XSD validator and sample generator with .NET on the UCI schema, the zoo schema and an unqualified-namespace schema
