@@ -31,6 +31,7 @@ test("data-driven sheets parse without stray content", () => {
     if (!m) continue;
     const src = m[1];
     assert.match(src, /^\s*title: .+/m, f);
+    assert.ok(!/<\/script/i.test(src), f + " has a closing script tag inside its sheet source (it would end the block early)");
     const sections = src.split("\n").filter(l => l.startsWith("== ")).length;
     assert.ok(sections >= 4, f + " has " + sections + " sections");
     // a table row with an empty cell or ragged width usually means a stray " || " inside a cell

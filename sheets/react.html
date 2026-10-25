@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>React Cheat Sheet</title>
+<script src="../assets/theme.js"></script><link rel="stylesheet" href="../assets/theme.css"><link rel="stylesheet" href="../assets/sheet.css"></head>
+<body><div id="app"></div>
+<script type="text/plain" id="sheet-src">
+title: React
+eyebrow: UI library · React 18 / 19 with TypeScript
+lede: UI is a function of state. Components return JSX, hooks hold state and effects, and React re-renders when state or props change. Keep state minimal, derive everything else during render, and use effects only to sync with the outside world.
+footer: Hooks must run in the same order every render: call them at the top level, never inside conditions or loops. Items marked 19 need React 19.
+
+== Components & JSX | basics
+function Hello({ name }: { name: string }) { return <h1>Hello {name}</h1>; } ## A component is a function returning JSX
+<Hello name="Ada" /> ## Use it like a tag; names start with a capital letter
+<>{a}{b}</> ## Fragment: group without a wrapper element
+<div className="box" style={{ color: "red" }}> ## className, and style takes an object
+<input value={v} onChange={e => setV(e.target.value)} /> ## Controlled input
+<label htmlFor="id"> ## htmlFor instead of for
+{cond && <Panel />} ## Conditional render (beware 0 && ...)
+{cond ? <A /> : <B />} ## Either/or
+{items.map(i => <Row key={i.id} item={i} />)} ## Lists need a stable key
+<Child>{children}</Child> / function Child({ children }) ## children prop: nested content
+<Card header={<h2>Hi</h2>} /> ## Elements as props (slots)
+<div dangerouslySetInnerHTML={{ __html: html }} /> ## Raw HTML: sanitize first
+{...props} ## Spread props onto an element
+
+== State hooks | useState, useReducer
+const [n, setN] = useState(0); ## State with an initial value
+setN(n + 1); setN(p => p + 1); ## Direct and updater form (use the updater when based on previous)
+const [v, setV] = useState(() => expensive()); ## Lazy initial state: runs once
+const [u, setU] = useState<User | null>(null); ## Typed state
+setObj(o => ({ ...o, name: "x" })); ## Never mutate state: copy, then set
+setList(l => [...l, item]); setList(l => l.filter(i => i.id !== id)); ## Immutable add and remove
+const [s, dispatch] = useReducer(reducer, init); ## Reducer for related state transitions
+dispatch({ type: "add", item }); ## Send an action
+const ctx = useContext(ThemeContext); ## Read context
+<ThemeContext.Provider value={theme}> ## Provide context (19: <ThemeContext value={theme}>)
+const id = useId(); ## Stable unique id for labels and aria attributes
+const [p, start] = useTransition(); start(() => setQuery(q)); ## Mark an update as non-urgent
+const deferred = useDeferredValue(value); ## Lagging copy of a fast-changing value
+
+== Effects & refs | synchronize and escape
+useEffect(() => { doIt(); }, []); ## Run after mount
+useEffect(() => { doIt(a); }, [a]); ## Run when a changes
+useEffect(() => { const t = setInterval(f, 1000); return () => clearInterval(t); }, []); ## Cleanup function
+useLayoutEffect(() => { measure(); }); ## Runs before paint (measure DOM, avoid flicker)
+useEffect(() => { let off = false; fetch(u).then(r => r.json()).then(d => { if (!off) set(d); }); return () => { off = true; }; }, [u]); ## Ignore stale responses
+const ref = useRef<HTMLInputElement>(null); ## Ref to a DOM node or mutable box
+ref.current?.focus(); ## Use the node in an event handler or effect
+const count = useRef(0); count.current++; ## Mutable value that does not trigger re-render
+<input ref={ref} /> ## Attach the ref
+useImperativeHandle(ref, () => ({ focus }), []); ## Expose a limited API to the parent
+const v = useSyncExternalStore(subscribe, getSnapshot); ## Read an external store safely
+
+== Performance | memoization
+const m = useMemo(() => compute(a, b), [a, b]); ## Cache a calculation
+const cb = useCallback(() => act(id), [id]); ## Stable function identity
+const Fast = memo(function Row(props) { }); ## Skip re-render when props are equal
+lazy(() => import("./Heavy")) ## Code-split a component
+<Suspense fallback={<Spinner />}><Heavy /></Suspense> ## Show a fallback while loading
+<StrictMode> ## Dev-only double render/effect to expose impure code
+key={id} ## Changing the key resets a component's state
+React Compiler ## Automatic memoization (opt in); then useMemo/useCallback are rarely needed
+
+== Event handling & forms | handlers
+onClick={() => save(id)} ## Inline handler
+onClick={handleClick} ## Pass the function, do not call it
+onChange={e => setV(e.target.value)} ## Input change; e is a SyntheticEvent
+onSubmit={e => { e.preventDefault(); submit(); }} ## Stop the page reload
+onKeyDown={e => e.key === "Enter" && go()} ## Keyboard
+e.stopPropagation() ## Stop bubbling
+const data = new FormData(e.currentTarget); Object.fromEntries(data) ## Read an uncontrolled form
+defaultValue={x} ## Uncontrolled input with an initial value
+type ChangeEv = React.ChangeEvent<HTMLInputElement>; ## Event types
+<form action={serverOrClientAction}> ## 19: forms accept a function as action
+const [state, formAction, pending] = useActionState(fn, init); ## 19: state from a form action
+const { pending } = useFormStatus(); ## 19: pending state inside a form
+const [opt, addOpt] = useOptimistic(items, reducer); ## 19: show the expected result immediately
+const data = use(promise); ## 19: read a promise or context during render
+
+== TypeScript with React | types
+type Props = { label: string; onClick?: () => void; children?: React.ReactNode }; ## Props type
+function Btn({ label, onClick }: Props) { } ## Typed props (no need for React.FC)
+useState<string | null>(null) ## Union state
+useRef<number | null>(null) ## Mutable ref vs useRef<HTMLDivElement>(null) for DOM
+type Props = React.ComponentProps<"button">; ## All props of a DOM element
+type Props = React.ComponentPropsWithoutRef<typeof Comp>; ## Props of another component
+React.ReactNode ## Anything renderable
+React.ReactElement ## A JSX element
+React.CSSProperties ## Style object
+React.Dispatch<React.SetStateAction<T>> ## Type of a setState function
+const Ctx = createContext<Value | null>(null); ## Context with a null default, then guard in a hook
+function Table<T>({ rows }: { rows: T[] }) { } ## Generic component
+as const ## Keep literal types for tuples returned from custom hooks
+
+== Custom hooks & patterns | reuse
+function useToggle(init = false) { const [on, set] = useState(init); return [on, () => set(o => !o)] as const; } ## A custom hook is a function starting with use
+function useLocalStorage<T>(k: string, init: T) { } ## Share stateful logic between components
+function useDebounce<T>(v: T, ms: number) { const [d, setD] = useState(v); useEffect(() => { const t = setTimeout(() => setD(v), ms); return () => clearTimeout(t); }, [v, ms]); return d; } ## Debounce a value
+Lift state up ## Put state in the nearest common parent
+Derive, do not sync ## Compute from props/state in render instead of copying into state with an effect
+Composition over props drilling ## Pass children or use context
+Error boundary ## A class component with componentDidCatch, or the react-error-boundary package
+createPortal(<Modal />, document.body) ## Render outside the parent DOM node
+forwardRef((props, ref) => <input ref={ref} />) ## Pass a ref through (19: ref is a normal prop)
+
+== Tooling | ecosystem
+npm create vite@latest app -- --template react-ts ## New Vite + React + TypeScript app
+npx create-next-app@latest ## Next.js (framework with routing and server rendering)
+npm run dev / build / preview ## Vite scripts
+npm i react-router-dom ## Client-side routing
+npm i @tanstack/react-query ## Server-state fetching and caching
+npm i zustand ## Small global store
+npm i -D vitest @testing-library/react @testing-library/user-event jsdom ## Testing setup
+render(<Counter />); await user.click(screen.getByRole("button")); ## Testing Library flow
+expect(screen.getByText("1")).toBeInTheDocument(); ## Assert on what the user sees
+screen.getByRole / findByRole / queryByRole ## get throws, find waits, query returns null
+</script>
+<script src="../assets/sheet.js"></script>
+</body></html>

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Terraform Cheat Sheet</title>
+<script src="../assets/theme.js"></script><link rel="stylesheet" href="../assets/theme.css"><link rel="stylesheet" href="../assets/sheet.css"></head>
+<body><div id="app"></div>
+<script type="text/plain" id="sheet-src">
+title: Terraform
+eyebrow: Infrastructure as code · Terraform 1.x / OpenTofu
+lede: The core workflow is `init`, `plan`, `apply`. State maps your configuration to real resources, so most mistakes are state mistakes. Commands work the same in OpenTofu with `tofu` instead of `terraform`.
+footer: Never edit the state file by hand and never commit it; use a remote backend with locking. `-target` is for emergencies, not routine applies.
+
+== Core workflow | day to day
+terraform init ## Download providers and modules, configure the backend
+terraform init -upgrade ## Re-resolve provider and module versions within constraints
+terraform init -reconfigure ## Ignore saved backend config and start fresh
+terraform init -migrate-state ## Move existing state to a newly configured backend
+terraform fmt -recursive ## Format all .tf files in place
+terraform fmt -check -diff ## CI: fail if anything is unformatted, show the diff
+terraform validate ## Check syntax and internal consistency (no API calls)
+terraform plan ## Show what would change
+terraform plan -out=tfplan ## Save the plan so apply runs exactly that
+terraform apply tfplan ## Apply a saved plan without a prompt
+terraform apply -auto-approve ## Apply without confirmation (CI only)
+terraform destroy ## Destroy everything this configuration manages
+terraform plan -destroy ## Preview a destroy
+terraform plan -refresh-only ## Show drift between state and reality
+terraform apply -refresh-only ## Accept real-world values into state
+
+== Plan & apply flags | options
+-var 'region=eu-west-1' ## Set one input variable
+-var-file=prod.tfvars ## Load variables from a file
+-target=aws_instance.web ## Limit the run to one resource (and its dependencies)
+-replace=aws_instance.web ## Force destroy and recreate a resource
+-parallelism=20 ## Concurrent operations (default 10)
+-lock=false ## Skip state locking (dangerous)
+-lock-timeout=60s ## Wait for a lock instead of failing
+-compact-warnings ## Shorter warning output
+-json ## Machine-readable output
+-no-color ## Strip colors for logs
+-input=false ## Never prompt (CI)
+TF_VAR_region=eu-west-1 terraform plan ## Environment variable form of -var
+TF_LOG=DEBUG TF_LOG_PATH=tf.log terraform plan ## Debug logging to a file
+
+== State | inspect and repair
+terraform state list ## All resources in state
+terraform state show aws_instance.web ## One resource's attributes
+terraform state mv aws_instance.old aws_instance.new ## Rename a resource without recreating it
+terraform state rm aws_instance.web ## Forget a resource (does not destroy it)
+terraform state pull > backup.tfstate ## Download current state
+terraform state push backup.tfstate ## Upload state (careful)
+terraform import aws_instance.web i-0abc123 ## Adopt an existing resource into state
+terraform force-unlock LOCK_ID ## Release a stuck lock
+terraform taint aws_instance.web ## Deprecated: use -replace instead
+terraform refresh ## Deprecated: use plan -refresh-only
+
+== Config blocks | HCL
+terraform { required_version = ">= 1.6" } ## Pin the CLI version
+required_providers { aws = { source = "hashicorp/aws", version = "~> 5.0" } } ## Pin a provider
+provider "aws" { region = var.region } ## Configure a provider
+resource "aws_s3_bucket" "logs" { bucket = "my-logs" } ## Declare a resource
+data "aws_ami" "al2" { most_recent = true } ## Read something that already exists
+variable "region" { type = string, default = "eu-west-1" } ## Input variable
+output "bucket_arn" { value = aws_s3_bucket.logs.arn } ## Output value
+locals { tags = { env = "prod" } } ## Named expressions
+module "vpc" { source = "./modules/vpc" } ## Call a module
+backend "s3" { bucket = "tf-state", key = "app/terraform.tfstate" } ## Remote state backend (inside terraform {})
+
+== Meta-arguments & expressions | HCL
+count = 3 ## N copies, addressed as name[0]
+for_each = toset(["a", "b"]) ## One per key, addressed as name["a"]
+depends_on = [aws_iam_role.r] ## Explicit dependency
+lifecycle { prevent_destroy = true } ## Refuse to destroy this resource
+lifecycle { create_before_destroy = true } ## Replace by creating the new one first
+lifecycle { ignore_changes = [tags] } ## Do not react to drift in these attributes
+dynamic "ingress" { for_each = var.ports content { from_port = ingress.value } } ## Generate repeated nested blocks
+condition ? "a" : "b" ## Conditional expression
+[for s in var.list : upper(s)] ## List comprehension
+{for k, v in var.map : k => v} ## Map comprehension
+var.list[*].id ## Splat: collect an attribute from every element
+merge(a, b) ## Combine maps
+lookup(var.map, "key", "default") ## Map lookup with a default
+try(var.x.y, "fallback") ## Evaluate, falling back on error
+templatefile("cfg.tpl", { host = var.host }) ## Render a template file
+
+== Moved, import & check blocks | refactoring
+moved { from = aws_instance.a, to = aws_instance.b } ## Rename in code, no destroy
+import { to = aws_instance.web, id = "i-0abc123" } ## Declarative import (1.5+)
+terraform plan -generate-config-out=gen.tf ## Draft config for import blocks
+removed { from = aws_instance.web, lifecycle { destroy = false } } ## Drop from state without destroying (1.7+)
+check "health" { assert { condition = true, error_message = "..." } } ## Non-blocking assertion (1.5+)
+precondition { condition = var.x > 0, error_message = "..." } ## Inside lifecycle: fail before create
+postcondition { condition = self.id != "", error_message = "..." } ## Inside lifecycle: fail after create
+
+== Workspaces, output & providers | misc
+terraform workspace list ## Show workspaces
+terraform workspace new staging ## Create and switch
+terraform workspace select default ## Switch
+terraform output ## All outputs
+terraform output -raw bucket_arn ## One value, unquoted (scripting)
+terraform output -json ## All outputs as JSON
+terraform providers ## Providers this configuration needs
+terraform providers lock -platform=linux_amd64 -platform=darwin_arm64 ## Fill .terraform.lock.hcl for several platforms
+terraform graph | dot -Tsvg > graph.svg ## Dependency graph
+terraform console ## REPL for expressions
+terraform show tfplan ## Human-readable saved plan
+terraform show -json tfplan ## Saved plan as JSON
+terraform test ## Run .tftest.hcl tests (1.6+)
+</script>
+<script src="../assets/sheet.js"></script>
+</body></html>

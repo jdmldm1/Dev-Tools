@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TypeScript Cheat Sheet</title>
+<script src="../assets/theme.js"></script><link rel="stylesheet" href="../assets/theme.css"><link rel="stylesheet" href="../assets/sheet.css"></head>
+<body><div id="app"></div>
+<script type="text/plain" id="sheet-src">
+title: TypeScript
+eyebrow: Typed JavaScript · TypeScript 5.x
+lede: Types are erased at compile time, so they describe your code but do not validate data at runtime. Lean on inference, annotate boundaries (function parameters, exports, parsed input), and use `unknown` instead of `any`.
+footer: Turn on `"strict": true`. Validate untrusted data (API responses, JSON, env vars) with a runtime schema library or type guards; a type assertion with `as` is a promise, not a check.
+
+== Basic types | annotations
+let n: number = 1; ## number covers integers and floats
+let s: string = "a"; ## Text
+let b: boolean = true; ## true or false
+let big: bigint = 10n; ## Arbitrary-size integers
+let sym: symbol = Symbol("id"); ## Unique key
+let a: number[] = [1, 2]; ## Array (also Array<number>)
+let t: [string, number] = ["a", 1]; ## Tuple: fixed length and positions
+let t2: [x: number, y?: number]; ## Labeled and optional tuple members
+let u: string | number; ## Union: one of several types
+let o: { id: number; name?: string }; ## Object type with an optional property
+let f: (a: number, b?: number) => string; ## Function type
+let x: unknown; ## Anything, but must be narrowed before use (prefer over any)
+let y: any; ## Opt out of type checking (avoid)
+function fail(): never { throw new Error("x"); } ## never: does not return
+const c = [1, 2] as const; ## Readonly literal tuple: readonly [1, 2]
+
+== Interfaces, types & classes | declarations
+interface User { id: number; name: string; } ## Object shape, extendable and mergeable
+interface Admin extends User { perms: string[]; } ## Extend an interface
+type ID = string | number; ## Alias for any type
+type Pt = { x: number; y: number } & { z?: number }; ## Intersection: all members
+interface Cfg { readonly url: string; port?: number; [key: string]: unknown; } ## readonly, optional and index signature
+class Dog implements Animal { constructor(public name: string, private age = 1) {} } ## Parameter properties declare and assign fields
+abstract class Shape { abstract area(): number; } ## Cannot be instantiated; subclasses implement members
+class Box<T> { constructor(public value: T) {} } ## Generic class
+enum Color { Red, Green } ## Numeric enum (prefer a union of literals)
+const enum Dir { Up = "UP" } ## Inlined at compile time
+type Level = "debug" | "info" | "error"; ## String literal union: the usual enum replacement
+declare const VERSION: string; ## Tell TS a global exists
+declare module "*.svg" { const url: string; export default url; } ## Type non-code imports
+
+== Generics | reusable types
+function id<T>(x: T): T { return x; } ## Generic function
+function first<T>(a: T[]): T | undefined { return a[0]; } ## Infer T from the argument
+function len<T extends { length: number }>(x: T) { return x.length; } ## Constrain T
+function get<T, K extends keyof T>(o: T, k: K): T[K] { return o[k]; } ## Key-safe property access
+type Pair<A, B = A> = [A, B]; ## Type parameter with a default
+function make<const T extends readonly unknown[]>(x: T) { return x; } ## const type parameter: infer literal types (5.0)
+type Fn = <T>(x: T) => T; ## Generic function type
+
+== Narrowing & guards | control flow
+typeof x === "string" ## Narrow primitives
+x instanceof Date ## Narrow class instances
+"name" in obj ## Narrow by property presence
+if (x) { } ## Truthiness narrowing (watch 0 and "")
+x ?? "default" ## Nullish coalescing: only null and undefined
+obj?.a?.[0]?.() ## Optional chaining
+x!.length ## Non-null assertion: you promise it is set
+function isStr(x: unknown): x is string { return typeof x === "string"; } ## User-defined type guard
+function assertStr(x: unknown): asserts x is string { if (typeof x !== "string") throw new Error(); } ## Assertion function
+type Shape = { kind: "c"; r: number } | { kind: "s"; w: number }; ## Discriminated union
+switch (s.kind) { case "c": return s.r; case "s": return s.w; } ## Narrow by the discriminant
+const _exhaustive: never = s; ## Compile error if a union member was forgotten
+x satisfies Cfg ## Check a value against a type without widening it (4.9)
+
+== Utility types | built in
+Partial<T> ## All properties optional
+Required<T> ## All properties required
+Readonly<T> ## All properties readonly
+Pick<T, "a" | "b"> ## Keep only these keys
+Omit<T, "a"> ## Drop these keys
+Record<string, number> ## Object with string keys and number values
+Exclude<"a" | "b", "a"> ## Remove members from a union: "b"
+Extract<"a" | "b", "a"> ## Keep members of a union: "a"
+NonNullable<T> ## Remove null and undefined
+ReturnType<typeof fn> ## Function return type
+Parameters<typeof fn> ## Function parameters as a tuple
+Awaited<Promise<string>> ## Unwrap promises: string
+InstanceType<typeof Cls> ## Type of new Cls()
+ConstructorParameters<typeof Cls> ## Constructor parameters as a tuple
+NoInfer<T> ## Block inference from a position (5.4)
+Uppercase<"a"> / Lowercase / Capitalize / Uncapitalize ## String manipulation types
+
+== Advanced types | type-level programming
+keyof T ## Union of T's keys
+typeof value ## Type of a value (in type position)
+T[K] ## Indexed access type
+T[number] ## Element type of an array or tuple type
+type Keys = (typeof arr)[number]; ## Union from an `as const` array
+type Opt<T> = { [K in keyof T]?: T[K] }; ## Mapped type
+type Mut<T> = { -readonly [K in keyof T]-?: T[K] }; ## Remove readonly and optional modifiers
+type Getters<T> = { [K in keyof T as `get${Capitalize<string & K>}`]: () => T[K] }; ## Key remapping
+type IsStr<T> = T extends string ? true : false; ## Conditional type
+type Elem<T> = T extends (infer U)[] ? U : never; ## infer pulls out a part of a type
+type Ev = `${"click" | "key"}-${"up" | "down"}`; ## Template literal types
+type DeepPartial<T> = { [K in keyof T]?: DeepPartial<T[K]> }; ## Recursive mapped type
+function f(this: Window, x: number) { } ## Declare the type of this
+declare function over(x: string): string; declare function over(x: number): number; ## Overloads
+
+== Modules & config | tooling
+import type { User } from "./types"; ## Type-only import, erased from output
+import { type User, load } from "./mod"; ## Inline type modifier
+export type { User }; ## Re-export a type
+tsc --noEmit ## Type-check only
+tsc --init ## Create a tsconfig.json
+tsc -w ## Watch mode
+tsc --build ## Build project references
+"strict": true ## Enables noImplicitAny, strictNullChecks and friends
+"noUncheckedIndexedAccess": true ## arr[i] and obj[key] may be undefined
+"exactOptionalPropertyTypes": true ## Distinguish a missing property from undefined
+"verbatimModuleSyntax": true ## Keep import/export as written; require `import type`
+"moduleResolution": "bundler" ## For apps built with Vite, esbuild, webpack
+"target": "ES2022", "module": "ESNext" ## Output language level and module format
+"paths": { "@/*": ["./src/*"] } ## Import aliases (the bundler must match)
+"skipLibCheck": true ## Do not type-check .d.ts files
+// @ts-expect-error ## Next line must have an error, or this comment is an error
+// @ts-ignore ## Suppress the next line's error (prefer ts-expect-error)
+
+== Everyday patterns | recipes
+const keys = Object.keys(o) as (keyof typeof o)[]; ## Typed Object.keys
+const entries = Object.entries(o) as [keyof T, T[keyof T]][]; ## Typed Object.entries
+type Props = React.ComponentProps<typeof Button>; ## Reuse a component's props
+type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string }; ## Result type instead of throwing
+const parsed = Schema.parse(json); ## Validate at runtime (zod, valibot) and infer the type
+type Infer = z.infer<typeof Schema>; ## One schema, runtime check and static type
+function assertNever(x: never): never { throw new Error(`Unexpected: ${x}`); } ## Exhaustiveness helper
+const wait = (ms: number) => new Promise<void>(r => setTimeout(r, ms)); ## Typed promise
+type Brand<T, B> = T & { readonly __brand: B }; ## Branded type: UserId vs OrderId
+</script>
+<script src="../assets/sheet.js"></script>
+</body></html>

@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Svelte Cheat Sheet</title>
+<script src="../assets/theme.js"></script><link rel="stylesheet" href="../assets/theme.css"><link rel="stylesheet" href="../assets/sheet.css"></head>
+<body><div id="app"></div>
+<script type="text/plain" id="sheet-src">
+title: Svelte
+eyebrow: Compiler-based UI framework · Svelte 5 (runes) and SvelteKit
+lede: Svelte compiles components to small, direct DOM updates. Svelte 5 uses runes (`$state`, `$derived`, `$effect`, `$props`) for reactivity that works inside and outside components. Each `.svelte` file holds script, markup and scoped styles.
+footer: Svelte 4 syntax (`export let`, `$:`, stores with `$store`, `on:click`) still works in Svelte 5 components that do not use runes, but do not mix the two in one component.
+
+== Component structure | .svelte file
+<script lang="ts"> ## Opens the logic block (close it with the matching script end tag); lang="ts" enables TypeScript
+<h1>Hello {name}</h1> ## Markup with {expressions}
+<style> h1 { color: tomato } </style> ## Styles are scoped to this component by default
+:global(body) { margin: 0 } ## Escape the scoping
+<script module> ## A second block whose code runs once per module, not per component instance (Svelte 5)
+{@html trusted} ## Insert raw HTML: sanitize first
+{@const total = a + b} ## Local constant inside a block
+{@debug x} ## Pause in devtools when x changes
+<svelte:head><title>Page</title></svelte:head> ## Set document head content
+<svelte:window onresize={fn} bind:innerWidth={w} /> ## Window events and bindings
+<svelte:element this={tag}>text</svelte:element> ## Dynamic tag name
+
+== Runes | Svelte 5 reactivity
+let count = $state(0); ## Reactive state
+count++; ## Assign to update; no setter needed
+let todos = $state([{ done: false }]); todos[0].done = true; ## Deep reactivity for objects and arrays
+let double = $derived(count * 2); ## Value computed from other state
+let total = $derived.by(() => items.reduce((s, i) => s + i.n, 0)); ## Derived with a function body
+$effect(() => { console.log(count); }); ## Run after DOM updates when read state changes
+$effect(() => { const t = setInterval(f, 1000); return () => clearInterval(t); }); ## Effect cleanup
+$effect.pre(() => { }); ## Run before DOM updates
+let { name, age = 18, ...rest } = $props(); ## Props with defaults and rest
+let { value = $bindable() } = $props(); ## A prop the parent can bind to
+let { onsave }: { onsave: (v: string) => void } = $props(); ## Callback props replace events
+const snapshot = $state.snapshot(obj); ## Plain copy of reactive state (for APIs, logging)
+let raw = $state.raw(bigObject); ## Not deeply reactive: reassign to update
+$inspect(count); ## Dev-only logging whenever it changes
+
+== Template syntax | blocks
+{#if ok} ... {:else if maybe} ... {:else} ... {/if} ## Conditional
+{#each items as item, i (item.id)} ... {:else} empty {/each} ## Loop with an optional key and empty state
+{#await promise} loading {:then v} {v} {:catch e} {e.message} {/await} ## Promise states
+{#key id} <Chart /> {/key} ## Recreate content when the key changes
+{#snippet row(item)} <li>{item.name}</li> {/snippet} ## Reusable markup (replaces slots)
+{@render row(item)} ## Use a snippet
+{@render children?.()} ## Render the component's children
+<p class:active={isActive}>x</p> ## Toggle a class
+<p class={["a", { b: ok }]}>x</p> ## class accepts arrays and objects (5.16+)
+<p style:color={c}>x</p> ## Set a style property
+<button {disabled} {...rest}>x</button> ## Shorthand attribute and spread
+
+== Events & bindings | interaction
+<button onclick={() => count++}>+</button> ## Event attributes are plain props in Svelte 5
+<form onsubmit={(e) => { e.preventDefault(); save(); }}> ## Handle submit
+<button onclick={handle}> ## Pass a function
+<input bind:value={name} /> ## Two-way binding
+<input type="checkbox" bind:checked={on} /> ## Checkbox
+<input type="radio" bind:group={choice} value="a" /> ## Radio group
+<select bind:value={sel}> ## Select
+<textarea bind:value={text}></textarea> ## Multi-line text
+<input bind:this={el} /> ## Reference to the DOM node
+<div bind:clientWidth={w} bind:clientHeight={h}> ## Measure an element
+<dialog bind:this={d}> ## Call d.showModal() from code
+use:action ## Run a function when an element mounts: function action(node) { return { destroy() {} } }
+{@attach fn} ## Attachments, the modern replacement for actions (5.29+)
+
+== Components, props & context | composition
+import Child from "./Child.svelte"; ## Import a component
+<Child name="Ada" {age} onsave={save} /> ## Pass props and callbacks
+<Child {...props} /> ## Spread props
+<Card>content</Card> ## Content becomes the children snippet
+<Card>{#snippet header()}Title{/snippet} body</Card> ## Named snippets
+setContext("theme", theme); const t = getContext("theme"); ## Share data down the tree
+<svelte:component this={Comp} /> ## Dynamic component (in runes mode just use <Comp />)
+import { mount } from "svelte"; mount(App, { target: document.body, props: {} }); ## Mount manually
+import { onMount, onDestroy, tick } from "svelte"; ## Lifecycle helpers
+onMount(() => { return () => cleanup(); }); ## Runs in the browser after first render
+await tick(); ## Wait for pending DOM updates
+
+== Shared state & stores | outside components
+export const counter = $state({ n: 0 }); ## Shared reactive object in a .svelte.js/.svelte.ts file
+export function createCounter() { let n = $state(0); return { get n() { return n; }, inc: () => n++ }; } ## Reactive logic you can reuse
+import { writable, derived } from "svelte/store"; ## Classic stores still work
+const s = writable(0); s.set(1); s.update(n => n + 1); ## Writable store
+$s ## Auto-subscribe to a store inside a component
+const d = derived(s, $s => $s * 2); ## Derived store
+import { SvelteMap, SvelteSet, SvelteDate } from "svelte/reactivity"; ## Reactive built-ins
+import { fade, fly, slide } from "svelte/transition"; ## Transitions
+<div transition:fade={{ duration: 200 }}> ## Animate in and out
+<li animate:flip> ## Animate list reordering (svelte/animate)
+import { Tween, Spring } from "svelte/motion"; ## Animated values
+
+== SvelteKit | routing and data
+npx sv create my-app ## Scaffold a project
+src/routes/+page.svelte ## A page: /
+src/routes/about/+page.svelte ## /about
+src/routes/blog/[slug]/+page.svelte ## Dynamic route parameter
+src/routes/+layout.svelte ## Shared layout; render children
+src/routes/+page.ts ## load() runs on server and client
+src/routes/+page.server.ts ## load() and form actions run only on the server
+export const load = async ({ params, fetch }) => ({ post: await (await fetch(`/api/${params.slug}`)).json() }); ## Return data for the page
+let { data } = $props(); ## Receive load data in the page
+export const actions = { default: async ({ request }) => { const f = await request.formData(); } }; ## Form actions
+<form method="POST" use:enhance> ## Progressive enhancement (import { enhance } from "$app/forms")
+src/routes/api/items/+server.ts ## API endpoint: export GET, POST ...
+import { goto, invalidateAll } from "$app/navigation"; ## Navigate and refresh data from code
+import { page } from "$app/state"; ## Current URL, params and data
+import { redirect, error } from "@sveltejs/kit"; ## Throw to redirect or return an HTTP error
+export const prerender = true; ## Prerender a route at build time
+$lib/ ## Alias for src/lib
+src/hooks.server.ts ## Run code on every request (auth, headers)
+npm run dev / build / preview ## Develop, build and preview
+npx sv check ## Type-check the project
+</script>
+<script src="../assets/sheet.js"></script>
+</body></html>

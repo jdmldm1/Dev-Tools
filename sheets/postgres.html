@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PostgreSQL Cheat Sheet</title>
+<script src="../assets/theme.js"></script><link rel="stylesheet" href="../assets/theme.css"><link rel="stylesheet" href="../assets/sheet.css"></head>
+<body><div id="app"></div>
+<script type="text/plain" id="sheet-src">
+title: PostgreSQL
+eyebrow: psql, PostgreSQL-specific SQL, operations and SQLite notes · PostgreSQL 14-17
+lede: What is specific to Postgres: the `psql` client and its backslash commands, types such as JSONB and arrays, indexes, locks, and the catalog queries you reach for when something is slow. For portable SQL see the SQL sheet.
+footer: Run `EXPLAIN (ANALYZE, BUFFERS)` inside a transaction you roll back when the statement writes. Add indexes with `CREATE INDEX CONCURRENTLY` on busy tables.
+
+== psql connect & backslash commands | client
+psql -h host -p 5432 -U user -d db ## Connect
+psql "postgresql://user@host:5432/db?sslmode=require" ## Connect with a URI
+psql -f file.sql ## Run a script file
+psql -c "select now()" ## Run one command and exit
+psql -v ON_ERROR_STOP=1 -f file.sql ## Stop at the first error
+PGPASSWORD=secret psql ... ## Password from the environment (prefer ~/.pgpass)
+\l ## List databases
+\c dbname ## Switch database
+\dt / \dt *.* ## List tables / including system schemas
+\d table ## Describe a table: columns, indexes, constraints
+\d+ table ## Same with sizes and storage
+\di / \dv / \df ## List indexes / views / functions
+\dn / \du ## List schemas / roles
+\x auto ## Expanded output when rows are wide
+\timing on ## Show statement duration
+\e ## Edit the last statement in $EDITOR
+\i file.sql ## Run a script from inside psql
+\copy t from 'f.csv' csv header ## Client-side CSV import
+\copy (select * from t) to 'out.csv' csv header ## Client-side CSV export
+\set ON_ERROR_STOP on ## Abort scripts on error
+\watch 2 ## Re-run the last query every 2 seconds
+\q ## Quit
+
+== Types worth knowing | postgres types
+uuid DEFAULT gen_random_uuid() ## UUID primary key (built in since 13)
+bigint GENERATED ALWAYS AS IDENTITY ## Auto-increment column; prefer over serial
+text ## Unbounded string; no need for varchar(n) tuning
+timestamptz ## Timestamp with time zone: the default choice for instants
+numeric(12,2) ## Exact decimals for money
+jsonb ## Binary JSON, indexable
+int[] / text[] ## Arrays
+tsvector / tsquery ## Full-text search types
+inet / cidr ## Network addresses
+daterange / tstzrange ## Range types
+CREATE TYPE status AS ENUM ('new', 'done'); ## Enumerated type
+
+== JSONB & arrays | operators
+data->'a' ## Get a key as jsonb
+data->>'a' ## Get a key as text
+data#>'{a,b}' / data#>>'{a,b}' ## Path access as jsonb / text
+data @> '{"a":1}' ## Contains this JSON
+data ? 'a' ## Has this top-level key
+jsonb_set(data, '{a}', '2') ## Replace a value
+data || '{"b":2}' ## Merge objects
+jsonb_array_elements(data->'items') ## Expand an array into rows
+jsonb_each_text(data) ## Expand an object into key/value rows
+jsonb_build_object('id', id, 'n', name) ## Build JSON from columns
+to_jsonb(t) ## Row to JSON
+arr @> ARRAY[1,2] ## Array contains
+1 = ANY(arr) ## Array has this element
+unnest(arr) ## Expand an array into rows
+array_agg(x ORDER BY x) ## Collect rows into an array
+string_agg(name, ', ' ORDER BY name) ## Concatenate rows into a string
+
+== Queries Postgres does well | sql
+SELECT DISTINCT ON (user_id) * FROM events ORDER BY user_id, created_at DESC; ## Latest row per group
+INSERT INTO t (k, v) VALUES (1, 'a') ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v; ## Upsert
+INSERT INTO t (k) VALUES (1) ON CONFLICT DO NOTHING; ## Insert if absent
+UPDATE t SET x = 1 WHERE id = 5 RETURNING *; ## Return the changed rows
+DELETE FROM t WHERE old RETURNING id; ## Return the deleted rows
+SELECT * FROM q FOR UPDATE SKIP LOCKED LIMIT 10; ## Queue-style row claiming
+WITH RECURSIVE tree AS (SELECT id, parent FROM n WHERE id = 1 UNION ALL SELECT n.id, n.parent FROM n JOIN tree ON n.parent = tree.id) SELECT * FROM tree; ## Walk a hierarchy
+SELECT generate_series(1, 10); ## Number series
+SELECT generate_series('2025-01-01'::date, '2025-01-31', '1 day'); ## Date series
+SELECT date_trunc('month', created_at), count(*) FROM t GROUP BY 1 ORDER BY 1; ## Group by month
+SELECT now() - interval '7 days'; ## Interval arithmetic
+SELECT created_at AT TIME ZONE 'Europe/London' FROM t; ## Convert time zone
+SELECT count(*) FILTER (WHERE ok) FROM t; ## Conditional aggregate
+SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY ms) FROM t; ## 95th percentile
+SELECT * FROM t WHERE name ILIKE '%ada%'; ## Case-insensitive match
+SELECT to_tsvector('english', body) @@ websearch_to_tsquery('english', 'fast "full text"') FROM docs; ## Full-text search
+SELECT * FROM t TABLESAMPLE SYSTEM (1); ## Quick sample of about 1% of pages
+
+== Indexes & performance | tuning
+CREATE INDEX CONCURRENTLY ix ON t (col); ## Build without blocking writes
+CREATE UNIQUE INDEX ON t (lower(email)); ## Unique, case-insensitive
+CREATE INDEX ON t (a, b) INCLUDE (c); ## Covering index
+CREATE INDEX ON t (created_at) WHERE NOT archived; ## Partial index
+CREATE INDEX ON docs USING gin (data jsonb_path_ops); ## GIN for jsonb containment
+CREATE INDEX ON docs USING gin (to_tsvector('english', body)); ## GIN for full-text
+CREATE INDEX ON logs USING brin (created_at); ## BRIN for huge, naturally ordered tables
+EXPLAIN SELECT ...; ## Plan only
+EXPLAIN (ANALYZE, BUFFERS) SELECT ...; ## Run it and show real timings and I/O
+ANALYZE t; ## Refresh planner statistics
+VACUUM (VERBOSE, ANALYZE) t; ## Reclaim space and update stats
+REINDEX INDEX CONCURRENTLY ix; ## Rebuild a bloated index
+SELECT pg_size_pretty(pg_total_relation_size('t')); ## Table plus indexes size
+SELECT relname, n_dead_tup FROM pg_stat_user_tables ORDER BY 2 DESC LIMIT 10; ## Tables with the most dead rows
+SELECT * FROM pg_stat_statements ORDER BY total_exec_time DESC LIMIT 10; ## Slowest queries (extension required)
+
+== Activity, locks & killing queries | operations
+SELECT pid, state, now() - query_start AS age, left(query, 80) FROM pg_stat_activity WHERE state <> 'idle' ORDER BY age DESC; ## What is running
+SELECT pid, pg_blocking_pids(pid) AS blocked_by, query FROM pg_stat_activity WHERE cardinality(pg_blocking_pids(pid)) > 0; ## Who is blocked by whom
+SELECT pg_cancel_backend(pid); ## Cancel the running query politely
+SELECT pg_terminate_backend(pid); ## Kill the whole connection
+SELECT * FROM pg_locks WHERE NOT granted; ## Waiting lock requests
+SET statement_timeout = '30s'; ## Per-session query time limit
+SET lock_timeout = '5s'; ## Do not wait forever for locks
+SELECT count(*) FROM pg_stat_activity; ## Connection count against max_connections
+SELECT pg_is_in_recovery(); ## True on a replica
+SELECT now() - pg_last_xact_replay_timestamp(); ## Replica lag
+
+== Roles, schemas & DDL | admin
+CREATE ROLE app LOGIN PASSWORD 'secret'; ## Create a login role
+GRANT SELECT, INSERT ON ALL TABLES IN SCHEMA public TO app; ## Grant table privileges
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO app; ## Also cover future tables
+REVOKE ALL ON SCHEMA public FROM PUBLIC; ## Tighten the public schema
+CREATE SCHEMA IF NOT EXISTS app; ## New schema
+SET search_path TO app, public; ## Schema lookup order
+ALTER TABLE t ADD COLUMN c int NOT NULL DEFAULT 0; ## Add a column (fast with a constant default)
+ALTER TABLE t ADD CONSTRAINT fk FOREIGN KEY (u) REFERENCES users (id) NOT VALID; ## Add without a long lock
+ALTER TABLE t VALIDATE CONSTRAINT fk; ## Validate afterwards with a lighter lock
+ALTER TABLE t ALTER COLUMN c TYPE bigint USING c::bigint; ## Change a column type (rewrites the table)
+CREATE TABLE t_2025 PARTITION OF t FOR VALUES FROM ('2025-01-01') TO ('2026-01-01'); ## Range partition
+CREATE EXTENSION IF NOT EXISTS pg_trgm; ## Enable an extension
+CREATE MATERIALIZED VIEW mv AS SELECT ...; REFRESH MATERIALIZED VIEW CONCURRENTLY mv; ## Cached query result
+
+== Backup, restore & maintenance | cli
+pg_dump -Fc -d db -f db.dump ## Custom-format dump (compressed, selective restore)
+pg_dump -d db --schema-only -f schema.sql ## Schema only
+pg_dump -d db -t orders -f orders.sql ## One table
+pg_restore -d db --clean --if-exists -j 4 db.dump ## Restore with 4 parallel jobs
+pg_dumpall --globals-only > roles.sql ## Roles and tablespaces
+pg_basebackup -D backup -Fp -Xs -P ## Physical base backup
+createdb -O app mydb ## Create a database
+dropdb --if-exists mydb ## Drop a database
+vacuumdb --all --analyze-in-stages ## Vacuum and analyze every database
+pg_isready -h host ## Is the server accepting connections
+SHOW data_directory; SHOW max_connections; ## Inspect settings
+ALTER SYSTEM SET work_mem = '64MB'; SELECT pg_reload_conf(); ## Persist a setting and reload
+
+== SQLite differences | quick notes
+sqlite3 app.db ## Open or create a database file
+.tables / .schema t ## List tables / show DDL
+.headers on / .mode column ## Readable query output
+.import data.csv t --csv ## Load a CSV
+.dump > backup.sql ## Dump everything as SQL
+PRAGMA foreign_keys = ON; ## Foreign keys are off by default
+PRAGMA journal_mode = WAL; ## Better concurrency for readers and a writer
+PRAGMA table_info(t); ## Columns of a table
+INSERT OR REPLACE INTO t ... / ON CONFLICT(k) DO UPDATE ... ## Upsert forms
+Types are advisory: INTEGER, REAL, TEXT, BLOB, NUMERIC ## Column affinity, not strict types (unless STRICT tables)
+</script>
+<script src="../assets/sheet.js"></script>
+</body></html>

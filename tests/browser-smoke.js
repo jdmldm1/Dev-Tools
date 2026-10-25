@@ -80,6 +80,11 @@ const TOOL_CHECKS = {
   schemadiff: ["two loaders and no results until both schemas are loaded", `${SET} return $$('#sa,#sb').length===2 && $('#out').hidden && $$('button').some(b=>/Use the remembered schema/.test(b.textContent));`],
   ucilab: ["empty lab with the Bus, Transactions, Analysis, Map and Replay tabs", `${SET} return $$('.tabs.lab .tab').map(b=>b.textContent).join()==='Bus,Transactions,Analysis,Map,Replay' && /Nothing loaded/.test($('#sum').textContent);`],
   msgbuilder: ["hidden until a schema is loaded", `${SET} return $('#bw').hidden && !$('#nomodel').hidden;`],
+  qr: ["version 1 code for a short text", `${SET} set('#in','hello'); await wait(300); return /Version 1/.test($('#st').textContent) && !!$('#qr svg path');`],
+  httpreq: ["POST body to curl and fetch", `${SET} set('#url','https://x.test/a'); set('#method','POST'); set('#body','{"a":1}'); await wait(300); const o=$('#out').value; set('#lang','fetch'); await wait(200); return o.includes('curl -X POST') && o.includes('--data-raw') && $('#out').value.includes('fetch("https://x.test/a"');`],
+  proto: ["example outline, lint and JSON sample", `${SET} click('#ex'); await wait(300); return $('#out').value.includes('message Order') && $('#json').value.includes('"createdAt"') && $('#st').className.includes('ok');`],
+  totp: ["six-digit code from a Base32 secret", `${SET} set('#secret','GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ'); await wait(400); return /^[0-9]{6}$/.test($('#code').textContent) && $('#st').className.includes('ok');`],
+  unicode: ["flags a zero-width space", `${SET} set('#in','a'+String.fromCharCode(0x200B)+'b'); await wait(300); return $('#st').className.includes('warn') && $('#rev').textContent.includes('U+200B');`],
   cidr: ["/26 math", `${SET} await wait(100); return $('#res').textContent.includes('192.168.10.63')&&$('#res').textContent.includes('255.255.255.192');`],
 };
 

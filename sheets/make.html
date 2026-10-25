@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Make &amp; CMake Cheat Sheet</title>
+<script src="../assets/theme.js"></script><link rel="stylesheet" href="../assets/theme.css"><link rel="stylesheet" href="../assets/sheet.css"></head>
+<body><div id="app"></div>
+<script type="text/plain" id="sheet-src">
+title: Make & CMake
+eyebrow: Build tools · GNU Make 4 / CMake 3.20+
+lede: Make rebuilds targets whose prerequisites are newer; CMake generates the build files (Makefiles or Ninja) for you. Recipes in a Makefile must start with a TAB, not spaces.
+footer: Mark non-file targets `.PHONY`. In recipes `$` must be written `$$` to reach the shell, and each recipe line runs in its own shell unless you use `.ONESHELL`.
+
+== Running make | cli
+make ## Build the first (default) target
+make build ## Build a named target
+make -j8 ## Run 8 jobs in parallel
+make -j$(nproc) ## One job per CPU core
+make -n ## Dry run: print commands, run nothing
+make -B ## Rebuild everything regardless of timestamps
+make -k ## Keep going after errors
+make -C subdir ## Run in another directory
+make -f build.mk ## Use a different makefile
+make CC=clang CFLAGS="-O2 -g" ## Override variables from the command line
+make -p -q ## Print the rules and variables make knows
+make --trace ## Show why each target is being rebuilt
+make -s ## Silent: do not echo recipes
+make V=1 ## Verbose when the Makefile supports it
+
+== Rules & variables | Makefile
+target: prereq1 prereq2 ## A rule: target depends on prerequisites
+CC = gcc ## Recursive variable, expanded when used
+CC := gcc ## Simple variable, expanded once
+CC ?= gcc ## Set only if not already set
+CFLAGS += -Wall ## Append
+SRC := $(wildcard src/*.c) ## Glob files
+OBJ := $(SRC:src/%.c=build/%.o) ## Substitution reference: swap suffix and directory
+$(shell git rev-parse --short HEAD) ## Run a shell command at parse time
+$(patsubst %.c,%.o,$(SRC)) ## Pattern substitution
+$(foreach f,$(FILES),$(dir $(f))) ## Loop over words
+$(if $(DEBUG),-g,-O2) ## Conditional expression
+ifeq ($(OS),Windows_NT) ... endif ## Conditional block
+-include deps.d ## Include a file, ignore it if missing
+export PATH := $(HOME)/bin:$(PATH) ## Export to child processes
+.DEFAULT_GOAL := all ## Choose the default target explicitly
+
+== Pattern rules & automatic variables | recipes
+$@ ## The target
+$< ## The first prerequisite
+$^ ## All prerequisites (deduplicated)
+$? ## Prerequisites newer than the target
+$* ## The stem matched by %
+$(@D) / $(@F) ## Directory / file part of the target
+build/%.o: src/%.c ## Pattern rule: any .o from the matching .c
+	$(CC) $(CFLAGS) -c $< -o $@ ## The compile recipe (starts with a TAB)
+build/%.o: src/%.c | build ## Order-only prerequisite: create the dir, ignore its timestamp
+build: ; mkdir -p $@ ## One-line rule form
+%.d: %.c ; $(CC) -MM $< > $@ ## Generate header dependencies
+.SECONDARY: ## Keep intermediate files
+.DELETE_ON_ERROR: ## Remove a target if its recipe fails
+
+== Useful special targets & idioms | patterns
+.PHONY: all clean test ## Targets that are not files
+all: app ## Conventional default target
+clean: ; rm -rf build ## Conventional cleanup
+@echo "building" ## A leading @ hides the command itself
+-rm -f junk ## A leading - ignores errors from this line
+.ONESHELL: ## Run a whole recipe in one shell
+SHELL := bash ## Use bash for recipes
+.SHELLFLAGS := -eu -o pipefail -c ## Fail fast in recipes
+help: ; @grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "%-15s %s\n", $$1, $$2}' ## Self-documenting targets (annotate with a double-hash comment)
+$(info value is $(VAR)) ## Print while parsing
+$(error missing VAR) ## Abort with a message
+VERSION := $(shell git describe --tags --always) ## Version from git
+
+== CMake configure & build | cli
+cmake -S . -B build ## Configure: source dir, build dir
+cmake -S . -B build -G Ninja ## Use Ninja instead of Makefiles
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release ## Single-config generators need the build type here
+cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ## Write compile_commands.json for clangd
+cmake -S . -B build -DCMAKE_PREFIX_PATH=/opt/libs ## Where to look for packages
+cmake --build build -j ## Build with all cores
+cmake --build build --config Release ## Multi-config generators (Visual Studio, Xcode)
+cmake --build build --target app ## Build one target
+cmake --build build --target clean ## Clean
+cmake --install build --prefix /usr/local ## Install
+ctest --test-dir build --output-on-failure ## Run tests
+ctest --test-dir build -R unit -j4 ## Matching tests in parallel
+cmake --preset release && cmake --build --preset release ## Use CMakePresets.json
+cmake -LH build ## List cache variables with help text
+rm -rf build ## The reliable way to reconfigure from scratch
+
+== CMakeLists.txt basics | project files
+cmake_minimum_required(VERSION 3.20) ## First line of every project
+project(app VERSION 1.0 LANGUAGES CXX) ## Name, version, languages
+set(CMAKE_CXX_STANDARD 20) ## Language standard
+set(CMAKE_CXX_STANDARD_REQUIRED ON) ## Fail rather than fall back
+add_executable(app src/main.cpp src/util.cpp) ## An executable target
+add_library(core STATIC src/core.cpp) ## A static library (SHARED for shared)
+target_include_directories(core PUBLIC include) ## Include dirs, visible to dependents with PUBLIC
+target_link_libraries(app PRIVATE core) ## Link; PRIVATE keeps it internal
+target_compile_options(app PRIVATE -Wall -Wextra) ## Compiler flags
+target_compile_definitions(app PRIVATE DEBUG=1) ## -D definitions
+find_package(Threads REQUIRED) ## Locate an installed package
+target_link_libraries(app PRIVATE Threads::Threads) ## Use its imported target
+option(BUILD_TESTS "Build tests" ON) ## A user-facing boolean switch
+if(BUILD_TESTS) enable_testing() add_subdirectory(tests) endif() ## Conditional subdirectory
+add_test(NAME unit COMMAND unit_tests) ## Register a test with CTest
+install(TARGETS app RUNTIME DESTINATION bin) ## Install rules
+file(GLOB SRC CONFIGURE_DEPENDS src/*.cpp) ## Glob sources (explicit lists are preferred)
+include(FetchContent) ## Download dependencies at configure time
+FetchContent_Declare(fmt GIT_REPOSITORY https://github.com/fmtlib/fmt GIT_TAG 10.2.1) ## Declare one
+FetchContent_MakeAvailable(fmt) ## Download and add it to the build
+message(STATUS "building ${PROJECT_NAME}") ## Print during configure
+
+== CMake variables & generator expressions | reference
+CMAKE_SOURCE_DIR / CMAKE_BINARY_DIR ## Top-level source and build directories
+CMAKE_CURRENT_SOURCE_DIR ## Directory of the current CMakeLists.txt
+PROJECT_NAME / PROJECT_VERSION ## Values from project()
+CMAKE_BUILD_TYPE ## Debug, Release, RelWithDebInfo, MinSizeRel
+CMAKE_CXX_FLAGS ## Extra compiler flags for all targets
+BUILD_SHARED_LIBS ## Make add_library() default to SHARED
+$<CONFIG:Debug> ## True when building the Debug configuration
+$<$<CONFIG:Debug>:-g> ## Add a flag only in Debug
+$<TARGET_FILE:app> ## Path of the built file
+$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> ## Path used only while building
+$<INSTALL_INTERFACE:include> ## Path used only after install
+</script>
+<script src="../assets/sheet.js"></script>
+</body></html>

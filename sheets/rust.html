@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rust Cheat Sheet</title>
+<script src="../assets/theme.js"></script><link rel="stylesheet" href="../assets/theme.css"><link rel="stylesheet" href="../assets/sheet.css"></head>
+<body><div id="app"></div>
+<script type="text/plain" id="sheet-src">
+title: Rust
+eyebrow: Systems language · Rust 2021 edition
+lede: Ownership, borrowing and lifetimes replace the garbage collector. The compiler is strict so runtime stays predictable: if it compiles, whole classes of memory and data-race bugs are gone.
+footer: Prefer `&str` and `&[T]` in function arguments, return owned `String` and `Vec<T>`. Reach for `Rc`/`Arc` and `RefCell`/`Mutex` only when shared ownership is real.
+
+== Cargo | tooling
+cargo new app ## New binary crate (add --lib for a library)
+cargo init ## Make the current directory a crate
+cargo build ## Debug build
+cargo build --release ## Optimized build in target/release
+cargo run -- --flag arg ## Build and run, passing args after --
+cargo check ## Type-check without producing a binary (fast)
+cargo test ## Run unit, integration and doc tests
+cargo test name -- --nocapture ## One test, show println! output
+cargo fmt ## Format with rustfmt
+cargo clippy -- -D warnings ## Lint, fail on warnings
+cargo add serde --features derive ## Add a dependency
+cargo add tokio -F full ## Short feature flag
+cargo remove serde ## Remove a dependency
+cargo update ## Update Cargo.lock within semver ranges
+cargo tree -d ## Show duplicate dependency versions
+cargo doc --open ## Build and open the docs
+cargo install ripgrep ## Install a binary crate
+cargo bench ## Run benchmarks
+cargo publish --dry-run ## Check a crate is publishable
+rustup update ## Update the toolchain
+rustup target add x86_64-unknown-linux-musl ## Add a cross-compile target
+
+== Types & bindings | basics
+let x = 5; ## Immutable binding
+let mut n = 0; ## Mutable binding
+let s: &str = "hi"; ## String slice (borrowed text)
+let owned = String::from("hi"); ## Owned, growable string
+let t: (i32, f64) = (1, 2.0); ## Tuple; t.0, t.1
+let a: [u8; 4] = [0; 4]; ## Fixed-size array
+let v: Vec<i32> = vec![1, 2, 3]; ## Growable vector
+let big = 1_000_000u64; ## Numeric literal with suffix and separators
+const MAX: usize = 100; ## Compile-time constant
+static NAME: &str = "app"; ## Global with a fixed address
+type Id = u64; ## Type alias
+let x = x as f64; ## Numeric cast
+let n: u8 = u8::try_from(300).unwrap_or(255); ## Checked conversion
+
+== Ownership & borrowing | core model
+let b = a; ## Move: a is no longer usable (unless Copy)
+let b = a.clone(); ## Explicit deep copy
+fn f(s: &String) ## Immutable borrow, many allowed
+fn f(s: &mut String) ## Mutable borrow, exactly one at a time
+fn f<'a>(x: &'a str) -> &'a str ## Lifetime: the result lives no longer than x
+&*boxed ## Reborrow the content of a Box
+Box<T> ## Heap allocation, single owner
+Rc<T> ## Shared ownership, single thread
+Arc<T> ## Shared ownership, thread safe
+RefCell<T> ## Interior mutability, checked at runtime
+Mutex<T> ## Interior mutability across threads
+Cow<'a, str> ## Borrow until you need to modify
+
+== Structs, enums & traits | modeling
+struct Point { x: f64, y: f64 } ## Named-field struct
+struct Meters(f64); ## Tuple struct (newtype)
+enum Shape { Circle(f64), Rect { w: f64, h: f64 }, Empty } ## Enum with data
+impl Point { fn new(x: f64, y: f64) -> Self { Self { x, y } } } ## Methods and associated functions
+trait Area { fn area(&self) -> f64; } ## Define behavior
+impl Area for Shape { fn area(&self) -> f64 { 0.0 } } ## Implement a trait
+fn show(x: &impl Display) ## Accept any type implementing a trait
+fn show<T: Display + Clone>(x: T) ## Same with explicit bounds
+fn make() -> Box<dyn Area> ## Trait object (dynamic dispatch)
+fn f<T>(x: T) where T: Into<String> ## Where clause for long bounds
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)] ## Auto-implement common traits
+impl From<A> for B { fn from(a: A) -> Self { todo!() } } ## Conversion, gives you .into()
+impl Iterator for X { type Item = u32; fn next(&mut self) -> Option<u32> { None } } ## Custom iterator
+
+== Pattern matching & control flow | expressions
+match v { 1 => "one", 2 | 3 => "few", 4..=9 => "some", _ => "many" } ## Match is exhaustive
+if let Some(x) = opt { } else { } ## Match one pattern
+let Some(x) = opt else { return; }; ## let-else: bind or diverge
+while let Some(x) = stack.pop() { } ## Loop while a pattern matches
+for (i, x) in v.iter().enumerate() { } ## Loop with an index
+for i in 0..n { } ## Range loop, n excluded
+loop { break value; } ## Infinite loop that can return a value
+match p { Point { x, y: 0 } => x, _ => 0.0 } ## Destructure a struct
+match n { x if x < 0 => "neg", _ => "pos" } ## Match guard
+matches!(v, Some(1..=5)) ## Boolean pattern test
+
+== Option, Result & errors | no exceptions
+let v = opt.unwrap_or(0); ## Default when None
+let v = opt.unwrap_or_else(|| compute()); ## Lazy default
+let v = opt.map(|x| x + 1); ## Transform inside Some
+let v = opt.and_then(|x| lookup(x)); ## Chain fallible steps
+let v = opt.ok_or("missing")?; ## Option to Result, then propagate
+let n: i32 = s.parse()?; ## ? returns the error to the caller
+let n = s.parse::<i32>().map_err(|e| MyErr::Parse(e))?; ## Convert the error type
+fn run() -> Result<(), Box<dyn Error>> ## Quick catch-all error type
+res.expect("config must load") ## Panic with a message (use sparingly)
+anyhow::Result<T> / bail!("msg") / .context("while reading") ## anyhow for applications
+#[derive(thiserror::Error, Debug)] enum E { #[error("bad: {0}")] Bad(String) } ## thiserror for libraries
+
+== Collections & iterators | std
+v.push(1); v.pop(); v.len(); v.is_empty() ## Basic Vec operations
+v.iter().map(|x| x * 2).collect::<Vec<_>>() ## Map and collect
+v.iter().filter(|x| **x > 1).count() ## Filter and count
+v.iter().sum::<i32>() ## Sum
+v.iter().fold(0, |acc, x| acc + x) ## Fold
+v.iter().zip(w.iter()) ## Pair two iterators
+v.chunks(2) / v.windows(2) ## Fixed-size groups / sliding windows
+v.sort(); v.sort_by_key(|p| p.age); v.dedup(); ## Sort and dedupe in place
+v.iter().max_by(|a, b| a.partial_cmp(b).unwrap()) ## Max for floats
+let m: HashMap<String, i32> = HashMap::new(); ## Hash map
+*m.entry(k).or_insert(0) += 1; ## Counting idiom
+m.get(&k).copied().unwrap_or(0) ## Read with a default
+BTreeMap / BTreeSet ## Sorted map and set
+HashSet::from([1, 2, 3]) ## Set from an array
+s.chars().rev().collect::<String>() ## Reverse a string by characters
+s.split_whitespace().collect::<Vec<_>>() ## Split into words
+format!("{name}: {n:>5.2}") ## Format with inline args, width and precision
+
+== Concurrency & async | threads and tasks
+thread::spawn(move || { work(); }) ## Spawn a thread; move closure takes ownership
+handle.join().unwrap() ## Wait for a thread
+let (tx, rx) = mpsc::channel(); tx.send(1); rx.recv() ## Message passing
+let m = Arc::new(Mutex::new(0)); *m.lock().unwrap() += 1; ## Shared mutable state
+let c = Arc::clone(&m); ## Clone the handle, not the data
+#[tokio::main] async fn main() { } ## Async entry point (tokio)
+let r = fetch().await; ## Await a future
+tokio::spawn(async move { work().await }) ## Run a task concurrently
+tokio::join!(a(), b()) ## Run futures together, wait for all
+tokio::select! { x = a() => {}, y = b() => {} } ## First one to finish wins
+tokio::time::sleep(Duration::from_secs(1)).await ## Async sleep
+
+== Attributes, macros & unsafe | misc
+#[cfg(test)] mod tests { use super::*; #[test] fn works() { assert_eq!(1 + 1, 2); } } ## Unit tests live beside the code
+#[allow(dead_code)] / #[must_use] / #[inline] ## Common attributes
+println!("{x:?}"); dbg!(x); eprintln!("err"); ## Printing and debugging
+todo!(); unimplemented!(); unreachable!(); ## Placeholders that panic
+assert!(c); assert_eq!(a, b); debug_assert!(c); ## Assertions
+macro_rules! sq { ($x:expr) => { $x * $x }; } ## Declarative macro
+unsafe { *ptr } ## Operations the compiler cannot verify
+mod net; pub mod api; use crate::net::Client; ## Modules and imports
+pub(crate) fn helper() ## Visible inside the crate only
+</script>
+<script src="../assets/sheet.js"></script>
+</body></html>

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Helm Cheat Sheet</title>
+<script src="../assets/theme.js"></script><link rel="stylesheet" href="../assets/theme.css"><link rel="stylesheet" href="../assets/sheet.css"></head>
+<body><div id="app"></div>
+<script type="text/plain" id="sheet-src">
+title: Helm
+eyebrow: Kubernetes package manager · Helm 3
+lede: A chart is a templated bundle of Kubernetes manifests; a release is one installed instance of a chart. Values override the chart's defaults, and `helm template` shows exactly what would be applied.
+footer: Helm 3 has no Tiller: releases are stored as Secrets in the release namespace. Always pin chart versions and keep your values files in git.
+
+== Repositories & search | find charts
+helm repo add bitnami https://charts.bitnami.com/bitnami ## Add a chart repository
+helm repo update ## Refresh the local index
+helm repo list ## Configured repositories
+helm repo remove bitnami ## Remove a repository
+helm search repo nginx ## Search added repositories
+helm search repo nginx --versions ## Every available chart version
+helm search hub nginx ## Search Artifact Hub
+helm show chart bitnami/nginx ## Chart metadata
+helm show values bitnami/nginx > values.yaml ## Default values: start your overrides here
+helm show readme bitnami/nginx ## The chart README
+helm pull bitnami/nginx --untar ## Download and unpack a chart
+
+== Install & upgrade | releases
+helm install web bitnami/nginx ## Install a chart as release "web"
+helm install web bitnami/nginx -n apps --create-namespace ## Into a new namespace
+helm install web ./mychart ## From a local chart directory
+helm install web bitnami/nginx --version 15.4.0 ## Pin the chart version
+helm install web bitnami/nginx -f values.yaml ## Override with a values file
+helm install web bitnami/nginx --set replicaCount=3 ## Override one value
+helm install web bitnami/nginx --set-string image.tag=1.25 ## Force a string
+helm install web bitnami/nginx --set-file config=./app.conf ## Value from a file's contents
+helm install web bitnami/nginx --dry-run --debug ## Render and validate against the cluster, change nothing
+helm install --generate-name bitnami/nginx ## Let Helm name the release
+helm upgrade web bitnami/nginx -f values.yaml ## Upgrade an existing release
+helm upgrade --install web bitnami/nginx -f values.yaml ## Install if missing, else upgrade (CI favorite)
+helm upgrade web bitnami/nginx --reuse-values --set replicaCount=5 ## Keep previous values, change one
+helm upgrade web bitnami/nginx --atomic --timeout 5m ## Roll back automatically if the upgrade fails
+helm upgrade web bitnami/nginx --wait ## Wait until resources are ready
+
+== Inspect & operate | running releases
+helm list -A ## Releases in all namespaces
+helm list -n apps --failed ## Failed releases in one namespace
+helm status web -n apps ## Release status and notes
+helm get values web -n apps ## User-supplied values
+helm get values web -n apps --all ## Computed values (defaults merged)
+helm get manifest web -n apps ## The manifests that were applied
+helm get notes web -n apps ## The chart's NOTES.txt output
+helm history web -n apps ## Revision history
+helm rollback web 2 -n apps ## Roll back to revision 2
+helm uninstall web -n apps ## Remove a release
+helm uninstall web -n apps --keep-history ## Remove but keep history for rollback
+helm test web -n apps ## Run the chart's test hooks
+
+== Authoring charts | develop
+helm create mychart ## Scaffold a new chart
+helm lint ./mychart ## Check a chart for problems
+helm lint ./mychart -f values.yaml --strict ## Lint with your values, warnings are errors
+helm template web ./mychart -f values.yaml ## Render manifests locally, no cluster needed
+helm template web ./mychart -s templates/deployment.yaml ## Render just one template
+helm package ./mychart ## Build mychart-0.1.0.tgz
+helm package ./mychart --version 1.2.3 --app-version 2.0.0 ## Override versions while packaging
+helm dependency update ./mychart ## Fetch dependencies into charts/
+helm dependency build ./mychart ## Rebuild from Chart.lock
+helm dependency list ./mychart ## Show dependency status
+helm diff upgrade web ./mychart -f values.yaml ## Preview an upgrade (needs the helm-diff plugin)
+helm plugin install https://github.com/databus23/helm-diff ## Install a plugin
+
+== OCI registries | helm 3.8+
+helm registry login ghcr.io -u USER ## Log in to an OCI registry
+helm push mychart-0.1.0.tgz oci://ghcr.io/org/charts ## Publish a packaged chart
+helm install web oci://ghcr.io/org/charts/mychart --version 0.1.0 ## Install straight from OCI
+helm pull oci://ghcr.io/org/charts/mychart --version 0.1.0 ## Download from OCI
+helm show values oci://ghcr.io/org/charts/mychart --version 0.1.0 ## Inspect from OCI
+
+== Template syntax | Go templates
+{{ .Values.image.tag }} ## A value from values.yaml
+{{ .Release.Name }} ## Release name
+{{ .Release.Namespace }} ## Release namespace
+{{ .Chart.Name }}-{{ .Chart.Version }} ## Chart metadata
+{{ include "mychart.fullname" . }} ## Call a named template from _helpers.tpl
+{{ .Values.name | default "web" | quote }} ## Pipeline with a default
+{{- if .Values.ingress.enabled }} ... {{- end }} ## Conditional; the dash trims whitespace
+{{- range .Values.hosts }} - {{ . | quote }} {{- end }} ## Loop over a list
+{{- with .Values.resources }} resources: {{ toYaml . | nindent 2 }} {{- end }} ## Scope and re-indent YAML
+{{ required "image.repo is required" .Values.image.repo }} ## Fail the render if missing
+{{ tpl .Values.extra . }} ## Render a string from values as a template
+{{ lookup "v1" "Secret" .Release.Namespace "db" }} ## Read an object from the live cluster
+{{/* a comment */}} ## Template comment
+
+== Environment & flags | misc
+KUBECONFIG=~/.kube/other helm list ## Use another kubeconfig
+--kube-context prod ## Use a named kube context
+-n apps / --namespace apps ## Target namespace
+--wait --timeout 10m ## Block until ready, with a limit
+--debug ## Show the rendered manifests and more detail
+--output yaml ## Structured output (also json, table)
+helm env ## Where Helm keeps config, cache and data
+helm version --short ## Client version
+</script>
+<script src="../assets/sheet.js"></script>
+</body></html>
