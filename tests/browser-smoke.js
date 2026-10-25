@@ -5,7 +5,7 @@ const { spawn } = require("child_process"), fs = require("fs"), os = require("os
 const CHROME = process.env.CHROME || ["C:/Program Files/Google/Chrome/Application/chrome.exe", "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"].find(fs.existsSync);
 const root = path.resolve(__dirname, ".."), PORT = 9333;
 const shotsDir = process.argv.includes("--shots") ? process.argv[process.argv.indexOf("--shots") + 1] : null;
-const url = p => "file:///" + path.join(root, p).replace(/\\/g, "/");
+const url = p => "file:///" + path.join(root, p).replace(/\\/g, "/").replace(/^\//, "");
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 async function openPage(target) {
@@ -39,7 +39,7 @@ async function openPage(target) {
       await send("DOM.enable");
       const doc = (await send("DOM.getDocument", { depth: -1 })).result.root.nodeId;
       const node = (await send("DOM.querySelector", { nodeId: doc, selector })).result.nodeId;
-      await send("DOM.setFileInputFiles", { files: files.map(f => f.replace(/\//g, "\\")), nodeId: node });
+      await send("DOM.setFileInputFiles", { files: files.map(f => path.normalize(f)), nodeId: node });
     },
     async close() { ws.close(); await fetch(`http://127.0.0.1:${PORT}/json/close/${info.id}`).catch(() => {}); },
   };
@@ -92,7 +92,8 @@ const TOOL_CHECKS = {
 (async () => {
   if (!CHROME) { console.error("No Chrome/Edge found. Set CHROME=path."); process.exit(2); }
   const prof = fs.mkdtempSync(path.join(os.tmpdir(), "dt-smoke-"));
-  const proc = spawn(CHROME, ["--headless=new", "--disable-gpu", "--no-first-run", "--hide-scrollbars", `--remote-debugging-port=${PORT}`, `--user-data-dir=${prof}`, "about:blank"], { stdio: "ignore" });
+  // Ubuntu runners block Chrome's user-namespace sandbox, so Linux needs --no-sandbox; stderr is kept so launch failures show up in CI.
+  const proc = spawn(CHROME, ["--headless=new", "--disable-gpu", "--no-first-run", "--hide-scrollbars", ...(process.platform === "linux" ? ["--no-sandbox"] : []), `--remote-debugging-port=${PORT}`, `--user-data-dir=${prof}`, "about:blank"], { stdio: ["ignore", "ignore", "inherit"] });
   for (let i = 0; i < 50; i++) { try { await fetch(`http://127.0.0.1:${PORT}/json/version`); break; } catch (_) { await sleep(200); } }
   let fails = 0; const fail = (what, why) => { fails++; console.log(`  FAIL ${what}: ${why}`); };
   const ok = (what, extra = "") => console.log(`  ok   ${what}${extra ? "  " + extra : ""}`);
