@@ -94,7 +94,10 @@ const TOOL_CHECKS = {
   const prof = fs.mkdtempSync(path.join(os.tmpdir(), "dt-smoke-"));
   // Ubuntu runners block Chrome's user-namespace sandbox, so Linux needs --no-sandbox; stderr is kept so launch failures show up in CI.
   const proc = spawn(CHROME, ["--headless=new", "--disable-gpu", "--no-first-run", "--hide-scrollbars", ...(process.platform === "linux" ? ["--no-sandbox"] : []), `--remote-debugging-port=${PORT}`, `--user-data-dir=${prof}`, "about:blank"], { stdio: ["ignore", "ignore", "inherit"] });
-  for (let i = 0; i < 50; i++) { try { await fetch(`http://127.0.0.1:${PORT}/json/version`); break; } catch (_) { await sleep(200); } }
+  // A cold Chrome on a busy CI runner can take well over 10s to open the DevTools port.
+  let up = false;
+  for (let i = 0; i < 150 && !up; i++) { try { await fetch(`http://127.0.0.1:${PORT}/json/version`); up = true; } catch (_) { await sleep(200); } }
+  if (!up) { console.error(`Chrome did not open the DevTools port ${PORT} within 30s.`); proc.kill(); process.exit(2); }
   let fails = 0; const fail = (what, why) => { fails++; console.log(`  FAIL ${what}: ${why}`); };
   const ok = (what, extra = "") => console.log(`  ok   ${what}${extra ? "  " + extra : ""}`);
 
