@@ -194,7 +194,7 @@ const TOOL_CHECKS = {
           T('JSON tab is pretty-printed', /\\n\\s+"MessageHeader"/.test($$('#sdet pre.out').find(x=>!x.hidden).textContent));
           $('#sdet .tabs .tab[data-k=xml]').click(); await wait(100);
           T('XML tab shows the converted message', /<StatusReport[^>]*xmlns="urn:demo:v1"/.test($$('#sdet pre.out').find(x=>!x.hidden).textContent));
-          T('graphs: tiles, topic and type charts', $$('#tiles .tile').length===5 && $('#c-topic').textContent.includes('demo.status') && $('#c-type').textContent.includes('StatusReport') && !!$('#c-rate svg.ch path'));
+          T('graphs: tiles, topic and type charts', await until(()=>$$('#tiles .tile').length===5 && $('#c-topic').textContent.includes('demo.status') && $('#c-type').textContent.includes('StatusReport') && !!$('#c-rate svg.ch path')));
           T('type chips', $('#types').textContent.includes('StatusReport'));
           $('.tabs.nav .tab[data-t=pub]').click();
           set('#ptop','demo.status'); set('#pmsg','StatusReport'); $('#pgen').click(); await wait(150);
