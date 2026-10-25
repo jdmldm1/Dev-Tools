@@ -27,7 +27,7 @@
       const status = (id, kind, msg) => DT.status($(id), kind, msg);
       const saved = store.get(CONN, {});
       let model = lib.sharedSchema.model, gen = 1, paused = false, selected = null, timer = 0, gTimer = 0, total = 0, tab = "live", typeFilter = "", typeSig = "";
-      let msgs = [], schemaTouched = false;
+      let msgs = [], schemaTouched = false, rowsLimit = MAX_ROWS;
       const secs = new Map(), topics = new Map(), types = new Map(), frames = [];
       let tot = { n: 0, b: 0 }, curSec = 0, cur = null;
       const subList = [];
@@ -50,9 +50,10 @@
           </details>
         </div>
         <div id="work" hidden>
-          <div class="tabs nav" role="tablist"><button class="tab on" data-t="live" type="button">Live</button><button class="tab" data-t="an" type="button">Analyze</button><button class="tab" data-t="pub" type="button">Publish</button><button class="tab" data-t="srv" type="button">Server</button></div>
+          <div class="tabs nav" role="tablist"><button class="tab on" data-t="live" type="button">Live</button><button class="tab" data-t="an" type="button">Analyze</button><button class="tab" data-t="pub" type="button">Publish</button><button class="tab" data-t="srv" type="button">Server</button><button class="tab" data-t="alr" type="button">Alerts</button><button class="tab" data-t="resp" type="button">Responder</button><button class="tab" data-t="scn" type="button">Scenario</button></div>
 
           <section data-p="live">
+            <div id="x-presets"></div>
             <div class="opts" style="margin:0 0 4px">
               <input type="text" id="stop" class="mono" list="topiclist" placeholder="topic, e.g. mission.action" spellcheck="false" style="width:220px"><datalist id="topiclist"></datalist>
               <input type="text" id="smsg" class="mono" list="msglist" placeholder="message name" spellcheck="false" style="width:200px"><datalist id="msglist"></datalist>
@@ -99,6 +100,10 @@
             <div class="status" id="pst"></div>
           </section>
 
+          <section data-p="alr" hidden><div id="x-alr"></div></section>
+          <section data-p="resp" hidden><div id="x-resp"></div></section>
+          <section data-p="scn" hidden><div id="x-scn"></div></section>
+
           <section data-p="srv" hidden>
             <div id="srvinfo"></div>
             <div class="chart"><h3>Protocol log (last 200 frames)</h3><pre class="out" id="plog" style="max-height:40vh;overflow:auto"></pre></div>
@@ -109,7 +114,7 @@
       /* ----- Analyze: record the traffic into a store and show the traffic views on it ----- */
       const traffic = new lib.TrafficStore(model, { max: 20000, validate: true });
       let lab = null, recording = true;
-      const mountLab = () => { if (!lab) lab = lib.trafficLab($("#labhost"), { store: traffic, getModel: () => model, live: true }); else lab.refresh(); };
+      const mountLab = () => { if (!lab) lab = lib.trafficLab($("#labhost"), { store: traffic, getModel: () => model, live: true, extraTabs: lib.labExtras(traffic, { getModel: () => model }) }); else lab.refresh(); };
       $("#rec").onchange = e => { recording = e.target.checked; };
       $("#recv").onchange = e => { traffic.reset(model, e.target.checked); if (lab) lab.refresh(); };
       $("#recclr").onclick = () => { traffic.clear(); if (lab) lab.refresh(); };
@@ -258,6 +263,22 @@
         const i = subList.indexOf(s); if (i >= 0) subList.splice(i, 1); renderSubs(); persist();
       };
 
+      /* ---------- presets, alerts, scenario, responder (cal-panels.js) ---------- */
+      const cx = lib.calPanels({
+        root, $, client, getModel: () => model, msgs: () => msgs, subs: () => subList,
+        applySubs: async list => {
+          let added = 0; const failed = [];
+          for (const x of list) {
+            if (subList.some(s => s.topic === x.topic && s.messageName === x.message && (s.group || "") === (x.group || ""))) continue;
+            try { await addSub(x.topic, x.message, x.group); added++; } catch (e) { failed.push(`${x.topic}: ${e.code || e.message}`); }
+          }
+          return { added, failed };
+        },
+        getConn: () => ({ url: $("#url").value.trim(), service: $("#svc").value.trim(), schema: $("#sver").value.trim(), versions: $("#ver").value.trim() }),
+        setConn: c => { if (c.url) $("#url").value = c.url; if (c.service) $("#svc").value = c.service; if (c.schema) { $("#sver").value = c.schema; schemaTouched = true; } if (c.versions) $("#ver").value = c.versions; },
+        getFilter: () => $("#sf").value, setFilter: v => { $("#sf").value = v; draw(); },
+      });
+
       /* ---------- messages ---------- */
       function tally(m, now) {
         const sec = Math.floor(now / 1000);
@@ -270,7 +291,7 @@
         if (!root.isConnected) { client.close(); return; }
         total++;
         const now = Date.now(), m = { n: total, t: now, topic: sub.topic, sid: sub.id, group: sub.group, message: rootName(text) || sub.messageName, text, size: text.length };
-        tally(m, now);
+        tally(m, now); cx.onMsg(m);
         if (paused) return;
         msgs.push(m);
         if (recording) traffic.add({ t: now, topic: sub.topic, text, source: "cal" });
@@ -279,11 +300,13 @@
       }
       function draw() {
         timer = 0;
-        const f = $("#sf").value.trim().toLowerCase(), rows = [];
-        for (let i = msgs.length - 1; i >= 0 && rows.length < MAX_ROWS; i--) {
+        const f = $("#sf").value.trim().toLowerCase(), rows = [], wq = /^where\s+/i.test($("#sf").value.trim()) ? lib.fieldQuery($("#sf").value.trim().replace(/^where\s+/i, "")) : null;
+        if (wq && !wq.ok) status("#swarn", "warn", wq.error); else if (wq) status("#swarn", "", "");
+        for (let i = msgs.length - 1; i >= 0 && rows.length < rowsLimit; i--) {
           const m = msgs[i];
           if (typeFilter && m.message !== typeFilter) continue;
-          if (f && !(m.lc || (m.lc = (m.topic + " " + m.text.slice(0, 4000)).toLowerCase())).includes(f)) continue;
+          if (wq) { if (wq.ok) { m.fields = m.fields || lib.payloadFields(m.text).fields; if (!wq.test(m.fields, { topic: m.topic, raw: m.text })) continue; } }
+          else if (f && !(m.lc || (m.lc = (m.topic + " " + m.text.slice(0, 4000)).toLowerCase())).includes(f)) continue;
           const unk = model && m.message && !model.elements.has(m.message);
           rows.push(`<tr data-n="${m.n}"${m === selected ? ' class="on"' : ""}><td class="t">${hhmmss(m.t)}</td><td class="s">${esc(m.topic)}</td><td class="ty"><span${unk ? ' class="unk" title="Not in the loaded schema"' : ""}>${esc(m.message)}</span></td><td class="t">${m.size} B</td><td class="p">${esc(m.pv || (m.pv = m.text.replace(/\s+/g, " ").slice(0, 100)))}</td></tr>`);
         }
@@ -298,7 +321,9 @@
       $("#types").onclick = e => { const c = e.target.closest(".chip"); if (c) { typeFilter = c.dataset.ty; typeSig = ""; draw(); } };
       $("#spause").onclick = e => { paused = !paused; e.target.textContent = paused ? "Resume" : "Pause"; draw(); };
       $("#sclear").onclick = () => { msgs = []; total = 0; selected = null; typeFilter = ""; typeSig = ""; secs.clear(); topics.clear(); types.clear(); tot = { n: 0, b: 0 }; curSec = 0; cur = null; $("#sdet").innerHTML = ""; draw(); drawGraphs(true); };
-      $("#sf").addEventListener("input", DT.debounce(draw, 150));
+      $("#sf").addEventListener("input", DT.debounce(() => { rowsLimit = MAX_ROWS; draw(); }, 150));
+      /* the feed shows the newest rows first and adds more as you scroll down, up to everything that is kept */
+      $("#feed").closest(".tscroll").addEventListener("scroll", e => { const t = e.currentTarget; if (rowsLimit < MAX_KEEP * 1.25 && t.scrollTop + t.clientHeight > t.scrollHeight - 160) { rowsLimit += MAX_ROWS; draw(); } });
       $("#feed").onclick = e => {
         const tr = e.target.closest("tr[data-n]"); if (!tr) return;
         selected = msgs.find(m => m.n === +tr.dataset.n); if (!selected) return;
@@ -347,6 +372,7 @@
       const plotInto = (host, html) => { host.querySelector(".plot").innerHTML = html; };
       function tick() {
         if (!root.isConnected) { client.close(); clearInterval(gTimer); return; }
+        cx.tick();
         const cut = Math.floor(Date.now() / 1000) - 620; for (const k of secs.keys()) if (k < cut) secs.delete(k);
         if (tab === "live") drawGraphs(false);
       }
@@ -440,7 +466,7 @@
       $("#autoc").checked = saved.autoConnect !== false;
       if (saved.url && saved.service && saved.schema && saved.autoConnect !== false) { status("#cst", "", "Reconnecting to the last server…"); connect(); }
       return () => {
-        clearInterval(srvTimer);
+        cx.close(); clearInterval(srvTimer);
         if (current) { try { current.close(); } catch (_) {} current = null; }
       };
     },

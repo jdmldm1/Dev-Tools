@@ -1,6 +1,6 @@
 // Service worker: makes the toolbox work offline.
 // VERSION must match package.json (tests/pwa.test.js checks it); bumping it drops the old cache and shows the page's "new version" toast.
-const VERSION = "1.3.0";
+const VERSION = "1.4.0";
 const CACHE = "dev-tools-" + VERSION;
 
 // Precache every local script, stylesheet and sheet the main pages reference, so a first visit is enough to go offline.

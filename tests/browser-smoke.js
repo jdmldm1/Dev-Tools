@@ -78,7 +78,7 @@ const TOOL_CHECKS = {
   nats: ["URL validation, closed port error, tabs stay hidden (live checks run with NATS_WS)", `${SET} set('#url','localhost:4222'); click('#conn'); const v=$('#cst').textContent.includes('ws://')&&$('#cst').classList.contains('err'); set('#url','ws://127.0.0.1:59999'); click('#conn'); await wait(1500); return v&&/Could not open a WebSocket/.test($('#cst').textContent)&&$('#work').hidden&&!$('#conn').hidden&&!$('#conn').disabled;`],
   cal: ["URL, service and schema validation before connecting (live checks use the mock server)", `${SET} click('#conn'); const a=/ws:\\/\\//.test($('#cst').textContent); set('#url','ws://127.0.0.1:59998'); click('#conn'); const b=/service identifier/.test($('#cst').textContent); set('#svc','S'); click('#conn'); const c=/schema version/.test($('#cst').textContent); set('#sver','1.0'); click('#conn'); await wait(1500); return a||true ? b&&c&&/Could not open/.test($('#cst').textContent)&&$('#work').hidden : false;`],
   schemadiff: ["two loaders and no results until both schemas are loaded", `${SET} return $$('#sa,#sb').length===2 && $('#out').hidden && $$('button').some(b=>/Use the remembered schema/.test(b.textContent));`],
-  ucilab: ["empty lab with the Bus, Transactions, Analysis, Map and Replay tabs", `${SET} return $$('.tabs.lab .tab').map(b=>b.textContent).join()==='Bus,Transactions,Analysis,Map,Replay' && /Nothing loaded/.test($('#sum').textContent);`],
+  ucilab: ["empty lab with the Bus, Transactions, Analysis, Map, Replay, Search, Conformance, Compare and Live tabs", `${SET} return $$('.tabs.lab .tab').map(b=>b.textContent).join()==='Bus,Transactions,Analysis,Map,Replay,Search,Conformance,Compare,Live source' && /Nothing loaded/.test($('#sum').textContent);`],
   msgbuilder: ["hidden until a schema is loaded", `${SET} return $('#bw').hidden && !$('#nomodel').hidden;`],
   bridge: ["both connection panels and an empty comparison", `${SET} return !!$('#go') && !!$('#csubs') && !!$('#nsub') && $('#tiles').textContent.includes('Paired') && /No pairs yet/.test($('#pairs').textContent);`],
   qr: ["version 1 code for a short text", `${SET} set('#in','hello'); await wait(300); return /Version 1/.test($('#st').textContent) && !!$('#qr svg path');`],
@@ -846,6 +846,194 @@ const TOOL_CHECKS = {
         p.errors.length ? fail("shell errors", p.errors.join(" | ")) : ok("no script errors");
       } catch (e) { fail("shell add-ons", e.message); }
       await p.close();
+    }
+
+    // ---- CAL explorer extras (mock OWP server): presets, alerts, scenario, responder, field filter, search, conformance
+    console.log("CAL explorer extras (mock OWP server)");
+    {
+      const { lib } = require("./harness"), mock = require("../scripts/owp-mock-server");
+      const fx = path.join(root, "tests/fixtures/nats-demo.xsd");
+      const cmodel = lib.xsdModel([{ name: "nats-demo.xsd", text: fs.readFileSync(fx, "utf8") }]);
+      const srv = await mock.start({ lib, model: cmodel, schemaVersion: "1.0", topics: [{ name: "demo.status", message: "StatusReport" }, { name: "demo.other", message: "StatusReport" }] });
+      const WS = JSON.stringify("ws://127.0.0.1:" + srv.port);
+      const p = await openPage("toolbox.html#cal");
+      try {
+        await p.eval(`localStorage.clear()`); await p.eval(`location.reload()`); await sleep(600);
+        await p.setFiles("#schf", [fx]); await sleep(500);
+        const r = await p.eval(`(async()=>{${SET}
+          const L=DT.lib, out=[]; const T=(n,c)=>{out.push((c?'ok ':'FAIL ')+n); return c;};
+          const until=async(f,ms=4000)=>{const t=Date.now();while(Date.now()-t<ms){try{if(f())return true}catch(e){} await wait(40)}return false};
+          const tab=async t=>{ $('.tabs.nav .tab[data-t="'+t+'"]').click(); await wait(150); };
+          try {
+          const sample=(over)=>{ const j=JSON.parse(L.owpXmlToJson(L.sharedSchema.model, L.uciSample(L.sharedSchema.model,'StatusReport'))); return JSON.stringify(over?over(j):j); };
+          $('#sadv').click(); $('#sauto').checked && $('#sauto').click();
+          set('#url',${WS}); set('#svc','DemoService'); set('#sver','1.0'); $('#conn').click();
+          T('connects', await until(()=>!$('#work').hidden));
+          set('#stop','demo.status'); set('#smsg','StatusReport'); $('#sadd').click();
+          T('subscribed', await until(()=>$$('#subs .chip').length===1));
+
+          /* presets */
+          window.prompt=()=> 'lab setup';
+          $('#cpsave').click(); await wait(100);
+          T('preset is saved', $('#cps').value==='lab setup');
+          T('preset holds subscriptions and connection but nothing secret', localStorage.getItem('dt.cal.presets').includes('demo.status') && localStorage.getItem('dt.cal.presets').includes('DemoService'));
+          $$('#subs .chip').forEach(c=>c.click()); await until(()=>$$('#subs .chip').length===0);
+          $('#cpload').click();
+          T('loading a preset resubscribes', await until(()=>$$('#subs .chip').length===1));
+
+          /* alerts */
+          await tab('alr');
+          set('#asub','demo.>'); set('#akind','invalid'); $('#akind').dispatchEvent(new Event('change')); $('#aadd').click(); await wait(100);
+          set('#asub','demo.status'); set('#akind','match'); $('#akind').dispatchEvent(new Event('change')); set('#aval','FAILED'); $('#aadd').click(); await wait(100);
+          set('#asub',''); set('#akind','field'); $('#akind').dispatchEvent(new Event('change')); set('#aval','Priority > 5'); $('#aadd').click(); await wait(100);
+          T('three alert rules are listed', $$('#alist .chip').length===3);
+
+          /* scenario: publish through the server so the subscription sees it */
+          await tab('scn');
+          const good=sample();
+          set('#sctop','demo.status'); set('#sctxt',good); $('#scadd').click(); await wait(80);
+          set('#sctop','demo.status'); set('#sctxt',good); set('#scdel','150'); $('#scadd').click(); await wait(80);
+          T('scenario has two steps', $$('#sclist tr[data-i]').length===2);
+          $('#scrun').click();
+          T('scenario run reports completion', await until(()=>/Done. 2 messages sent/.test($('#scst').textContent),5000));
+          await tab('live');
+          T('scenario messages arrive in the feed', await until(()=>$$('#feed tr[data-n]').length>=2));
+
+          /* field query in the feed and a content alert */
+          set('#sf','where nosuchfield = 1'); await wait(350);
+          T('a field query that matches nothing empties the feed', $$('#feed tr[data-n]').length===0);
+          set('#sf','where MessageData.State exists'); await wait(350);
+          T('a query with matches keeps rows', $$('#feed tr[data-n]').length>=1);
+          set('#sf','where x ~'); await wait(350);
+          T('a bad query is explained', /Missing a value/.test($('#swarn').textContent));
+          set('#sf','');
+
+          /* responder: answer anything on demo.status by publishing on demo.other */
+          set('#sctop','');
+          set('#stop','demo.other'); set('#smsg','StatusReport'); $('#sadd').click(); await until(()=>$$('#subs .chip').length===2);
+          await tab('resp');
+          set('#rmt','demo.status'); set('#rmm','StatusReport'); set('#rrt','demo.other'); set('#rrx',sample());
+          $('#radd').click(); await wait(100);
+          T('responder rule exists', $$('#rlist tr[data-i]').length===1);
+          await tab('scn'); $('#scrun').click(); await until(()=>/Done/.test($('#scst').textContent),5000);
+          await tab('resp');
+          T('responder answers on its own topic', await until(()=>/demo.other/.test($('#rlog').textContent) && $$('#rlog tr').length>=1, 4000));
+          await tab('live');
+          T('the answers arrive in the feed', await until(()=>$$('#feed tr[data-n]').some(r=>r.textContent.includes('demo.other')),4000));
+
+          /* Analyze tab: Search and Conformance */
+          await tab('an'); await wait(600);
+          const labTab=k=>{ const b=document.querySelector('.tabs.lab .tab[data-t="'+k+'"]'); b && b.click(); return !!b; };
+          T('Search and Conformance tabs exist in Analyze', labTab('search') && !!document.querySelector('.tabs.lab .tab[data-t="conf"]'));
+          set('#qs','MessageHeader.SystemID exists and MessageData.State exists'); $('#qgo').click();
+          T('search finds recorded messages', await until(()=>/match/.test($('#qst').textContent) && $$('#qrows tr[data-i]').length>=1, 5000));
+          $('#qrows tr[data-i]').click(); T('a result shows its fields', await until(()=>/format/.test($('#qdet').textContent)));
+          labTab('conf'); await wait(400);
+          T('conformance table lists the service', await until(()=>/Overall pass rate/.test($('#cbody').textContent)));
+          } catch(e) { out.push('FAIL exception: '+e.message); }
+          return out; })()`);
+        for (const line of r) line.startsWith("ok ") ? ok(line.slice(3)) : fail(line.slice(5), "check failed");
+        p.errors.length ? fail("cal extras errors", p.errors.join(" | ")) : ok("no script errors");
+      } catch (e) { fail("cal extras", e.message); }
+      await p.close(); srv.close();
+    }
+
+    // ---- Traffic Lab extras: search, conformance report, compare, live source, replay controls and faults
+    console.log("Traffic Lab extras");
+    {
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "dt-lab-"));
+      const SYS1 = "11111111-1111-4111-8111-111111111111", SYS2 = "22222222-2222-4222-8222-222222222222", SVC = "33333333-3333-4333-8333-333333333333";
+      const xml = (name, sys, n) => `<${name} xmlns="urn:u"><MessageHeader><SystemID><UUID>${sys}</UUID></SystemID><ServiceID><UUID>${SVC}</UUID></ServiceID><Timestamp>2025-01-01T00:00:0${n}Z</Timestamp><Mode>LIVE</Mode></MessageHeader><MessageData><Value>${n}</Value></MessageData></${name}>`;
+      const line = (t, topic, text) => JSON.stringify({ time: new Date(1735689600000 + t).toISOString(), topic, payload: text });
+      const A = path.join(tmp, "a.jsonl"), B = path.join(tmp, "b.jsonl");
+      fs.writeFileSync(A, [line(0, "t.status", xml("Status", SYS1, 1)), line(1000, "t.status", xml("Status", SYS1, 2)), line(2000, "t.old", xml("Gone", SYS2, 3))].join("\n") + "\n");
+      fs.writeFileSync(B, [line(0, "t.status", xml("Status", SYS1, 1)), line(1000, "t.new", xml("Fresh", SYS2, 4))].join("\n") + "\n");
+      const p = await openPage("toolbox.html#ucilab");
+      try {
+        await p.eval(`localStorage.clear()`); await p.eval(`location.reload()`); await sleep(700);
+        await p.setFiles("#files", [A]); await sleep(1200);
+        const r = await p.eval(`(async()=>{${SET}
+          const out=[]; const T=(n,c)=>{out.push((c?'ok ':'FAIL ')+n); return c;};
+          const until=async(f,ms=4000)=>{const t=Date.now();while(Date.now()-t<ms){try{if(f())return true}catch(e){} await wait(40)}return false};
+          const lt=k=>{ const b=document.querySelector('.tabs.lab .tab[data-t="'+k+'"]'); b.click(); return wait(200); };
+          try {
+          T('capture A is loaded', await until(()=>/3 messages/.test($('#sum').textContent)));
+          await lt('search');
+          set('#qs','SystemID.UUID ~ 2222'); $('#qgo').click();
+          T('search finds the message from the second system', await until(()=>/1 match in 3 messages/.test($('#qst').textContent)));
+          set('#qs','Value >= 2'); $('#qgo').click();
+          T('numeric comparison on a field', await until(()=>/2 matches in 3/.test($('#qst').textContent)));
+          set('#qs','topic = t.old'); $('#qgo').click();
+          T('topic is searchable', await until(()=>/1 match in 3/.test($('#qst').textContent)));
+          set('#qs','Value >'); $('#qgo').click();
+          T('a bad query is explained', await until(()=>/Missing a value/.test($('#qst').textContent)));
+          await lt('conf');
+          window.__dl=null; const orig=DT.download; DT.download=(n,t)=>{ window.__dl={n,t}; };
+          T('conformance tab asks for a schema', /Load a schema/.test($('#cbody').textContent) || /Overall pass rate/.test($('#cbody').textContent));
+          $('#cmd').click(); await wait(300);
+          T('markdown report is produced', !!window.__dl && window.__dl.n==='traffic-report.md' && /^# Traffic report/.test(window.__dl.t) && /Who was on the bus/.test(window.__dl.t) && /Status/.test(window.__dl.t));
+          $('#chtml').click(); await wait(300);
+          T('html report is a standalone page', window.__dl.n==='traffic-report.html' && /^<!doctype html>/.test(window.__dl.t) && /<table>/.test(window.__dl.t));
+          DT.download=orig;
+          await lt('compare');
+          return out; } catch(e) { out.push('FAIL exception: '+e.message); return out; } })()`);
+        for (const line of r) line.startsWith("ok ") ? ok(line.slice(3)) : fail(line.slice(5), "check failed");
+        await p.setFiles("#cfile", [B]); await sleep(1500);
+        const r2 = await p.eval(`(async()=>{${SET}
+          const out=[]; const T=(n,c)=>{out.push((c?'ok ':'FAIL ')+n); return c;};
+          const until=async(f,ms=5000)=>{const t=Date.now();while(Date.now()-t<ms){try{if(f())return true}catch(e){} await wait(40)}return false};
+          T('comparison completes', await until(()=>/Compared 3 messages \\(A\\) with 2/.test($('#cst').textContent)));
+          const t=$('#cres').textContent;
+          T('new and missing types are named', /Fresh/.test(t) && /Gone/.test(t) && /only in A/.test(t));
+          T('topics that appeared and vanished are listed', /t\\.new/.test(t) && /t\\.old/.test(t));
+          T('a table compares message types', $$('#cres tbody tr').length>=3);
+          return out; })()`);
+        for (const line of r2) line.startsWith("ok ") ? ok(line.slice(3)) : fail(line.slice(5), "check failed");
+        p.errors.length ? fail("lab extras errors", p.errors.join(" | ")) : ok("no script errors");
+      } catch (e) { fail("lab extras", e.message); }
+      await p.close();
+
+      if (process.env.NATS_WS) {
+        const W = JSON.stringify(process.env.NATS_WS);
+        const q = await openPage("toolbox.html#ucilab");
+        try {
+          await q.eval(`localStorage.clear()`); await q.eval(`location.reload()`); await sleep(700);
+          const r3 = await q.eval(`(async()=>{${SET}
+            const L=DT.lib, enc=new TextEncoder(), out=[]; const T=(n,c)=>{out.push((c?'ok ':'FAIL ')+n); return c;};
+            const until=async(f,ms=5000)=>{const t=Date.now();while(Date.now()-t<ms){try{if(f())return true}catch(e){} await wait(40)}return false};
+            const lt=k=>{ document.querySelector('.tabs.lab .tab[data-t="'+k+'"]').click(); return wait(200); };
+            try {
+            const side=new L.NatsClient(); await side.connect(${W});
+            const mk=(sys,n)=>'<Status xmlns="urn:u"><MessageHeader><SystemID><UUID>'+sys+'</UUID></SystemID><ServiceID><UUID>33333333-3333-4333-8333-333333333333</UUID></ServiceID><Timestamp>2025-01-01T00:00:0'+n+'Z</Timestamp><Mode>LIVE</Mode></MessageHeader><MessageData><Value>'+n+'</Value></MessageData></Status>';
+            await lt('live'); set('#lu',${W}); set('#ls','labtest.>'); $('#lgo').click();
+            T('live source connects', await until(()=>/Streaming|0 messages so far/.test($('#lst').textContent) && !$('#lstop').hidden));
+            for(let i=1;i<=3;i++) side.publish('labtest.a',enc.encode(mk('44444444-4444-4444-8444-44444444444'+i,i)));
+            T('messages stream into the lab', await until(()=>/Streaming: 3 messages/.test($('#lst').textContent),4000));
+            await lt('bus');
+            T('the Bus view fills while streaming', await until(()=>/44444444/.test(document.querySelector('#lbody').textContent),4000));
+            side.publish('labtest.a',enc.encode(mk('55555555-5555-4555-8555-555555555555',4)));
+            T('the Bus view keeps updating', await until(()=>/55555555/.test(document.querySelector('#lbody').textContent),4500));
+            await lt('live'); $('#lstop').click();
+            T('stopping ends the stream', await until(()=>/Stopped after/.test($('#lst').textContent)));
+
+            /* replay with fault injection */
+            await lt('replay');
+            set('#ru',${W}); set('#rsp','0'); $('#rc').checked=false;
+            $('#rgo').click();
+            T('replay sends the loaded messages', await until(()=>/Done. Sent 4/.test($('#rst').textContent),6000));
+            T('replay controls appear only while playing', $('#rpause').hidden && $('#rerr').hidden);
+            $('#rfx').click(); set('#rfd','100'); $('#rgo').click();
+            T('fault injection can drop everything', await until(()=>/Done. Sent 0/.test($('#rst').textContent) && /4 dropped/.test($('#rst').textContent),6000));
+            set('#rfd','0'); set('#rfu','100'); $('#rgo').click();
+            T('fault injection can duplicate', await until(()=>/Done. Sent 8/.test($('#rst').textContent) && /4 duplicated/.test($('#rst').textContent),6000));
+            side.close();
+            } catch(e) { out.push('FAIL exception: '+e.message); }
+            return out; })()`);
+          for (const line of r3) line.startsWith("ok ") ? ok(line.slice(3)) : fail(line.slice(5), "check failed");
+          q.errors.length ? fail("lab live errors", q.errors.join(" | ")) : ok("no script errors");
+        } catch (e) { fail("lab live", e.message); }
+        await q.close();
+      }
     }
 
     // ---- accessibility: every control in every tool has an accessible name

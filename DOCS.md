@@ -57,13 +57,13 @@ How trustworthy is the validator? It is cross-checked against .NET's `System.Xml
 
 ### NATS Explorer
 
-Talks to a NATS server over WebSocket (the server needs a `websocket { port: 8080 no_tls: true }` block; the tool shows the snippet). A small NATS client lives in `assets/tools/nats.js`: no libraries, no TLS or NKey/JWT auth (user/password and token work).
+Talks to a NATS server over WebSocket (the server needs a `websocket { port: 8080 no_tls: true }` block; the tool shows the snippet). A small NATS client lives in `assets/tools/nats.js`: no libraries and no TLS. Authentication: user/password, token, **NKey seed** and **.creds files** (`nats-auth.js`: the page signs the server's nonce with Ed25519 via WebCrypto, so it needs Chrome 137+, Firefox 129+ or Safari 17+; the key stays in the page and is never saved).
 
 - **Auto-connect**: opening the page reconnects to the last server you connected to without credentials (checkbox next to Connect to turn it off).
 - **Live**: subscribes to `>` on connect (hiding `$JS.*`, `$SYS.*` and `_INBOX.*` unless you untick it); add or remove subscriptions as chips (overlapping ones are refused so nothing shows twice). One screen holds the stat tiles, messages/second, busiest subjects, message types, the feed (newest first, last 2,000 kept, filter by text or message type), the message detail, a collapsible **subject tree** (counts per token) and **plot a field over time** (any numeric JSON or XML field, up to 6 series). Click a bar to filter the feed; hover for values.
 - **UCI / XML decoding**: load the schema (files or folder; it is the same saved schema the XSD Explorer remembers) and any XML message is matched by its root element name, so **any UCI version works**; a namespace difference is shown as a badge instead of blocking. The **Decoded** view shows the message name, its family and documentation, schema-valid or the list of errors, the header facts (SystemID, Timestamp, SchemaVersion, Mode), and the whole message as a collapsible tree with each element's type, cardinality, documentation (click the name), the meaning of every enumeration value, unknown elements flagged, and each validation error shown under the element it belongs to. Also an **XML** tab (pretty-printed) and **Raw**. Roots that are not in the schema get "closest names" suggestions. Messages without a schema still get the tree.
 - **Publish & Request**: text, validated JSON or hex payloads, headers, reply-to; request/reply with a timeout and a clear "no responders" error. With a schema loaded: pick a message, **Generate sample** (required fields only, or everything) and **Validate**; publishing warns when a message has schema errors. "Edit as new message" in the detail view sends a received message here.
-- **JetStream** (read-only): account usage, streams (with size and message charts), per-stream state and config, subjects with counts and a chart, consumers with a backlog chart (pending, ack pending, redelivered), look up a message by sequence or last-on-subject. KV buckets show their keys without the `$KV.<bucket>.` prefix, values, and delete/purge markers. XML values and messages decode the same way. An optional domain field handles `$JS.<domain>.API`.
+- **JetStream**: account usage, streams (with size and message charts), per-stream state and config, subjects with counts and a chart, consumers with a backlog chart (pending, ack pending, redelivered), look up a message by sequence or last-on-subject. KV buckets show their keys without the `$KV.<bucket>.` prefix, values, and delete/purge markers. XML values and messages decode the same way. An optional domain field handles `$JS.<domain>.API`.
 
 **How much traffic it takes.** Measured in headless Chrome against a local nats-server with the explorer subscribed to `>`, schema loaded, filter and a plotted field active: ~500,000 msgs/s of small JSON (3 million messages in 6 s, none lost, page stays responsive within ~35 ms), ~130,000 msgs/s of 900 B UCI XML and ~120,000 msgs/s of 1 KB messages (about 120 MB/s, limited by the load generator, not the page), and ~300,000 msgs/s spread over 50,000 distinct subjects (~75 MB of heap). What keeps it fast: nothing on the hot path touches the DOM; the feed redraws at most every 120 ms; message decoding and validation happen only for the message you open. Above ~20,000 msgs/s the feed shows every Nth message (the status line says so) while counts, rates, charts and the type/subject statistics stay exact; the feed keeps the last 2,000, and at most 50,000 distinct subjects are tracked (the tile shows `+` past that). Limits to know: a server drops a client that cannot keep up (slow consumer), so on a very busy bus subscribe to the subjects you need instead of `>`; a background tab is throttled by the browser; plotting a field parses at most 25 messages/s per series. `node scripts/nats-blast.js 100000 10 json` generates load against your own server to check (kinds: json, json1k, xml, many).
 
@@ -71,6 +71,19 @@ Talks to a NATS server over WebSocket (the server needs a `websocket { port: 808
 
 **Profiles and alerts.** The "Profiles & alerts" section above the schema loader saves a connection profile (URL, subscriptions, hide-internal switch; never credentials) in this browser, with export and import as JSON. Alerts watch subjects while connected: "rate above N msg/s" (average over 5 s) and "silent for N seconds". They show a red banner and a toast when they start firing.
 
+
+**More in the NATS Explorer** (tabs beside Live, Analyze, Publish and JetStream):
+
+- **Alerts** now also watch content: "payload contains" (text or /regex/), "field query" (`Latitude > 34 and SystemID = alpha`) and "fails schema", with a history of what fired. They live in the Profiles & alerts section (shared with the CAL Explorer).
+- **Feed filter**: besides text, type `where <field query>` (for example `where temp > 30`) to filter on values inside JSON, XML and OMS JSON. A path may be just its end: `Latitude` matches `Pos.Point.Latitude`; `topic ~ alpha` filters on the subject; `and` / `or`; ops `= != > >= < <= ~ exists`. The feed starts with the newest 300 rows and adds more as you scroll, up to everything kept.
+- **Message diff**: open a message in the feed and use *Diff with previous* (the last message on the same subject) or *Mark for diff* then *Diff with marked*. JSON, XML and OMS JSON compare field by field; other text compares line by line.
+- **Latency**: request/reply latency from what is on the bus. A message with a reply-to subject is a request; the next message on that subject is its reply. Per request subject: counts, unanswered after a timeout, no-responders, and p50/p95/p99/max. Times are this page's receive times.
+- **Server** (`$SYS`): servers (version, connections, subscriptions, messages, slow consumers, CPU, memory, health), every connection (sorted by pending bytes to find slow consumers) and a **subject usage map**: other clients' subscriptions joined with the traffic seen, listing subjects that have traffic but no other subscriber and subscriptions that are idle. Needs a user from the server's **system account** (an application account gets an explanation and partial data).
+- **KV & Objects**: pick a bucket. KV: keys, values, revision history, a live **watch**, and (after ticking *allow changes*) edit with compare-and-set (a stale edit is refused), create, delete and purge. Object store: list, and download with a size and SHA-256 check. Objects are read only.
+- **JetStream administration**: *allow changes* (off by default) unlocks creating streams, purging (everything, one subject, keep the newest N, or below a sequence), deleting a stream or message, adding and deleting consumers, and **republishing** a range of stored messages onto another subject. Every destructive action asks first. The stream view also draws **consumer lag over time** (sampled every 2 s) and flags consumers whose backlog keeps growing, that are redelivering, or that have work waiting while nothing moves.
+- **Responder**: rules that answer incoming messages automatically (match on subject, message name and a field query; reply with a template: `{{in:Field}}`, `{{uuid}}`, `{{now}}`, `{{counter}}`, `{{rand:1-100}}`, `{{pick:a|b}}`, `{{replyto}}`). A rule without a reply subject answers the request's reply-to. It ignores its own replies and is capped at 50 per second.
+- **Scenario**: a list of messages with a delay before each; capture one from the live feed, edit, run at 0.5x to 10x or without delays, loop, export and import as JSON. Variables (`{{var:name}}`) come from a JSON object.
+- **Profiles** also remember the feed filter.
 ### CAL Explorer (OWP)
 
 The NATS Explorer's counterpart for the OMS **Language-Agnostic CAL** (OMSC-SPC-013): it speaks the OMS WebSocket Protocol 1.0 (subprotocol `owp`: INIT, INFO, SUB, UNSUB, PUB, MSG, +OK, -ERR) and the OMS JSON message format, in `assets/tools/cal-owp.js` (protocol, client, OMS JSON ⇄ XML mapping) and `cal.js` (the page).
@@ -80,6 +93,11 @@ The NATS Explorer's counterpart for the OMS **Language-Agnostic CAL** (OMSC-SPC-
 - **Decoding**: each message is mapped to XML with the loaded schema (member order, arrays, `$type` as xsi:type, exact number text so 64-bit values survive) and shown with the shared decoded view: documentation, enum meanings, types and cardinality, header facts, inline schema errors. Tabs for pretty JSON, the XML, and raw. Any schema version works.
 - **Publish**: pick a message, **Generate sample** (MessageHeader filled from INFO: system and service UUIDs, current timestamp, mode LIVE), **Validate** (errors by schema path), Publish; the server's +OK or -ERR code comes back with a plain-language explanation. Server tab: INFO contents and a protocol log of the last 200 frames.
 - **Auto-connect**: opening the page reconnects to the last server and restores the subscriptions (switch off with the checkbox next to Connect).
+- **Presets**: save the current subscriptions, connection details (there are no secrets in OWP) and feed filter under a name; load, delete, export and import as JSON.
+- **Alerts**: the same engine as the NATS Explorer with the topic and an optional message name: rate, silence, payload contains, field query and fails schema.
+- **Responder** and **Scenario**: as in the NATS Explorer, publishing through the server (a responder can stand in for a service that answers commands, and a scenario can replay a recorded exchange).
+- **Feed filter**: `where <field query>` works here too (`where MessageData.State = ACTIVE`).
+- **Analyze** adds **Search** and **Conformance** (see the Traffic Lab).
 - Limits: live only (the protocol has no history or replay), servers that need authentication headers do not work from a browser, and children of non-qualified schemas are written without a namespace prefix when validating.
 
 `node scripts/owp-mock-server.js --nats ws://127.0.0.1:18080` runs the same server as a read-only view of the UCI XML messages on a NATS server (topics are the subjects, e.g. `uci.alpha.SystemStatus`; non-UCI subjects are ignored). Without `--nats`, `node scripts/owp-mock-server.js` runs a small LA-CAL server (port 9000, service `DemoService`, the loaded schema's version) that enforces the protocol rules and publishes generated UCI messages on topics such as `sys.status` (SystemStatus) and `mission.plan` (MissionPlan); it is also what the tests use.
@@ -97,6 +115,10 @@ All of these live in the **UCI** group and share the schema you load (it is reme
 - **Transactions**: messages that mention the same identifier belong together (a command and its statuses, a plan and its status). Pick one for a timeline with the time between messages, the states each reported (`NEW → ACCEPTED → COMPLETED`), a swim-lane chart by message type, and where the id sits in each message. Very common identifiers can be hidden.
 - **Analysis**: validity per message type with the most common problem, messages unknown to the schema, duplicates, out-of-order timestamps, latency (receive time minus header Timestamp), silences in a stream (longer than 5 times the usual interval), schema versions seen.
 - **Map**: every Latitude/Longitude pair (UCI radians, or lat/lon degrees in plain JSON; exactly 0,0 means "no fix" and is skipped) becomes a track per entity on an offline world map (Natural Earth, public domain) with trail length, pan and zoom, a legend, hover details, and a time slider with Play for captures.
+- **Search**: find messages by field values across the whole recording (`Latitude > 34 and SystemID.UUID ~ 1111`, `topic = x`, `Status = FAILED or Status = ERROR`), open a hit, export the matches as a capture.
+- **Conformance**: pass / fail per service (MessageHeader ServiceID, else SystemID) with the most common problems, and a downloadable **report** (Markdown or a standalone HTML page): summary, who was on the bus, message types and validity, conformance, slowest transactions, silences.
+- **Compare** (Traffic Lab): load a second capture and see message types, systems and topics that appeared or vanished, rates, invalid counts and latency side by side; download as Markdown.
+- **Live source** (Traffic Lab): stream a running NATS server or LA-CAL straight into the lab; every view keeps updating while messages arrive.
 - **Replay** (in the Traffic Lab only): play the capture into a NATS server or an LA-CAL at the original timing, 2x, 5x, 10x or as fast as possible, with a filter, looping, conversion to the target's format (XML for NATS, OMS JSON for a CAL) and an option to stamp each header with the current time. Refusals are counted and the last reason shown.
 
 Decoding is done in time slices so the page stays responsive, up to 200,000 messages in the Lab and the newest 20,000 in an explorer's Analyze tab. "Save capture" in an explorer writes the file the Lab reads, and "Open in Traffic Lab" hands the recording over directly.
@@ -161,7 +183,7 @@ The image is about **1.2 MB** (`docker save` size; `docker images` may show doub
 
 The pages run in your browser, so the NATS WebSocket address you type is resolved from your machine, not from the container. The server code is in `docker/server`; to run its tests without Docker, copy the served files into `docker/server/www` and gzip them (the Dockerfile shows how).
 
-**Zarf.** `zarf.yaml` packages the image with a Deployment and Service (non-root, read-only filesystem, `/healthz` probes) for air-gapped Kubernetes: `docker build -t dev-tools:1.3.0 .`, `zarf package create .`, `zarf package deploy zarf-package-dev-tools-*.tar.zst --confirm`, then `kubectl -n dev-tools port-forward svc/dev-tools 9999:9999`. Keep the image tag in `zarf.yaml` and `zarf/dev-tools.yaml` equal to `package.json`.
+**Zarf.** `zarf.yaml` packages the image with a Deployment and Service (non-root, read-only filesystem, `/healthz` probes) for air-gapped Kubernetes: `docker build -t dev-tools:1.4.0 .`, `zarf package create .`, `zarf package deploy zarf-package-dev-tools-*.tar.zst --confirm`, then `kubectl -n dev-tools port-forward svc/dev-tools 9999:9999`. Keep the image tag in `zarf.yaml` and `zarf/dev-tools.yaml` equal to `package.json`.
 
 ## Layout
 
@@ -180,6 +202,8 @@ assets/
   groups.js           collapsible groups with remembered state
   shell.js            share links, send-to, command palette, toast, accessible names (built on hooks in toolbox.js)
   sheet-index.js      turns a sheet page into searchable rows for the overview's command search
+  tools/payload-tools.js alerts.js scenario.js scenario-ui.js capture-tools.js lab-extras.js   field queries and diff, alert rules, templates and scenarios, capture diff and reports, Traffic Lab tabs
+  tools/nats-panels.js nats-js.js nats-latency.js nats-auth.js nats-ops.js bridge.js cal-panels.js   the NATS and CAL explorer extras, JetStream and KV helpers, NKey auth, Bridge Compare
   icon.svg            favicon and app icon
   sheet.css|js        renderer for plain-text cheat sheets
   toolbox.css|js      tool shell and shared helpers (DT)
@@ -218,10 +242,43 @@ The first eight sheets (Git, GitHub CLI, GitLab CLI, Docker, kubectl, NATS, Go, 
 2. Add a `<script>` line for it to `toolbox.html` and an entry to `catalog.js`.
 3. Add a behaviour check in `tests/browser-smoke.js` (`TOOL_CHECKS`) and unit tests for the `DT.lib` functions.
 
+### Bridge Compare (NATS vs CAL)
+
+Connects to a NATS server and an LA-CAL at once and pairs the same UCI message arriving on both (matched by message name, header SystemID and Timestamp, and the identifiers in its body). It reports how long each took to cross (CAL receive time minus NATS receive time), messages seen on one side only after a pairing window, and, with the schema loaded, a field-by-field comparison of the NATS XML (converted to OMS JSON) with the CAL message.
+
+### Replay controls and fault injection
+
+The Traffic Lab's Replay tab plays at 0.25x to 10x or as fast as possible; the speed can be changed while playing. **Pause**, **Next invalid message** (jumps to the next message that failed validation; needs the schema) and a play range (from % to % of the recording) are available. **Fault injection** is off unless ticked: drop %, duplicate %, jitter and a reorder window, to see how a consumer copes; the result line reports what was injected. Use it against a test server only.
+
+## Live test servers
+
+`npm run smoke` always runs the mock-OWP checks. To also run the real-server checks (the NATS Explorer's tabs, the Traffic Lab's live source and replay faults), start a NATS server with JetStream, a system account and a WebSocket listener, and point the test at it:
+
+```
+# nats.conf
+server_name: dt-test
+port: 4222
+jetstream { store_dir: "/data" }
+system_account: SYS
+accounts {
+  SYS { users: [ { user: sys, password: sys } ] }
+  APP { jetstream: enabled, users: [ { user: app, password: app } ] }
+}
+no_auth_user: app
+websocket { port: 8080, no_tls: true, no_auth_user: app }
+```
+
+```
+docker run -d --name dt-nats -p 18080:8080 -v ./nats.conf:/nats.conf:ro nats:latest -c /nats.conf
+NATS_WS=ws://127.0.0.1:18080 npm run smoke
+```
+
+For the NKey checks run a second server whose only user is an NKey (generate a pair with `DT.lib.nkeyGenerate()` in the browser console, or in a Node script that loads `tests/harness.js`; put the public key in `authorization { users: [ { nkey: U... } ] }`) and add `NATS_NKEY_WS=ws://127.0.0.1:18081 NATS_NKEY_SEED=SU...`. `.creds` login needs an operator-mode server; its parsing and signing are covered by unit tests only.
+
 ## Tests
 
 ```
-npm test            # 169 unit tests, Node 18+, no dependencies (UCI integration tests skip if the schema folder is absent)
+npm test            # 197 unit tests, Node 18+, no dependencies (UCI integration tests skip if the schema folder is absent)
 npm run smoke       # drives headless Chrome/Edge through every page and tool, menus, and the XSD explorer on the real UCI files
                     # NATS_WS=ws://127.0.0.1:8080 npm run smoke also drives the NATS Explorer against a real JetStream-enabled nats-server
 npm run crosscheck  # compares the XSD validator and sample generator with .NET on the UCI schema, the zoo schema and an unqualified-namespace schema

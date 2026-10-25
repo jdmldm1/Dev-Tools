@@ -56,15 +56,27 @@
             <div class="col"><label class="l">Target</label><select id="rt" class="mono"><option value="nats">NATS (WebSocket)</option><option value="cal">LA-CAL (OWP)</option></select>
               <label class="l" for="ru">WebSocket URL</label><input type="text" id="ru" class="mono" spellcheck="false" value="ws://127.0.0.1:18080">
               <div id="calf" hidden class="three"><div class="col"><label class="l" for="rsv">Service id</label><input type="text" id="rsv" class="mono" value="DemoService"></div><div class="col"><label class="l" for="rsc">Schema version</label><input type="text" id="rsc" class="mono"></div><div class="col"><label class="l" for="rov">OWP versions</label><input type="text" id="rov" class="mono" value="1.0"></div></div></div>
-            <div class="col"><label class="l" for="rsp">Speed</label><select id="rsp" class="mono"><option value="1">original timing</option><option value="2">2×</option><option value="5">5×</option><option value="10">10×</option><option value="0">as fast as possible</option></select>
+            <div class="col"><label class="l" for="rsp">Speed</label><select id="rsp" class="mono"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1">original timing</option><option value="2">2×</option><option value="5">5×</option><option value="10">10×</option><option value="0">as fast as possible</option></select>
               <label class="l" for="rf">Only messages containing</label><input type="text" id="rf" class="mono" placeholder="topic or message name, e.g. SystemStatus" spellcheck="false">
               <div class="opts"><label><input type="checkbox" id="rl"> loop</label><label><input type="checkbox" id="rc" checked> convert to the target's format</label><label title="Set each message's MessageHeader Timestamp to the time it is sent"><input type="checkbox" id="rs"> stamp with the current time</label></div></div>
           </div>
-          <div class="btns"><button class="btn primary" id="rgo" type="button">Start</button><button class="btn" id="rstop" type="button" hidden>Stop</button></div>
+          <div class="opts"><label>Play from <input type="number" id="rfrom" value="0" min="0" max="100" class="mono" style="width:70px">% to <input type="number" id="rto" value="100" min="0" max="100" class="mono" style="width:70px">% of the recording</label></div>
+          <details class="hint"><summary>Fault injection</summary><div class="opts"><label><input type="checkbox" id="rfx"> enable (alters what is sent)</label><label>drop <input type="number" id="rfd" value="0" min="0" max="100" class="mono" style="width:60px">%</label><label>duplicate <input type="number" id="rfu" value="0" min="0" max="100" class="mono" style="width:60px">%</label><label>jitter ±<input type="number" id="rfj" value="0" min="0" class="mono" style="width:70px"> ms</label><label>reorder window <input type="number" id="rfo" value="0" min="0" max="50" class="mono" style="width:60px"></label></div>
+            <div class="hint">Drops, duplicates, delays and reorders messages on purpose to see how a consumer copes. Off unless you tick the box; use it against a test server only.</div></details>
+          <div class="btns"><button class="btn primary" id="rgo" type="button">Start</button><button class="btn" id="rpause" type="button" hidden>Pause</button><button class="btn" id="rerr" type="button" hidden title="Skip ahead to the next message that failed validation">Next invalid message</button><button class="btn" id="rstop" type="button" hidden>Stop</button></div>
           <div class="status" id="rst"></div><div class="meter" style="height:8px;background:var(--surface2);border-radius:4px;overflow:hidden"><div id="rbar" style="height:100%;width:0;background:var(--accent)"></div></div>`;
         const q = s => el.querySelector(s), st = (k, m) => DT.status(q("#rst"), k, m);
         q("#rt").onchange = e => { q("#calf").hidden = e.target.value !== "cal"; q("#ru").value = e.target.value === "cal" ? "ws://127.0.0.1:9100" : "ws://127.0.0.1:18080"; if (e.target.value === "cal" && !q("#rsc").value) q("#rsc").value = lib.schemaVersion(store.model); };
-        q("#rstop").onclick = () => { stopFlag = true; };
+        let ctl = null, lastRec = null;
+        q("#rstop").onclick = () => { stopFlag = true; if (ctl) ctl.paused = false; };
+        q("#rsp").onchange = () => { if (ctl) ctl.speed = +q("#rsp").value; };
+        q("#rpause").onclick = () => { if (!ctl) return; ctl.paused = !ctl.paused; q("#rpause").textContent = ctl.paused ? "Resume" : "Pause"; };
+        q("#rerr").onclick = () => {
+          if (!ctl) return; const now = lastRec ? lastRec.t : 0;
+          const next = store.records.filter(r => r.t > now && r.meta && r.meta.valid === false).sort((a, b) => a.t - b.t)[0];
+          if (!next) return st("warn", "No invalid message after this point (validation needs the schema loaded).");
+          ctl.seekT = next.t;
+        };
         q("#rgo").onclick = async () => {
           if (playing) return;
           const recs = store.records; if (!recs.length) return st("err", "Load a capture first.");
@@ -91,21 +103,26 @@
               };
             }
           } catch (e) { return st("err", e.message); }
-          playing = true; stopFlag = false; q("#rgo").hidden = true; q("#rstop").hidden = false;
+          playing = true; stopFlag = false; q("#rgo").hidden = true; q("#rstop").hidden = false; q("#rpause").hidden = false; q("#rerr").hidden = false; q("#rpause").textContent = "Pause";
+          ctl = { paused: false, speed: +q("#rsp").value }; lastRec = null;
+          const times = recs.map(r => r.t), t0 = Math.min(...times), t1 = Math.max(...times), pa = Math.max(0, Math.min(100, +q("#rfrom").value || 0)), pb = Math.max(0, Math.min(100, +q("#rto").value || 100));
+          const from = t0 + (t1 - t0) * Math.min(pa, pb) / 100, to = t0 + (t1 - t0) * Math.max(pa, pb) / 100;
+          const faults = q("#rfx").checked ? { drop: (+q("#rfd").value || 0) / 100, dup: (+q("#rfu").value || 0) / 100, jitter: +q("#rfj").value || 0, reorder: +q("#rfo").value || 0 } : undefined;
           const filter = needle ? r => r.topic.toLowerCase().includes(needle) || (r.meta && r.meta.name || "").toLowerCase().includes(needle) || r.text.slice(0, 400).toLowerCase().includes(needle) : null;
           try {
             const res = await lib.capPlay(recs, send, {
-              speed: +q("#rsp").value, loop: q("#rl").checked, filter, isStopped: () => stopFlag || !root.isConnected,
-              onProgress: p => { q("#rbar").style.width = (100 * p.i / p.of).toFixed(1) + "%"; if (p.i % 20 === 0 || p.i === p.of) st(p.failed ? "warn" : "", `Sent ${p.sent.toLocaleString()} of ${p.of.toLocaleString()}${p.rounds ? " (round " + (p.rounds + 1) + ")" : ""}${p.failed ? `, ${p.failed} refused. Last: ${p.lastError}` : ""}`); },
+              speed: +q("#rsp").value, loop: q("#rl").checked, filter, from, to, control: ctl, faults, isStopped: () => stopFlag || !root.isConnected,
+              onProgress: p => { lastRec = p.rec; q("#rbar").style.width = (100 * p.i / p.of).toFixed(1) + "%"; if (p.i % 20 === 0 || p.i === p.of) st(p.failed ? "warn" : "", `Sent ${p.sent.toLocaleString()} of ${p.of.toLocaleString()}${p.rounds ? " (round " + (p.rounds + 1) + ")" : ""}${p.failed ? `, ${p.failed} refused. Last: ${p.lastError}` : ""}`); },
             });
-            st(res.failed ? "warn" : "ok", `${res.stopped ? "Stopped. " : "Done. "}Sent ${res.sent.toLocaleString()}${res.failed ? `, ${res.failed} refused (last: ${res.lastError})` : ""}.`);
+            const fx = res.faults ? ` Faults injected: ${res.faults.dropped} dropped, ${res.faults.duplicated} duplicated, ${res.faults.reordered} reordered, ${res.faults.jittered} delayed.` : "";
+            st(res.failed ? "warn" : "ok", `${res.stopped ? "Stopped. " : "Done. "}Sent ${res.sent.toLocaleString()}${res.failed ? `, ${res.failed} refused (last: ${res.lastError})` : ""}.${fx}`);
           } catch (e) { st("err", e.message); }
           try { client.close(); } catch (_) { /* already closed */ }
-          playing = false; q("#rgo").hidden = false; q("#rstop").hidden = true;
+          playing = false; ctl = null; q("#rgo").hidden = false; q("#rstop").hidden = true; q("#rpause").hidden = true; q("#rerr").hidden = true;
         };
       }
 
-      lab = lib.trafficLab($("#lab"), { store, getModel: () => store.model, live: false, extraTabs: [{ key: "replay", label: "Replay", render: renderReplay }] });
+      lab = lib.trafficLab($("#lab"), { store, getModel: () => store.model, live: false, extraTabs: [{ key: "replay", label: "Replay", render: renderReplay }, ...lib.labExtras(store, { getModel: () => store.model, compare: true, live: true })] });
       sp.start(); summary();
       return () => { if (lab && typeof lab.destroy === "function") lab.destroy(); };
     },

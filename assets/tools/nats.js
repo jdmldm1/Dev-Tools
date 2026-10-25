@@ -378,7 +378,7 @@
       /* ----- Analyze: record the traffic into a store and show the traffic views on it ----- */
       const store = new lib.TrafficStore(model, { max: 20000, validate: true });
       let lab = null, recording = true;
-      const mountLab = () => { if (!lab) lab = lib.trafficLab($("#labhost"), { store, getModel: () => model, live: true }); else lab.refresh(); };
+      const mountLab = () => { if (!lab) lab = lib.trafficLab($("#labhost"), { store, getModel: () => model, live: true, extraTabs: lib.labExtras(store, { getModel: () => model }) }); else lab.refresh(); };
       $("#rec").onchange = e => { recording = e.target.checked; };
       $("#recv").onchange = e => { store.reset(model, e.target.checked); if (lab) lab.refresh(); };
       $("#recclr").onclick = () => { store.clear(); if (lab) lab.refresh(); };
@@ -539,6 +539,7 @@
 
       /* ----- subscribe ----- */
       const subList = [];
+      let rowsLimit = MAX_ROWS;
       let msgs = [], total = 0, paused = false, selected = null, timer = 0, typeFilter = "", typeSig = "";
       function renderSubs() {
         $("#subs").innerHTML = subList.map((s, i) => `<span class="chip" data-i="${i}" title="Click to unsubscribe">${esc(s.subject)}${s.queue ? " [" + esc(s.queue) + "]" : ""} ×</span>`).join("");
@@ -548,7 +549,7 @@
         timer = 0;
         const f = $("#sf").value.trim().toLowerCase(), rows = [], wq = /^where\s+/i.test($("#sf").value.trim()) ? lib.fieldQuery($("#sf").value.trim().replace(/^where\s+/i, "")) : null;
         if (wq && !wq.ok) status("#swarn", "warn", wq.error); else if (wq) status("#swarn", "", "");
-        for (let i = msgs.length - 1; i >= 0 && rows.length < MAX_ROWS; i--) {
+        for (let i = msgs.length - 1; i >= 0 && rows.length < rowsLimit; i--) {
           const m = msgs[i];
           if (typeFilter && m.root !== typeFilter) continue;
           if (wq) { if (wq.ok) { m.fields = m.fields || lib.payloadFields(m.payload).fields; if (!wq.test(m.fields, { topic: m.subject })) continue; } }
@@ -596,7 +597,9 @@
       $("#ssub").addEventListener("keydown", e => { if (e.key === "Enter") $("#sadd").click(); });
       $("#spause").onclick = e => { paused = !paused; e.target.textContent = paused ? "Resume" : "Pause"; draw(); };
       $("#sclear").onclick = () => { msgs = []; total = 0; selected = null; typeFilter = ""; typeSig = ""; resetStats(); $("#sdet").innerHTML = ""; draw(); drawGraphs(true); };
-      $("#sf").addEventListener("input", DT.debounce(draw, 150));
+      $("#sf").addEventListener("input", DT.debounce(() => { rowsLimit = MAX_ROWS; draw(); }, 150));
+      /* the feed shows the newest rows first and adds more as you scroll down, up to everything that is kept */
+      $("#feed").closest(".tscroll").addEventListener("scroll", e => { const t = e.currentTarget; if (rowsLimit < MAX_KEEP * 1.25 && t.scrollTop + t.clientHeight > t.scrollHeight - 160) { rowsLimit += MAX_ROWS; draw(); } });
       $("#feed").onclick = e => {
         const tr = e.target.closest("tr[data-n]"); if (!tr) return;
         selected = msgs.find(m => m.n === +tr.dataset.n); if (!selected) return;
