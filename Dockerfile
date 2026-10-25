@@ -3,17 +3,20 @@
 FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS build
 ARG TARGETOS=linux
 ARG TARGETARCH
-RUN apk add --no-cache upx
+RUN apk add --no-cache upx zopfli
+RUN GOBIN=/usr/local/bin go install github.com/evanw/esbuild/cmd/esbuild@v0.25.10
 WORKDIR /src
 COPY docker/server/ ./
-COPY index.html all.html toolbox.html catalog.js www/
+COPY index.html all.html toolbox.html catalog.js manifest.json sw.js www/
 COPY assets/ www/assets/
 COPY sheets/ www/sheets/
-RUN find www -type f -exec gzip -9n {} +
+# Minify scripts and styles in place (no bundling, so top-level names survive), then compress with zopfli.
+RUN find www -name '*.js' ! -name '*.min.js' -exec esbuild --minify --log-level=warning --allow-overwrite --outfile={} {} \;  && find www -name '*.css' -exec esbuild --minify --log-level=warning --allow-overwrite --outfile={} {} \;
+RUN find www -type f -exec zopfli --i30 {} \; -exec rm {} \;
 RUN go vet ./... && go test ./...
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
-    go build -trimpath -buildvcs=false -ldflags="-s -w" -o /out/dev-tools . \
- && (upx --best --lzma -q /out/dev-tools >/dev/null || echo "upx skipped")
+    go build -trimpath -buildvcs=false -tags netgo,osusergo -ldflags="-s -w -buildid=" -o /out/dev-tools . \
+ && (upx --ultra-brute --lzma -q /out/dev-tools >/dev/null || echo "upx skipped")
 
 FROM scratch
 COPY --from=build /out/dev-tools /dev-tools
