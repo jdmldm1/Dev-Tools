@@ -134,7 +134,7 @@
 
   /* ---------- client ---------- */
 
-  /* Minimal NATS client over WebSocket (the server needs a `websocket {}` listener). No TLS or NKey/JWT auth;
+  /* Minimal NATS client over WebSocket (the server needs a `websocket {}` listener). No TLS; NKey and .creds auth are in nats-auth.js;
      user/password and token auth work. opts.WebSocket lets tests inject a socket class. */
   lib.NatsClient = class {
     constructor(opts = {}) {
@@ -163,7 +163,10 @@
               const c = { verbose: false, pedantic: false, lang: "js", version: "dev-tools", name: "dev-tools nats explorer", protocol: 1, headers: !!op.info.headers, no_responders: !!op.info.headers };
               if (o.user) { c.user = o.user; c.pass = o.pass || ""; }
               if (o.token) c.auth_token = o.token;
-              this._send(TE.encode("CONNECT " + JSON.stringify(c) + "\r\nPING\r\n"));
+              const go = () => this._send(TE.encode("CONNECT " + JSON.stringify(c) + "\r\nPING\r\n"));
+              if (o.nkeySeed || o.creds) {                                  // NKey / .creds: sign the server's nonce first (see nats-auth.js)
+                lib.natsSignNonce(o.creds ? { seed: o.creds.seed, jwt: o.creds.jwt } : { seed: o.nkeySeed }, op.info.nonce).then(r => { Object.assign(c, r); go(); }).catch(done);
+              } else go();
             }
           } else if (op.op === "PING") this._send(TE.encode("PONG\r\n"));
           else if (op.op === "PONG") { if (!this.connected) { this.connected = true; done(); } }

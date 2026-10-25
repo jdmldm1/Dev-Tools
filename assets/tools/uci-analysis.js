@@ -42,23 +42,32 @@
 
   /* Play records back through send(rec) at their original timing divided by speed (0 = as fast as possible). send may throw or reject:
      that counts as a failure and playback goes on. isStopped() is polled between messages; sleep is injectable for tests.
-     -> { sent, failed, rounds, stopped, lastError } */
-  lib.capPlay = async function (records, send, { speed = 1, loop = false, filter, from, to, onProgress, isStopped, sleep = ms => new Promise(r => setTimeout(r, ms)) } = {}) {
-    let sent = 0, failed = 0, rounds = 0, lastError = "";
+     control (optional, changed while playing): { paused, speed, seekTo (index in the plan), seekT (jump to the first record at or after this time) }.
+     faults (optional): see lib.capFaults. -> { sent, failed, rounds, stopped, lastError, faults } */
+  lib.capPlay = async function (records, send, { speed = 1, loop = false, filter, from, to, onProgress, isStopped, control, faults, rng, sleep = ms => new Promise(r => setTimeout(r, ms)) } = {}) {
+    let sent = 0, failed = 0, rounds = 0, lastError = "", fstats = null;
+    const ctl = control || {}, now = () => performance.now();
     do {
-      const plan = lib.capSchedule(records, { speed, from, to, filter });
+      let plan = lib.capSchedule(records, { speed: 1, from, to, filter });             // times at 1x; the speed is applied while playing so it can change
       if (!plan.length) break;
-      const start = performance.now();
+      if (faults && lib.capFaults) { const f = lib.capFaults(plan, faults, rng); plan = f.plan; fstats = f.stats; }
+      let cur = ctl.speed !== undefined ? ctl.speed : speed, start = now();
+      const at = i => (cur > 0 ? plan[i].at / cur : 0);
       for (let i = 0; i < plan.length; i++) {
-        if (isStopped && isStopped()) return { sent, failed, rounds, stopped: true, lastError };
-        const wait = plan[i].at - (performance.now() - start);
-        if (wait > 2) await sleep(wait); else if (speed === 0 && i % 200 === 199) await sleep(0);
+        if (isStopped && isStopped()) return { sent, failed, rounds, stopped: true, lastError, faults: fstats };
+        if (ctl.paused) { const p0 = now(); while (ctl.paused && !(isStopped && isStopped())) await sleep(50); start += now() - p0; if (isStopped && isStopped()) return { sent, failed, rounds, stopped: true, lastError, faults: fstats }; }
+        if (ctl.speed !== undefined && ctl.speed !== cur) { const virt = cur > 0 ? (now() - start) * cur : (i ? plan[i - 1].at : 0); cur = ctl.speed; start = now() - (cur > 0 ? virt / cur : 0); }
+        if (ctl.seekT !== undefined && ctl.seekT !== null) { const j = plan.findIndex(p => p.rec.t >= ctl.seekT); ctl.seekT = null; if (j >= 0) { i = j; start = now() - at(i); } }
+        if (ctl.seekTo !== undefined && ctl.seekTo !== null) { i = Math.max(0, Math.min(plan.length - 1, ctl.seekTo)); ctl.seekTo = null; start = now() - at(i); }
+        const wait = at(i) - (now() - start);
+        if (wait > 2) await sleep(ctl.paused !== undefined ? Math.min(wait, 100) : wait); else if (cur === 0 && i % 200 === 199) await sleep(0);
+        if (wait > 100 && ctl.paused !== undefined) { i--; continue; }                // long waits are taken in slices so pause, seek and speed changes stay responsive
         try { await send(plan[i].rec); sent++; } catch (e) { failed++; lastError = e && e.message || String(e); }
-        if (onProgress) onProgress({ sent, failed, i: i + 1, of: plan.length, rounds, lastError });
+        if (onProgress) onProgress({ sent, failed, i: i + 1, of: plan.length, rounds, lastError, rec: plan[i].rec });
       }
       rounds++;
     } while (loop && !(isStopped && isStopped()));
-    return { sent, failed, rounds, stopped: false, lastError };
+    return { sent, failed, rounds, stopped: false, lastError, faults: fstats };
   };
   /* Make the MessageHeader timestamp of a message (XML or OMS JSON text) the given time. */
   lib.capRestamp = function (text, when = new Date()) {

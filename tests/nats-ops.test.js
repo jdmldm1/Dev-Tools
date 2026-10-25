@@ -26,7 +26,7 @@ test("profiles keep only valid entries and never carry credentials", () => {
     { name: " lab ", url: "ws://localhost:8080", subs: [{ subject: "a.>", queue: "q" }, { subject: "bad subject" }], hide: false, user: "admin", pass: "secret", token: "t" },
     { name: "", url: "ws://x" }, { name: "nourl" }, { name: "http", url: "http://x" }, null,
   ]);
-  assert.deepEqual(list, [{ name: "lab", url: "ws://localhost:8080", subs: [{ subject: "a.>", queue: "q" }], hide: false }]);
+  assert.deepEqual(list, [{ name: "lab", url: "ws://localhost:8080", subs: [{ subject: "a.>", queue: "q" }], hide: false, filter: "" }]);
   assert.ok(!JSON.stringify(list).includes("secret"));
   let l = P.upsert([], { name: "b", url: "wss://b.test" });
   l = P.upsert(l, { name: "a", url: "ws://a.test" });
@@ -67,7 +67,8 @@ test("silence alerts count from when they were armed, and reset on traffic", () 
 
 test("alert rules reject nonsense", () => {
   const a = new lib.NatsAlerts();
-  assert.throws(() => a.add({ subject: "", kind: "rate", value: 1 }), /subject/);
+  assert.throws(() => a.add({ subject: "a b", kind: "rate", value: 1 }), /subject/);
+  assert.equal(a.add({ subject: "", kind: "rate", value: 1 }).subject, ">", "a blank subject means everything");
   assert.throws(() => a.add({ subject: "a", kind: "rate", value: 0 }), /positive/);
   assert.throws(() => a.add({ subject: "a", kind: "bogus", value: 1 }), /Unknown/);
 });
