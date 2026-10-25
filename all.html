@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>dev-tools</title>
 <link rel="stylesheet" href="assets/theme.css">
+<script>if (location.protocol.startsWith("http")) { const m = document.createElement("link"); m.rel = "manifest"; m.href = "manifest.json"; document.head.appendChild(m); }</script>
 <style>
 .wrap{max-width:1180px;margin:0 auto;padding:36px 16px 64px}
 .eyebrow{font:600 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
@@ -60,12 +61,14 @@ footer{margin-top:44px;color:var(--muted);font-size:13px;border-top:1px solid va
 </div>
 <script src="assets/groups.js"></script>
 <script src="assets/favs.js"></script>
+<script src="assets/icons.js"></script>
 <script src="catalog.js"></script>
 <script>
 const { sheets, tools } = window.CATALOG;
 const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 function cardHtml(i, href, kind) {
-  return `<div class="cardw" data-s="${esc((i.title + " " + i.blurb + " " + i.group + " " + i.id).toLowerCase())}"><a class="card" href="${href(i)}"><b>${esc(i.title)}</b><span>${esc(i.blurb)}</span></a><button class="star" type="button" data-fav="${kind}:${i.id}" aria-label="Favorite ${esc(i.title)}" aria-pressed="false"></button></div>`;
+  const icon = window.DevIcons ? window.DevIcons.get(i.id) : "";
+  return `<div class="cardw" data-s="${esc((i.title + " " + i.blurb + " " + i.group + " " + i.id).toLowerCase())}"><a class="card" href="${href(i)}"><b>${icon}${esc(i.title)}</b><span>${esc(i.blurb)}</span></a><button class="star" type="button" data-fav="${kind}:${i.id}" aria-label="Favorite ${esc(i.title)}" aria-pressed="false"></button></div>`;
 }
 function section(id, title, items, href, kind) {
   const groups = [...new Set(items.map(i => i.group))];
@@ -111,6 +114,7 @@ q.addEventListener("keydown", e => { if (e.key === "Enter") { const a = content.
 document.addEventListener("keydown", e => { if (e.key === "/" && document.activeElement !== q) { e.preventDefault(); q.focus(); } });
 document.getElementById("expand").onclick = () => Groups.setAll(content, "landing", true);
 document.getElementById("collapse").onclick = () => Groups.setAll(content, "landing", false);
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
 </body>
 </html>

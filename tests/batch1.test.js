@@ -16,6 +16,11 @@ test("json lenient + error position", () => {
   try { JSON.parse(bad); } catch (e) { assert.match(lib.jsonError(bad, e), /line 3/); }
   assert.deepEqual(lib.jsonStats({ a: { b: [1] } }), { keys: 2, depth: 3 });
   assert.equal(JSON.stringify(lib.sortKeys({ b: 1, a: { d: 1, c: 2 } })), '{"a":{"c":2,"d":1},"b":1}');
+  const sample = { user: { name: "Ada", roles: ["admin", "dev"] }, items: [{ id: 1 }, { id: 2 }] };
+  assert.equal(lib.jsonQuery(sample, "user.name"), "Ada");
+  assert.equal(lib.jsonQuery(sample, "user.roles[1]"), "dev");
+  assert.deepEqual(lib.jsonQuery(sample, "items.*.id"), [1, 2]);
+  assert.equal(lib.jsonQuery(sample, "missing.prop"), undefined);
 });
 
 test("csv parse/serialize round trip", () => {

@@ -1,11 +1,20 @@
 <!doctype html>
 <html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Toolbox · dev-tools</title>
-<link rel="stylesheet" href="assets/theme.css"><link rel="stylesheet" href="assets/toolbox.css"></head>
+<link rel="stylesheet" href="assets/theme.css"><link rel="stylesheet" href="assets/toolbox.css">
+<script>if (location.protocol.startsWith("http")) { const m = document.createElement("link"); m.rel = "manifest"; m.href = "manifest.json"; document.head.appendChild(m); }</script></head>
 <body>
+<header class="mobile-bar" id="mbar">
+  <a class="brand" href="index.html"><span>&lt;/&gt;</span> dev-tools</a>
+  <button class="mbar-btn" id="mToggle" type="button" aria-expanded="false" aria-label="Toggle navigation menu">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    <span>Menu</span>
+  </button>
+</header>
 <div class="shell"><nav class="side" id="side" aria-label="Tools"></nav><main class="main" id="main"></main></div>
 <script src="catalog.js"></script>
 <script src="assets/groups.js"></script>
 <script src="assets/favs.js"></script>
+<script src="assets/icons.js"></script>
 <script src="assets/toolbox.js"></script>
 <script src="assets/vendor/js-yaml.min.js"></script>
 <script src="assets/tools/json.js"></script>
@@ -50,4 +59,5 @@
 <script src="assets/tools/xsd.js"></script>
 <script src="assets/tools/geo.js"></script>
 <script src="assets/tools/bytes.js"></script>
+<script>if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});</script>
 </body></html>

@@ -35,3 +35,19 @@ details.grp>summary .n{margin-left:auto;font:11px var(--mono);color:var(--muted)
 .star:hover,.star:focus-visible{opacity:1;color:#e3b341}
 .star:focus-visible{outline:2px solid var(--accent)}
 .star.on{opacity:1;color:#e3b341}
+
+/* Dev-tools vector icons */
+.icon{width:16px;height:16px;display:inline-block;vertical-align:-2.5px;flex:none;stroke-width:2;color:inherit}
+.icon-go{color:#00add8}
+.icon-nats{color:#27aae1}
+.icon-zarf{color:#00e5a3}
+.icon-docker{color:#2496ed}
+.icon-k8s{color:#326ce5}
+.icon-git{color:#f05032}
+.icon-jwt{color:#e3b341}
+.icon-uci{color:#58a6ff}
+.card .icon{width:20px;height:20px;margin-right:7px;vertical-align:-3.5px}
+.trow .icon{width:14px;height:14px;margin-right:6px;vertical-align:-2px;opacity:.75}
+.trow:hover .icon,.trow a.t.on .icon{opacity:1}
+h1 .icon{width:28px;height:28px;margin-right:10px;vertical-align:-4px}
+

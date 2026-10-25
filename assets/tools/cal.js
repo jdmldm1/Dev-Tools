@@ -17,6 +17,9 @@
     id: "cal", name: "CAL Explorer (OWP)", group: "UCI",
     desc: "Connect to an OMS Language-Agnostic CAL server over the OMS WebSocket Protocol: subscribe to topics, watch and graph messages live, publish, and decode OMS JSON against any schema version (documentation, enum meanings, validation). Nothing is sent anywhere except to the server you enter.",
     keywords: "cal oms owp lacal language agnostic websocket uci topic subscribe publish json critical abstraction layer open mission systems",
+    destroy() {
+      if (current) { try { current.close(); } catch (_) {} current = null; }
+    },
     render(root) {
       if (current) current.close();
       const client = (current = new lib.OwpClient());
@@ -436,6 +439,10 @@
       /* reconnect to the last server when the page opens */
       $("#autoc").checked = saved.autoConnect !== false;
       if (saved.url && saved.service && saved.schema && saved.autoConnect !== false) { status("#cst", "", "Reconnecting to the last server…"); connect(); }
+      return () => {
+        clearInterval(srvTimer);
+        if (current) { try { current.close(); } catch (_) {} current = null; }
+      };
     },
   });
 })();

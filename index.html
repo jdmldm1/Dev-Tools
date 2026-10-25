@@ -5,8 +5,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>dev-tools</title>
 <meta http-equiv="refresh" content="0;url=toolbox.html#xsd">
-<link rel="stylesheet" href="assets/theme.css">
-<script>location.replace("toolbox.html#xsd");</script>
+<script>
+if (location.protocol.startsWith("http")) {
+  const m = document.createElement("link"); m.rel = "manifest"; m.href = "manifest.json"; document.head.appendChild(m);
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+location.replace("toolbox.html#xsd");
+</script>
 </head>
 <body><p style="padding:24px"><a href="toolbox.html#xsd">Opening the XSD Schema Explorer…</a> · <a href="toolbox.html#nats">NATS Explorer</a> · <a href="all.html">everything</a></p></body>
 </html>

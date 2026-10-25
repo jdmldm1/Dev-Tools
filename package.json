@@ -7,6 +7,7 @@
     "test": "node --test \"tests/*.test.js\"",
     "smoke": "node tests/browser-smoke.js",
     "crosscheck": "node tests/crosscheck.js && node tests/crosscheck-zoo.js && node tests/crosscheck-unq.js",
+    "test:server": "node scripts/test-server.js",
     "serve": "python -m http.server 8000"
   },
   "engines": { "node": ">=18" }

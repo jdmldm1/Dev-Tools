@@ -50,26 +50,62 @@
         </div>
         <div class="opts"><label><input type="checkbox" id="ws"> Ignore whitespace</label><label><input type="checkbox" id="ic"> Ignore case</label>
           <label><input type="checkbox" id="fold" checked> Collapse unchanged lines</label>
+          <label><input type="checkbox" id="split"> Side-by-side view</label>
           <button class="btn" id="swap" type="button">Swap sides</button><button class="btn" data-clear="#a,#b" type="button">Clear</button></div>
         <div class="status" id="st"></div>
         <div class="diff" id="out"></div>`;
       const $ = s => root.querySelector(s);
+      function renderSplit(ops) {
+        const out = [];
+        let i = 0;
+        while (i < ops.length) {
+          const o = ops[i];
+          if (o.t === "gap") {
+            out.push(`<div class="split-row"><div class="split-cell ctx" style="grid-column:1/-1;text-align:center;justify-content:center;opacity:.6">⋯ ${o.n} unchanged line${o.n === 1 ? "" : "s"} ⋯</div></div>`);
+            i++;
+          } else if (o.t === "ctx") {
+            out.push(`<div class="split-row"><div class="split-cell ctx"><span class="ln">${o.a}</span><pre>${DT.esc(o.line) || " "}</pre></div><div class="split-cell ctx"><span class="ln">${o.b}</span><pre>${DT.esc(o.line) || " "}</pre></div></div>`);
+            i++;
+          } else if (o.t === "del") {
+            const dels = [], adds = [];
+            while (i < ops.length && ops[i].t === "del") dels.push(ops[i++]);
+            while (i < ops.length && ops[i].t === "add") adds.push(ops[i++]);
+            const m = Math.max(dels.length, adds.length);
+            for (let k = 0; k < m; k++) {
+              const d = dels[k], a = adds[k];
+              const lCell = d ? `<div class="split-cell del"><span class="ln">${d.a}</span><pre>- ${DT.esc(d.line) || " "}</pre></div>` : `<div class="split-cell empty"></div>`;
+              const rCell = a ? `<div class="split-cell add"><span class="ln">${a.b}</span><pre>+ ${DT.esc(a.line) || " "}</pre></div>` : `<div class="split-cell empty"></div>`;
+              out.push(`<div class="split-row">${lCell}${rCell}</div>`);
+            }
+          } else if (o.t === "add") {
+            out.push(`<div class="split-row"><div class="split-cell empty"></div><div class="split-cell add"><span class="ln">${o.b}</span><pre>+ ${DT.esc(o.line) || " "}</pre></div></div>`);
+            i++;
+          }
+        }
+        return out.join("");
+      }
       function run() {
         const A = $("#a").value, B = $("#b").value;
-        if (!A && !B) { $("#out").innerHTML = ""; DT.status($("#st"), "", ""); return; }
+        if (!A && !B) { $("#out").innerHTML = ""; $("#out").classList.remove("split"); DT.status($("#st"), "", ""); return; }
         try {
           let ops = lib.lineDiff(A, B, { ignoreWs: $("#ws").checked, ignoreCase: $("#ic").checked });
           const add = ops.filter(o => o.t === "add").length, del = ops.filter(o => o.t === "del").length;
           DT.status($("#st"), add + del ? "warn" : "ok", add + del ? `${add} added · ${del} removed` : "Identical");
           if ($("#fold").checked) ops = lib.foldContext(ops, 3);
-          $("#out").innerHTML = ops.map(o => o.t === "gap"
-            ? `<div class="ctx" style="text-align:center;opacity:.6">⋯ ${o.n} unchanged line${o.n === 1 ? "" : "s"} ⋯</div>`
-            : `<div class="${o.t}">${o.t === "add" ? "+" : o.t === "del" ? "-" : " "} ${DT.esc(o.line) || "&nbsp;"}</div>`).join("");
+          const isSplit = $("#split").checked;
+          $("#out").classList.toggle("split", isSplit);
+          if (isSplit) {
+            $("#out").innerHTML = renderSplit(ops);
+          } else {
+            $("#out").innerHTML = ops.map(o => o.t === "gap"
+              ? `<div class="ctx" style="text-align:center;opacity:.6">⋯ ${o.n} unchanged line${o.n === 1 ? "" : "s"} ⋯</div>`
+              : `<div class="${o.t}">${o.t === "add" ? "+" : o.t === "del" ? "-" : " "} ${DT.esc(o.line) || "&nbsp;"}</div>`).join("");
+          }
         } catch (e) { DT.status($("#st"), "err", e.message); }
       }
       const go = DT.debounce(run, 200);
       ["#a", "#b"].forEach(s => $(s).addEventListener("input", go));
-      ["#ws", "#ic", "#fold"].forEach(s => $(s).onchange = run);
+      ["#ws", "#ic", "#fold", "#split"].forEach(s => $(s).onchange = run);
       $("#swap").onclick = () => { const t = $("#a").value; $("#a").value = $("#b").value; $("#b").value = t; run(); };
     },
   });

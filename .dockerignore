@@ -4,6 +4,8 @@
 !all.html
 !toolbox.html
 !catalog.js
+!manifest.json
+!sw.js
 !assets
 !sheets
 !docker/server

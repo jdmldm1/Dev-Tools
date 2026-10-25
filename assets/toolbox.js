@@ -58,12 +58,13 @@
     const groups = GROUP_ORDER.concat([...new Set(tools.map(t => t.group))].filter(g => !GROUP_ORDER.includes(g)));
     const sheets = (window.CATALOG && window.CATALOG.sheets) || [];
     const sheetGroups = [...new Set(sheets.map(s => s.group))];
-    const link = (cls, href, id, name, s, fav) => `<div class="trow" data-s="${DT.esc(s.toLowerCase())}"><a class="${cls}" href="${href}" ${id ? `data-id="${id}"` : ""}>${DT.esc(name)}</a><button class="star" type="button" data-fav="${fav}" aria-label="Favorite ${DT.esc(name)}" aria-pressed="false"></button></div>`;
+    const iconFor = id => window.DevIcons ? window.DevIcons.get(id) : "";
+    const link = (cls, href, id, name, s, fav) => `<div class="trow" data-s="${DT.esc(s.toLowerCase())}"><a class="${cls}" href="${href}" ${id ? `data-id="${id}"` : ""}>${iconFor(id || fav.replace(/^(tool|sheet):/, ""))}${DT.esc(name)}</a><button class="star" type="button" data-fav="${fav}" aria-label="Favorite ${DT.esc(name)}" aria-pressed="false"></button></div>`;
     const toolRow = t => link("t", "#" + t.id, t.id, t.name, t.name + " " + t.desc + " " + (t.keywords || ""), "tool:" + t.id);
     const sheetRow = s => link("t sheet", "sheets/" + s.id + ".html", "", s.title, s.title + " " + s.blurb + " " + s.id, "sheet:" + s.id);
 
     side.innerHTML = `<a class="brand" href="index.html"><span>&lt;/&gt;</span> dev-tools</a>
-      <input id="tq" type="search" placeholder="Search tools & sheets…" aria-label="Search tools and sheets" autocomplete="off">
+      <div class="search-wrap"><input id="tq" type="search" placeholder="Search tools & sheets…" aria-label="Search tools and sheets" autocomplete="off"><kbd>/</kbd></div>
       <div class="mini-links"><button type="button" id="expandAll">expand all</button><button type="button" id="collapseAll">collapse all</button></div>
       <div id="favs" class="favs" hidden><div class="favh">Favorites</div><div id="favlist"></div></div>
       <div id="tlist">
@@ -98,16 +99,28 @@
     });
     Favs.onChange(() => { renderFavs(); Favs.sync(document); });
 
+    let activeCleanup = null;
     function show() {
+      if (typeof activeCleanup === "function") {
+        try { activeCleanup(); } catch (err) { console.error("Error during tool cleanup:", err); }
+        activeCleanup = null;
+      }
       const id = location.hash.slice(1);
       const t = byId[id] || tools[0];
       side.querySelectorAll("a.t[data-id]").forEach(a => a.classList.toggle("on", a.dataset.id === t.id));
       const active = list.querySelector(`a.t[data-id="${t.id}"]`);
       if (active && !side.querySelector("#tq").value) Groups.open(active);       // open the group you are in
-      main.innerHTML = `<h1>${DT.esc(t.name)} <button class="star" type="button" data-fav="tool:${t.id}" aria-label="Favorite ${DT.esc(t.name)}" aria-pressed="false"></button></h1><p class="desc">${DT.esc(t.desc)}</p><div id="tool"></div>`;
+      main.innerHTML = `<h1>${iconFor(t.id)}${DT.esc(t.name)} <button class="star" type="button" data-fav="tool:${t.id}" aria-label="Favorite ${DT.esc(t.name)}" aria-pressed="false"></button></h1><p class="desc">${DT.esc(t.desc)}</p><div id="tool"></div>`;
       const root = document.getElementById("tool");
       DT.wire(root);
-      try { t.render(root); } catch (e) { root.innerHTML = `<div class="status err">Tool failed to load: ${DT.esc(e.message)}</div>`; console.error(e); }
+      try {
+        const res = t.render(root);
+        if (typeof res === "function") activeCleanup = res;
+        else if (typeof t.destroy === "function") activeCleanup = () => t.destroy();
+      } catch (e) {
+        root.innerHTML = `<div class="status err">Tool failed to load: ${DT.esc(e.message)}</div>`;
+        console.error(e);
+      }
       document.title = t.name + " · dev-tools";
       Favs.sync(main);
       window.scrollTo(0, 0);
@@ -132,6 +145,48 @@
         d.hidden = !any; Groups.set(d, any);
       });
     });
+    q.addEventListener("keydown", e => {
+      if (e.key === "Enter") {
+        const first = list.querySelector(".trow:not([hidden]) a.t");
+        if (first) {
+          const href = first.getAttribute("href");
+          if (href.startsWith("#")) location.hash = href;
+          else location.href = href;
+          q.blur();
+        }
+      } else if (e.key === "Escape") {
+        q.value = "";
+        q.dispatchEvent(new Event("input"));
+        q.blur();
+      }
+    });
+
+    /* Quick jump shortcut: '/' or Ctrl/Cmd + K */
+    document.addEventListener("keydown", e => {
+      const tag = (document.activeElement && document.activeElement.tagName) || "";
+      const isInput = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (document.activeElement && document.activeElement.isContentEditable);
+      if ((e.key === "/" && !isInput) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k")) {
+        e.preventDefault();
+        q.focus();
+        q.select();
+      }
+    });
+
+    /* Mobile drawer toggle */
+    const mToggle = document.getElementById("mToggle");
+    if (mToggle) {
+      mToggle.addEventListener("click", () => {
+        const open = side.classList.toggle("open");
+        mToggle.setAttribute("aria-expanded", String(open));
+      });
+      side.addEventListener("click", e => {
+        if (e.target.closest("a.t")) {
+          side.classList.remove("open");
+          mToggle.setAttribute("aria-expanded", "false");
+        }
+      });
+    }
+
     side.querySelector("#expandAll").onclick = () => Groups.setAll(list, "toolbox", true);
     side.querySelector("#collapseAll").onclick = () => { Groups.setAll(list, "toolbox", false); const a = list.querySelector("a.t.on"); if (a) Groups.open(a); };
     renderFavs();

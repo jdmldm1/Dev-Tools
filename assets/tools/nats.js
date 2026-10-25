@@ -264,6 +264,9 @@
     id: "nats", name: "NATS Explorer", group: "UCI",
     desc: "Connect to a NATS server over WebSocket: watch subjects live, graph traffic and numeric fields, publish and request/reply, browse JetStream and KV, and decode XML (UCI) messages against any schema version you load. Read-only for JetStream; nothing is sent anywhere except to the server you enter.",
     keywords: "nats jetstream pubsub publish subscribe request reply kv key value stream consumer subject messaging broker websocket uci xsd schema xml chart graph",
+    destroy() {
+      if (current) { try { current.close(); } catch (_) {} current = null; }
+    },
     render(root) {
       if (current) current.close();
       const client = (current = new lib.NatsClient());
@@ -830,6 +833,9 @@
         status("#cst", "", "A message from the Message Builder is ready in the Publish tab. Connect to send it.");
       }
       if (remembered && autoOn && noAuth) connect();
+      return () => {
+        if (current) { try { current.close(); } catch (_) {} current = null; }
+      };
     },
   });
 })();

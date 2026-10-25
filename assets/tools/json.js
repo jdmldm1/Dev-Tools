@@ -116,20 +116,38 @@
     return String(err && err.message || err);
   };
 
+  /* Evaluate simple property / index paths like user.roles[0] or items[*].name */
+  lib.jsonQuery = function (obj, path) {
+    if (!path || !path.trim() || path.trim() === "$" || path.trim() === ".") return obj;
+    const tokens = path.trim().replace(/^\$\.?/, "").replace(/\[(\w+)\]/g, ".$1").split(".").filter(Boolean);
+    let cur = obj;
+    for (let i = 0; i < tokens.length; i++) {
+      if (cur == null) return undefined;
+      const t = tokens[i];
+      if (t === "*" && Array.isArray(cur)) {
+        const rest = tokens.slice(i + 1).join(".");
+        return cur.map(item => rest ? lib.jsonQuery(item, rest) : item);
+      }
+      cur = cur[t];
+    }
+    return cur;
+  };
+
   DT.register({
     id: "json", name: "JSON Formatter & Validator", group: "Format & Validate",
-    desc: "Pretty-print, minify, sort keys and validate JSON with line and column for errors. Lenient mode tolerates comments and trailing commas.",
-    keywords: "pretty print beautify minify lint validate escape unescape",
+    desc: "Pretty-print, minify, sort keys, filter by path and validate JSON with line and column for errors. Lenient mode tolerates comments and trailing commas.",
+    keywords: "pretty print beautify minify lint validate escape unescape jsonpath query filter",
     render(root) {
       root.innerHTML = `
         <div class="two">
           <div class="col"><label class="l" for="in">Input</label><textarea id="in" spellcheck="false" placeholder='{"paste": "JSON here"}'></textarea></div>
           <div class="col"><label class="l" for="out">Output</label><textarea id="out" spellcheck="false" readonly></textarea></div>
         </div>
-        <div class="opts">
+        <div class="opts" style="align-items:flex-end">
+          <div class="col" style="flex:1;max-width:320px"><label class="l" for="jq">Filter / Path (optional)</label><input type="text" id="jq" class="mono" placeholder="e.g. data.items[0].id or users.*.name" style="width:100%"></div>
           <label>Indent <select id="indent"><option value="2">2 spaces</option><option value="4">4 spaces</option><option value="tab">Tab</option></select></label>
           <label><input type="checkbox" id="sort"> Sort keys</label>
-          <label><input type="checkbox" id="lenient"> Lenient (comments, trailing commas)</label>
+          <label><input type="checkbox" id="lenient"> Lenient</label>
         </div>
         <div class="btns">
           <button class="btn primary" id="fmt" type="button">Format</button>
@@ -138,7 +156,7 @@
           <button class="btn" id="unesc" type="button">Unescape string</button>
           <button class="btn" id="swap" type="button">Output → Input</button>
           <button class="btn" data-copy="#out" type="button">Copy output</button>
-          <button class="btn" data-clear="#in,#out" type="button">Clear</button>
+          <button class="btn" data-clear="#in,#out,#jq" type="button">Clear</button>
         </div>
         <div class="status" id="st"></div>`;
       const $ = s => root.querySelector(s), inp = $("#in"), out = $("#out"), st = $("#st");
@@ -153,10 +171,17 @@
         if (!inp.value.trim()) { out.value = ""; DT.status(st, "", ""); return; }
         try {
           let v = parse();
+          const q = $("#jq").value.trim();
+          if (q) v = lib.jsonQuery(v, q);
+          if (v === undefined) {
+            out.value = "undefined";
+            DT.status(st, "warn", `No match for path "${q}"`);
+            return;
+          }
           if ($("#sort").checked) v = lib.sortKeys(v);
           out.value = JSON.stringify(v, null, mode === "min" ? 0 : indent());
           const s = lib.jsonStats(v), bytes = new TextEncoder().encode(out.value).length;
-          DT.status(st, "ok", `Valid JSON · ${s.keys} keys · depth ${s.depth} · ${bytes.toLocaleString()} bytes`);
+          DT.status(st, "ok", `${q ? `Filtered by "${q}" · ` : ""}Valid JSON · ${s.keys} keys · depth ${s.depth} · ${bytes.toLocaleString()} bytes`);
         } catch (e) { out.value = ""; DT.status(st, "err", lib.jsonError(inp.value, e)); }
       }
       $("#fmt").onclick = () => run("fmt");
@@ -169,6 +194,7 @@
       $("#swap").onclick = () => { inp.value = out.value; run("fmt"); };
       const live = DT.debounce(() => run("fmt"), 250);
       inp.addEventListener("input", live);
+      $("#jq").addEventListener("input", live);
       $("#indent").onchange = $("#sort").onchange = $("#lenient").onchange = () => run("fmt");
     },
   });

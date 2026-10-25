@@ -50,6 +50,19 @@ test("jwt decode and verify", async () => {
   assert.throws(() => lib.jwtDecode("a.b.c"), /not valid/);
   assert.match(lib.relTime(-3 * 36e5), /3 hours ago/);
   assert.match(lib.relTime(2 * 864e5), /2 days from now/);
+
+  // RS256 public key verification test
+  const { publicKey, privateKey } = nodeCrypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const pubPem = publicKey.export({ type: "spki", format: "pem" });
+  const sign = nodeCrypto.createSign("RSA-SHA256");
+  const hdr = lib.bytesToB64(enc(JSON.stringify({ alg: "RS256", typ: "JWT" })), true, false);
+  const pay = lib.bytesToB64(enc(JSON.stringify({ sub: "user1" })), true, false);
+  const signing = hdr + "." + pay;
+  sign.update(signing);
+  const sig = sign.sign(privateKey);
+  const rsJwt = signing + "." + lib.bytesToB64(new Uint8Array(sig), true, false);
+  assert.equal(await lib.jwtVerifyPublic(rsJwt, pubPem), true);
+  assert.equal(await lib.jwtVerifyPublic(rsJwt.slice(0, -2) + "==", pubPem), false);
 });
 
 test("md5 matches node crypto across sizes", () => {

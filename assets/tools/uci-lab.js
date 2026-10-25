@@ -107,6 +107,7 @@
 
       lab = lib.trafficLab($("#lab"), { store, getModel: () => store.model, live: false, extraTabs: [{ key: "replay", label: "Replay", render: renderReplay }] });
       sp.start(); summary();
+      return () => { if (lab && typeof lab.destroy === "function") lab.destroy(); };
     },
   });
 })();

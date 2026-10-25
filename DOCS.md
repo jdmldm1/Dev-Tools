@@ -217,8 +217,7 @@ npm run crosscheck  # compares the XSD validator and sample generator with .NET 
 
 ## Notes
 
-- Everything runs locally. The JWT, hash and password tools use the browser's Web Crypto; nothing is sent anywhere.
-- The eight original sheets load Google Fonts, and the C# sheet loads Prism from cdnjs; offline they fall back to system fonts (and C# loses syntax colouring). Everything else works fully offline.
+- Everything runs locally. The entire site is 100% offline and self-contained with zero external CDN dependencies; system fonts and a local vendored Prism are used. The JWT, hash and password tools use the browser's Web Crypto; nothing is sent anywhere.
 - The OMS, UCI and AMS GRA sheets summarize public open-arsenal documents and facts read from the release XSDs (Distribution A; "not intended for operational use"). Use official sources for anything operational.
 - The CIDR calculator is IPv4 only. Cron supports standard 5-field (and 6-field with seconds) syntax, not Quartz `L`, `W`, `#`. Distance math uses a spherical Earth (mean radius 6371.0088 km): fine for planning, not for survey-grade work.
 - Browsers cannot validate against an XSD natively; the in-page validator is this project's own implementation (see above for its limits).
