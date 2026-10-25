@@ -1114,8 +1114,8 @@ const TOOL_CHECKS = {
         n > 0 && n < 6 ? ok("sheet opens pre-filtered from ?q=", n + " rows") : fail("sheet ?q= filter", String(n));
         await q.close();
         const s = await openPage("http://127.0.0.1:9334/toolbox.html");
-        await sleep(2500);
-        const cached = await s.eval(`(async()=>{const ks=await caches.keys();if(!ks.length)return 'no cache';const c=await caches.open(ks[0]);const reqs=await c.keys();return ks[0]+' '+reqs.length+' '+reqs.some(r=>r.url.endsWith('sheets/jq.html'))+' '+reqs.some(r=>r.url.endsWith('assets/shell.js'))})()`);
+        // The worker only activates once install's precache has finished, so wait for that instead of a fixed delay.
+        const cached = await s.eval(`(async()=>{await Promise.race([navigator.serviceWorker.ready,new Promise(r=>setTimeout(r,20000))]);const ks=await caches.keys();if(!ks.length)return 'no cache';const c=await caches.open(ks[0]);const reqs=await c.keys();return ks[0]+' '+reqs.length+' '+reqs.some(r=>r.url.endsWith('sheets/jq.html'))+' '+reqs.some(r=>r.url.endsWith('assets/shell.js'))})()`);
         /^dev-tools-[^ ]+ [0-9]{2,3} true true$/.test(cached) ? ok("service worker precaches scripts and sheets", cached) : fail("service worker precache", cached);
         await s.close();
         p.errors.length ? fail("http errors", p.errors.join(" | ")) : ok("no script errors");
