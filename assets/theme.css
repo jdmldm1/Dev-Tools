@@ -1,4 +1,4 @@
-/* dev-tools shared theme: dark only */
+/* dev-tools shared theme: dark by default, light via [data-theme=light] (see theme.js) */
 :root{
   color-scheme:dark;
   --bg:#0d1117; --surface:#151b23; --surface2:#1c232d; --ink:#e6edf3; --muted:#8b98a7; --line:#2b3440;
@@ -51,3 +51,37 @@ details.grp>summary .n{margin-left:auto;font:11px var(--mono);color:var(--muted)
 .trow:hover .icon,.trow a.t.on .icon{opacity:1}
 h1 .icon{width:28px;height:28px;margin-right:10px;vertical-align:-4px}
 
+
+/* Light theme. theme.js sets data-theme on <html>; hard-coded dark tints elsewhere are overridden here. */
+:root[data-theme=light]{
+  color-scheme:light;
+  --bg:#f6f8fa; --surface:#ffffff; --surface2:#eef1f5; --ink:#1f2328; --muted:#59636e; --line:#d0d7de;
+  --accent:#0969da; --accent-soft:#ddf4ff; --green:#1a7f37; --warn:#9a6700; --bad:#cf222e; --code:#f0f3f6;
+}
+:root[data-theme=light] ::selection{background:#b6d7ff}
+:root[data-theme=light] .row pre,:root[data-theme=light] td:first-child{color:#0a3069}
+:root[data-theme=light] .btn.primary:hover{color:#fff}
+:root[data-theme=light] mark.m{background:#dafbe1;color:#116329}
+:root[data-theme=light] mark.m.alt{background:#fff8c5;color:#7d4e00}
+:root[data-theme=light] .diff .add,:root[data-theme=light] .split-cell.add{background:#dafbe1;color:#116329}
+:root[data-theme=light] .diff .del,:root[data-theme=light] .split-cell.del,:root[data-theme=light] .uci .ux .errl{background:#ffebe9;color:#a40e26}
+:root[data-theme=light] .split-row{border-bottom-color:rgba(0,0,0,.06)}
+:root[data-theme=light] .kb.k-message{color:#0550ae;border-color:#a5c8f5}
+:root[data-theme=light] .kb.k-enum,:root[data-theme=light] .kb.k-value{color:#6639ba;border-color:#d4c1f5}
+:root[data-theme=light] .kb.k-member,:root[data-theme=light] .uci .ux .vl{color:#116329;border-color:#a6dbb2}
+:root[data-theme=light] .kb.k-id,:root[data-theme=light] .kb.k-choice,:root[data-theme=light] .tn .ch{color:#8a4600;border-color:#f0cf8f}
+:root[data-theme=light] .kb.k-base{color:#a40e26;border-color:#f3b4bb}
+:root[data-theme=light] tr.hl td{background:#fff8c5}
+:root[data-theme=light] .lg-root{background:#ddf4ff}
+:root[data-theme=light] .lg-choice{background:#fff8c5}
+:root[data-theme=light] .star:hover,:root[data-theme=light] .star.on,:root[data-theme=light] section#favorites h2{color:#bf8700}
+
+/* Print: cheat sheets and tool output on white, no chrome. */
+@media print{
+  :root{--bg:#fff;--surface:#fff;--surface2:#f4f4f4;--ink:#000;--muted:#444;--line:#bbb;--code:#f4f4f4;--accent:#000}
+  body{background:#fff;color:#000}
+  .side,.mobile-bar,.topnav,.bar,.star,.cp,.btn,.mini,.mini-links,#dt-palette,#dt-toast,.dt-tools{display:none!important}
+  .shell{display:block}.main{padding:0;max-width:none}
+  .grid{columns:2 300px}.card{break-inside:avoid;border-color:#bbb}
+  .row pre,td:first-child{color:#000}
+}

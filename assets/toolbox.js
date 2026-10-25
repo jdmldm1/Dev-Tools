@@ -6,6 +6,14 @@
   const DT = (window.DT = {
     lib: {},
     register(t) { tools.push(t); },
+    tools: () => tools,
+    /* Extension points for shell add-ons (share links, send-to, palette): fn(tool, root) runs after a tool renders. */
+    hooks: { show: [] },
+    onShow(fn) { DT.hooks.show.push(fn); },
+    /* Hash is "#tool" or "#tool?key=value": the id and the query part. */
+    route() { const h = location.hash.slice(1), i = h.indexOf("?"); return { id: i < 0 ? h : h.slice(0, i), params: new URLSearchParams(i < 0 ? "" : h.slice(i + 1)) }; },
+    /* Text queued for the next tool to open (see "Send to"). */
+    pending: null,
     esc: s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"),
     debounce(fn, ms = 120) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; },
     async copy(text, btn) {
@@ -90,7 +98,7 @@
       Favs.sync(side); markActive();
     }
     function markActive() {
-      const cur = location.hash.slice(1) || (tools[0] && tools[0].id);
+      const cur = DT.route().id || (tools[0] && tools[0].id);
       side.querySelectorAll("a.t[data-id]").forEach(a => a.classList.toggle("on", a.dataset.id === cur));
     }
     document.addEventListener("click", e => {
@@ -105,7 +113,7 @@
         try { activeCleanup(); } catch (err) { console.error("Error during tool cleanup:", err); }
         activeCleanup = null;
       }
-      const id = location.hash.slice(1);
+      const id = DT.route().id;
       const t = byId[id] || tools[0];
       side.querySelectorAll("a.t[data-id]").forEach(a => a.classList.toggle("on", a.dataset.id === t.id));
       const active = list.querySelector(`a.t[data-id="${t.id}"]`);
@@ -121,6 +129,7 @@
         root.innerHTML = `<div class="status err">Tool failed to load: ${DT.esc(e.message)}</div>`;
         console.error(e);
       }
+      DT.hooks.show.forEach(fn => { try { fn(t, root); } catch (err) { console.error("show hook:", err); } });
       document.title = t.name + " · dev-tools";
       Favs.sync(main);
       window.scrollTo(0, 0);
@@ -161,11 +170,11 @@
       }
     });
 
-    /* Quick jump shortcut: '/' or Ctrl/Cmd + K */
+    /* '/' focuses the sidebar search; Ctrl/Cmd + K opens the command palette (assets/shell.js) */
     document.addEventListener("keydown", e => {
       const tag = (document.activeElement && document.activeElement.tagName) || "";
       const isInput = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (document.activeElement && document.activeElement.isContentEditable);
-      if ((e.key === "/" && !isInput) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k")) {
+      if (e.key === "/" && !isInput) {
         e.preventDefault();
         q.focus();
         q.select();

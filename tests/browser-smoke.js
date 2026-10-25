@@ -587,6 +587,48 @@ const TOOL_CHECKS = {
       await p.close();
     }
 
+    // ---- shell add-ons: share links, send-to, palette, theme
+    console.log("Shell add-ons");
+    {
+      const p = await openPage("toolbox.html#base64");
+      try {
+        await p.eval(`localStorage.clear()`); await p.eval(`location.reload()`); await sleep(600);
+        const r = await p.eval(`(async()=>{${SET}
+          const out=[]; const T=(n,c)=>out.push((c?'ok ':'FAIL ')+n);
+          T('share bar present on a plain tool', !!$('#dt-share') && !!$('#dt-sendto'));
+          set('#in','héllo ✓'); $('#nopad').click(); click('#enc');
+          const link=await DT.shareLink();
+          T('share link carries only changed fields', link.includes('#base64?s=z') && link.length<200);
+          location.hash=link.split('#')[1]; await wait(80);
+          set('#in',''); location.hash='#json'; await wait(120); location.hash=link.split('#')[1]; await wait(400);
+          T('opening a share link restores the inputs', $('#in').value==='héllo ✓' && $('#nopad').checked);
+          set('#in','hello'); click('#enc'); const enc=$('#out').value;
+          $('#dt-sendto').value='url'; $('#dt-sendto').dispatchEvent(new Event('change')); await wait(400);
+          T('send-to moves the output into the next tool', location.hash==='#url' && $('#in').value===enc);
+          location.hash='#nats'; await wait(300);
+          T('connection tools get no share button', !$('#dt-share'));
+          location.hash='#base64'; await wait(300);
+          document.dispatchEvent(new KeyboardEvent('keydown',{key:'k',ctrlKey:true,bubbles:true})); await wait(60);
+          T('Ctrl+K opens the palette', !!$('#dt-palette') && document.activeElement.id==='dt-pq');
+          set('#dt-pq','jwt'); await wait(60);
+          T('palette ranks the best match first', $('#dt-plist li[aria-selected=true]').textContent.includes('JWT'));
+          $('#dt-pq').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true})); await wait(300);
+          T('Enter opens it and closes the palette', location.hash==='#jwt' && !$('#dt-palette'));
+          document.dispatchEvent(new KeyboardEvent('keydown',{key:'k',ctrlKey:true,bubbles:true})); await wait(60);
+          $('#dt-pq').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true})); await wait(30);
+          T('Escape closes the palette', !$('#dt-palette'));
+          DevTheme.set('light'); await wait(50);
+          const lum=getComputedStyle(document.body).backgroundColor.match(/[0-9]+/g).slice(0,3).reduce((a,b)=>a+ +b,0);
+          T('light theme applies', document.documentElement.dataset.theme==='light' && lum>600);
+          DevTheme.set('dark'); await wait(50);
+          T('dark theme applies', document.documentElement.dataset.theme==='dark');
+          return out; })()`);
+        for (const line of r) line.startsWith("ok ") ? ok(line.slice(3)) : fail(line.slice(5), "check failed");
+        p.errors.length ? fail("shell errors", p.errors.join(" | ")) : ok("no script errors");
+      } catch (e) { fail("shell add-ons", e.message); }
+      await p.close();
+    }
+
     // ---- collapsible menus
     console.log("Menus");
     { const p = await openPage("all.html");

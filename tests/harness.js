@@ -10,6 +10,8 @@ function load(rel) {
   vm.runInThisContext(fs.readFileSync(path.join(root, rel), "utf8"), { filename: rel });
 }
 load("assets/toolbox.js");
+load("assets/tools/base64.js");
+load("assets/shell.js");
 for (const f of fs.readdirSync(path.join(root, "assets/tools")).sort()) load("assets/tools/" + f);
 
 module.exports = { DT: globalThis.DT, lib: globalThis.DT.lib };
