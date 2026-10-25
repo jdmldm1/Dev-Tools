@@ -12,7 +12,7 @@ async function precache() {
   }
   // catalog.js assigns to window (absent in a worker), so read the sheet ids out of its text instead of running it.
   const cat = await (await fetch("catalog.js")).text();
-  for (const m of cat.slice(0, cat.indexOf("tools:")).matchAll(/id: "([a-z0-9-]+)"/g)) urls.add("sheets/" + m[1] + ".html");
+  for (const m of cat.slice(0, cat.indexOf("tools:")).matchAll(/\bid: "([a-z0-9-]+)"/g)) urls.add("sheets/" + m[1] + ".html");
   await Promise.all([...urls].map(u => cache.add(u).catch(() => {})));      // one missing file must not fail the install
 }
 

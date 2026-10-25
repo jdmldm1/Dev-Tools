@@ -1116,8 +1116,7 @@ const TOOL_CHECKS = {
         const s = await openPage("http://127.0.0.1:9334/toolbox.html");
         // The worker only activates once install's precache has finished, so wait for that instead of a fixed delay.
         const cached = await s.eval(`(async()=>{await Promise.race([navigator.serviceWorker.ready,new Promise(r=>setTimeout(r,20000))]);const ks=await caches.keys();if(!ks.length)return 'no cache';const c=await caches.open(ks[0]);const reqs=await c.keys();return ks[0]+' '+reqs.length+' '+reqs.some(r=>r.url.endsWith('sheets/jq.html'))+' '+reqs.some(r=>r.url.endsWith('assets/shell.js'))})()`);
-        const diag = /^dev-tools-[^ ]+ [0-9]{2,3} true true$/.test(cached) ? "" : await s.eval(`(async()=>{const t=await (await fetch('catalog.js',{cache:'reload'})).text();const ids=[...t.slice(0,t.indexOf('tools:')).matchAll(/id: "([a-z0-9-]+)"/g)].length;let add='ok';try{await (await caches.open((await caches.keys())[0])).add('sheets/jq.html')}catch(e){add=e.name+': '+e.message}const r=await fetch('sheets/jq.html',{cache:'reload'});return 'catalog '+t.length+'b ids='+ids+' tools@'+t.indexOf('tools:')+' | add jq: '+add+' | fetch jq: '+r.status+' '+r.headers.get('content-type')})()`);
-        diag ? fail("service worker precache", cached + " | " + diag) : ok("service worker precaches scripts and sheets", cached);
+        /^dev-tools-[^ ]+ [0-9]{2,3} true true$/.test(cached) ? ok("service worker precaches scripts and sheets", cached) : fail("service worker precache", cached);
         await s.close();
         p.errors.length ? fail("http errors", p.errors.join(" | ")) : ok("no script errors");
       } catch (e) { fail("over http", e.message); }
