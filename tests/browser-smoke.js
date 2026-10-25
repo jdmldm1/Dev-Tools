@@ -24,7 +24,7 @@ async function openPage(target) {
   await send("Runtime.enable"); await send("Log.enable"); await send("Page.enable");
   await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
   const loaded = new Promise(r => { const h = ws.onmessage; ws.onmessage = ev => { h(ev); if (JSON.parse(ev.data).method === "Page.loadEventFired") r(); }; });
-  await send("Page.navigate", { url: url(target) });
+  await send("Page.navigate", { url: /^https?:/.test(target) ? target : url(target) });
   await Promise.race([loaded, sleep(8000)]);
   await sleep(150);
   const page = {
@@ -627,6 +627,44 @@ const TOOL_CHECKS = {
         p.errors.length ? fail("shell errors", p.errors.join(" | ")) : ok("no script errors");
       } catch (e) { fail("shell add-ons", e.message); }
       await p.close();
+    }
+
+    // ---- over http: command search across sheets, service worker precache
+    console.log("Over http");
+    {
+      const http = require("http"), types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml" };
+      const srv = http.createServer((rq, rs) => {
+        const f = path.join(root, rq.url === "/" ? "/toolbox.html" : decodeURIComponent(rq.url.split("?")[0]));
+        if (rq.url === "/favicon.ico") { rs.writeHead(204).end(); return; }
+        if (!f.startsWith(root) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { rs.writeHead(404).end(); return; }
+        rs.writeHead(200, { "content-type": types[path.extname(f)] || "text/plain" }).end(fs.readFileSync(f));
+      });
+      await new Promise(r => srv.listen(9334, "127.0.0.1", r));
+      const p = await openPage("http://127.0.0.1:9334/all.html");
+      try {
+        const r = await p.eval(`(async()=>{${SET}
+          const out=[]; const T=(n,c)=>out.push((c?'ok ':'FAIL ')+n);
+          set('#q','rebase --onto'); await wait(1500);
+          T('command search finds rows inside sheets', !$('#cmdhits').hidden && $$('#cmdlist a').length>=1 && /git/i.test($('#cmdlist a').textContent));
+          T('a command hit links to the sheet with the filter applied', $('#cmdlist a').getAttribute('href').includes('.html?q=rebase'));
+          set('#q','kubectl get pods'); await wait(600);
+          T('command hits hide the "nothing matches" message', $('#empty').hidden);
+          set('#q',''); await wait(400);
+          T('clearing the search hides command hits', $('#cmdhits').hidden);
+          return out; })()`);
+        for (const line of r) line.startsWith("ok ") ? ok(line.slice(3)) : fail(line.slice(5), "check failed");
+        const q = await openPage("http://127.0.0.1:9334/sheets/jq.html?q=slurp");
+        const n = await q.eval(`[...document.querySelectorAll('.row')].filter(r=>!r.hidden).length`);
+        n > 0 && n < 6 ? ok("sheet opens pre-filtered from ?q=", n + " rows") : fail("sheet ?q= filter", String(n));
+        await q.close();
+        const s = await openPage("http://127.0.0.1:9334/toolbox.html");
+        await sleep(2500);
+        const cached = await s.eval(`(async()=>{const ks=await caches.keys();if(!ks.length)return 'no cache';const c=await caches.open(ks[0]);const reqs=await c.keys();return ks[0]+' '+reqs.length+' '+reqs.some(r=>r.url.endsWith('sheets/jq.html'))+' '+reqs.some(r=>r.url.endsWith('assets/shell.js'))})()`);
+        /^dev-tools-[^ ]+ [0-9]{2,3} true true$/.test(cached) ? ok("service worker precaches scripts and sheets", cached) : fail("service worker precache", cached);
+        await s.close();
+        p.errors.length ? fail("http errors", p.errors.join(" | ")) : ok("no script errors");
+      } catch (e) { fail("over http", e.message); }
+      await p.close(); srv.close();
     }
 
     // ---- collapsible menus

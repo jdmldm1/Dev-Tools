@@ -103,4 +103,6 @@
     document.getElementById("count").textContent = v ? shown + " match" + (shown === 1 ? "" : "es") : total + " entries";
     document.getElementById("empty").hidden = any || !v;
   });
+  const pre = new URLSearchParams(location.search).get("q");           // deep link from the overview's command search
+  if (pre) { q.value = pre; q.dispatchEvent(new Event("input")); }
 })();

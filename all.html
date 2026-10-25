@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>dev-tools</title>
-<script src="assets/theme.js"></script><link rel="stylesheet" href="assets/theme.css">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml"><script src="assets/theme.js"></script><link rel="stylesheet" href="assets/theme.css">
 <script>if (location.protocol.startsWith("http")) { const m = document.createElement("link"); m.rel = "manifest"; m.href = "manifest.json"; document.head.appendChild(m); }</script>
 <style>
 .wrap{max-width:1180px;margin:0 auto;padding:36px 16px 64px}
@@ -40,6 +40,12 @@ a.card span{color:var(--muted);font-size:13.5px}
 @media (hover:none){.cardw .star:not(.on){opacity:.5}}
 a.card{padding-right:36px}
 section#favorites h2{color:#e3b341}
+#cmdlist a{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr) auto;gap:12px;align-items:baseline;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);margin:6px 0;color:inherit;text-decoration:none}
+#cmdlist a:hover,#cmdlist a:focus-visible{border-color:var(--accent);outline:none}
+#cmdlist code{font:12.5px var(--mono);white-space:pre-wrap;word-break:break-word}
+#cmdlist .d{color:var(--muted);font-size:13px}#cmdlist .sh{font:11px var(--mono);color:var(--accent)}
+#cmdlist mark{background:var(--accent-soft);color:inherit;border-radius:3px}
+@media (max-width:700px){#cmdlist a{grid-template-columns:1fr}}
 .empty{color:var(--muted);padding:30px 0}
 footer{margin-top:44px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:14px}
 </style>
@@ -56,6 +62,7 @@ footer{margin-top:44px;color:var(--muted);font-size:13px;border-top:1px solid va
   </div>
   <div class="bulk"><button type="button" id="expand">expand all</button><button type="button" id="collapse">collapse all</button><span class="hint" id="hint" style="color:var(--muted)"></span></div>
   <div id="content"></div>
+  <section id="cmdhits" hidden><h2>Commands<small id="cmdn"></small></h2><div id="cmdlist"></div></section>
   <p class="empty" id="empty" hidden>Nothing matches that search.</p>
   <footer>Add a cheat sheet: create <code>sheets/&lt;id&gt;.html</code> (see any new sheet for the plain-text format) and add it to <code>catalog.js</code>. Add a tool: drop a file in <code>assets/tools/</code>, include it in <code>toolbox.html</code> and add it to <code>catalog.js</code>.</footer>
 </div>
@@ -63,6 +70,7 @@ footer{margin-top:44px;color:var(--muted);font-size:13px;border-top:1px solid va
 <script src="assets/favs.js"></script>
 <script src="assets/icons.js"></script>
 <script src="catalog.js"></script>
+<script src="assets/sheet-index.js"></script>
 <script>
 const { sheets, tools } = window.CATALOG;
 const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -109,8 +117,34 @@ function filter() {
   content.querySelectorAll("section").forEach(s => { s.hidden = !s.querySelector(".cardw:not([hidden])"); });
   empty.hidden = any;
 }
+/* Command search: the rows inside every sheet, indexed on first use (fetching needs http; over file:// only titles are searched). */
+let cmdIndex = null;
+async function loadIndex() {
+  if (cmdIndex) return cmdIndex;
+  cmdIndex = [];
+  await Promise.all(sheets.map(async s => {
+    try { const r = await fetch(`sheets/${s.id}.html`); if (r.ok) cmdIndex.push(...SheetIndex.entries(s.id, s.title, await r.text())); } catch (_) { /* offline or file:// */ }
+  }));
+  return cmdIndex;
+}
+const hit = (t, v) => { const i = t.toLowerCase().indexOf(v); return i < 0 ? esc(t) : esc(t.slice(0, i)) + "<mark>" + esc(t.slice(i, i + v.length)) + "</mark>" + esc(t.slice(i + v.length)); };
+let cmdSeq = 0;
+async function commandSearch() {
+  const v = q.value.trim().toLowerCase(), box = document.getElementById("cmdhits"), seq = ++cmdSeq;
+  if (v.length < 2) { box.hidden = true; return; }
+  const idx = await loadIndex();
+  if (seq !== cmdSeq) return;                                 // a newer keystroke superseded this one
+  const hits = idx.filter(e => (e.code + " " + e.d).toLowerCase().includes(v));
+  hits.sort((a, b) => (b.code.toLowerCase().includes(v) - a.code.toLowerCase().includes(v)) || a.code.length - b.code.length);
+  document.getElementById("cmdn").textContent = hits.length > 40 ? "40 of " + hits.length : String(hits.length);
+  document.getElementById("cmdlist").innerHTML = hits.slice(0, 40).map(e => `<a href="sheets/${e.id}.html?q=${encodeURIComponent(v)}"><code>${hit(e.code, v)}</code><span class="d">${hit(e.d, v)}</span><span class="sh">${esc(e.title)}${e.sec ? " · " + esc(e.sec) : ""}</span></a>`).join("");
+  box.hidden = !hits.length;
+  if (hits.length) empty.hidden = true;
+}
+const cmdSearch = (() => { let t; return () => { clearTimeout(t); t = setTimeout(commandSearch, 150); }; })();
 q.addEventListener("input", filter);
-q.addEventListener("keydown", e => { if (e.key === "Enter") { const a = content.querySelector(".cardw:not([hidden]) a.card"); if (a) location.href = a.href; } });
+q.addEventListener("input", cmdSearch);
+q.addEventListener("keydown", e => { if (e.key === "Enter" && !content.querySelector(".cardw:not([hidden])")) { const a = document.querySelector("#cmdlist a"); if (a) location.href = a.href; } else if (e.key === "Enter") { const a = content.querySelector(".cardw:not([hidden]) a.card"); if (a) location.href = a.href; } });
 document.addEventListener("keydown", e => { if (e.key === "/" && document.activeElement !== q) { e.preventDefault(); q.focus(); } });
 document.getElementById("expand").onclick = () => Groups.setAll(content, "landing", true);
 document.getElementById("collapse").onclick = () => Groups.setAll(content, "landing", false);
