@@ -3,7 +3,7 @@ dev-tools
 Offline, browser-only toolbox for UCI and OMS/AMS.
 
 ```bash
-docker run -p 8080:8080 dev-tools  # or open index.html
+docker run -p 9999:8080 dev-tools
 ```
 
  * UCI & Schemas: XSD explorer, schema diff, message builder.
