@@ -1,26 +1,8 @@
-# dev-tools
+dev-tools
+Offline, browser-only toolbox for UCI and OMS/AMS.
+docker run -p 8080:8080 dev-tools  # or open index.html
 
-Dark-mode developer toolbox that runs entirely in your browser: nothing is uploaded anywhere.
-
-```
-docker build -t dev-tools .
-docker run --rm -p 8080:8080 dev-tools        # http://localhost:8080
-```
-
-Or just open `index.html` (no build, no server). The image is ~1.2 MB.
-
-## What's in it
-
-- **XSD Schema Explorer** (opens by default): load a schema set (built against UCI 2.6); search messages, types and enums, view message diagrams, generate valid sample XML, and validate XML with line/column errors.
-- **NATS Explorer**: connect over WebSocket; live feed with graphs (rates, busiest subjects, subject tree, plot any numeric field), publish and request/reply, and a read-only JetStream and KV browser. Any XML message is decoded against the loaded schema (any UCI version): documentation, enum meanings, header facts, schema validation with errors shown inline.
-- **Schema Diff**: compare two schema versions (e.g. UCI 2.5 vs 2.6); each change rated breaking, review or additive, with the messages it reaches.
-- **Message Builder**: compose a UCI message from a schema-generated form with live XML, OMS JSON and validation.
-- **UCI Traffic Lab**: load a capture (or use the Analyze tab live): who is on the bus, command transactions, validity and latency, a map of tracks, and replay into NATS or a CAL.
-- **CAL Explorer**: the same for an OMS Language-Agnostic CAL over the OMS WebSocket Protocol (topic + message subscriptions, live feed and graphs, publish with generated samples, OMS JSON decoded against any schema version).
-- **Favorites**: star any tool or cheat sheet; stars sit at the top of the sidebar and overview.
-- **Toolbox**: JSON, YAML, CSV, XML and curl converters, HTTP request builder, Protobuf viewer, regex tester, diff, Base64, URL and escape tools, JWT, TOTP, hashes and HMAC, UUID/ULID/password generator, QR codes, Unicode inspector, timestamps, cron, number bases, colors, CIDR, chmod, coordinates and units, byte tools.
-- **NATS and CAL explorers** also do request/reply latency, `$SYS` server monitoring with a subject usage map, KV and object store browsing and editing, JetStream administration and consumer lag, message diff, content alerts and field-query filtering, auto-responders and scripted scenarios, NKey and .creds login. **Bridge Compare** pairs the same UCI message over NATS and over an LA-CAL. The **Traffic Lab** adds field search, conformance reports, capture comparison, a live source, and replay with pause, seek and fault injection.
-- **Everywhere**: share links (`#tool?s=...`), send a tool's output to another tool, a `Ctrl+K` command palette, dark / light / auto theme, offline use as an installable app, and command search across every cheat sheet.
-- **cheat sheets**: Git, GitHub and GitLab CLI, Docker, kubectl, Helm, Terraform, NATS, Linux, Bash, PowerShell, curl, jq, Vim, Make and CMake, Go, Rust, C#, Python, JavaScript, TypeScript, React, Svelte, SQL, PostgreSQL, regex, HTTP, Markdown, XML/XPath/XSD, separate UCI, OMS and AMS GRA sheets.
-
-`all.html` lists everything with search. Details, tests and layout: [DOCS.md](DOCS.md).
+ * UCI & Schemas: XSD explorer, schema diff, message builder.
+ * Bus Telemetry: NATS & LA-CAL live feeds, JetStream, KV.
+ * Traffic Lab: Replay, fault injection, bridge compare.
+ * Dev Toolbox: Converters, regex, crypto, cheat sheets.
