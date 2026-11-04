@@ -10,7 +10,9 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"crypto/sha1"
 	"embed"
+	"encoding/base64"
 	"errors"
 	"flag"
 	"hash/fnv"
@@ -95,6 +97,8 @@ type request struct {
 	keepAlive      bool
 	gzip           bool
 	ifNoneMatch    string
+	upgradeWS      bool
+	wsKey          string
 }
 
 var errBad = errors.New("bad request")
@@ -149,6 +153,12 @@ func readRequest(c net.Conn, r *bufio.Reader) (rq request, status int, err error
 			} else if strings.Contains(l, "keep-alive") {
 				rq.keepAlive = true
 			}
+		case "upgrade":
+			if strings.EqualFold(v, "websocket") {
+				rq.upgradeWS = true
+			}
+		case "sec-websocket-key":
+			rq.wsKey = v
 		case "transfer-encoding":
 			return rq, 400, errBad // no request bodies: refuse anything that could smuggle one
 		case "content-length":
@@ -192,7 +202,7 @@ func lookup(target string) string {
 
 const common = "X-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\nX-Frame-Options: DENY\r\n"
 
-var statusText = map[int]string{200: "OK", 304: "Not Modified", 400: "Bad Request", 404: "Not Found", 405: "Method Not Allowed", 414: "URI Too Long", 431: "Request Header Fields Too Large"}
+var statusText = map[int]string{200: "OK", 304: "Not Modified", 400: "Bad Request", 404: "Not Found", 405: "Method Not Allowed", 414: "URI Too Long", 431: "Request Header Fields Too Large", 502: "Bad Gateway"}
 
 func write(c net.Conn, status int, rq *request, extra string, body []byte, keep bool) {
 	var b bytes.Buffer
@@ -212,8 +222,184 @@ func write(c net.Conn, status int, rq *request, extra string, body []byte, keep 
 	c.Write(b.Bytes())
 }
 
-func handle(c net.Conn, rq *request) bool {
+func readWSFrame(r io.Reader) (opcode byte, payload []byte, err error) {
+	var hdr [2]byte
+	if _, err := io.ReadFull(r, hdr[:]); err != nil {
+		return 0, nil, err
+	}
+	opcode = hdr[0] & 0x0f
+	masked := (hdr[1] & 0x80) != 0
+	payloadLen := uint64(hdr[1] & 0x7f)
+	if payloadLen == 126 {
+		var ext [2]byte
+		if _, err := io.ReadFull(r, ext[:]); err != nil {
+			return 0, nil, err
+		}
+		payloadLen = uint64(ext[0])<<8 | uint64(ext[1])
+	} else if payloadLen == 127 {
+		var ext [8]byte
+		if _, err := io.ReadFull(r, ext[:]); err != nil {
+			return 0, nil, err
+		}
+		payloadLen = 0
+		for i := 0; i < 8; i++ {
+			payloadLen = (payloadLen << 8) | uint64(ext[i])
+		}
+	}
+	var maskKey [4]byte
+	if masked {
+		if _, err := io.ReadFull(r, maskKey[:]); err != nil {
+			return 0, nil, err
+		}
+	}
+	if payloadLen > 16<<20 {
+		return 0, nil, errors.New("frame too large")
+	}
+	payload = make([]byte, payloadLen)
+	if _, err := io.ReadFull(r, payload); err != nil {
+		return 0, nil, err
+	}
+	if masked {
+		for i := uint64(0); i < payloadLen; i++ {
+			payload[i] ^= maskKey[i%4]
+		}
+	}
+	return opcode, payload, nil
+}
+
+func writeWSFrame(w io.Writer, opcode byte, payload []byte) error {
+	n := len(payload)
+	var hdr []byte
+	if n < 126 {
+		hdr = []byte{0x80 | (opcode & 0x0f), byte(n)}
+	} else if n <= 65535 {
+		hdr = []byte{0x80 | (opcode & 0x0f), 126, byte(n >> 8), byte(n & 0xff)}
+	} else {
+		hdr = []byte{0x80 | (opcode & 0x0f), 127,
+			byte(n >> 56), byte(n >> 48), byte(n >> 40), byte(n >> 32),
+			byte(n >> 24), byte(n >> 16), byte(n >> 8), byte(n & 0xff)}
+	}
+	if _, err := w.Write(hdr); err != nil {
+		return err
+	}
+	if n > 0 {
+		_, err := w.Write(payload)
+		return err
+	}
+	return nil
+}
+
+func proxyNats(c net.Conn, r io.Reader, tcp net.Conn) {
+	defer c.Close()
+	defer tcp.Close()
+
+	var once sync.Once
+	closeBoth := func() {
+		once.Do(func() {
+			c.Close()
+			tcp.Close()
+		})
+	}
+
+	var wmu sync.Mutex
+	safeWriteWS := func(opcode byte, payload []byte) error {
+		wmu.Lock()
+		defer wmu.Unlock()
+		return writeWSFrame(c, opcode, payload)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// TCP -> WebSocket
+	go func() {
+		defer wg.Done()
+		defer closeBoth()
+		buf := make([]byte, 32768)
+		for {
+			n, err := tcp.Read(buf)
+			if n > 0 {
+				if werr := safeWriteWS(2, buf[:n]); werr != nil {
+					return
+				}
+			}
+			if err != nil {
+				_ = safeWriteWS(8, nil)
+				return
+			}
+		}
+	}()
+
+	// WebSocket -> TCP
+	go func() {
+		defer wg.Done()
+		defer closeBoth()
+		for {
+			opcode, payload, err := readWSFrame(r)
+			if err != nil {
+				return
+			}
+			switch opcode {
+			case 0, 1, 2: // continuation, text, binary
+				if len(payload) > 0 {
+					if _, werr := tcp.Write(payload); werr != nil {
+						return
+					}
+				}
+			case 8: // close
+				_ = safeWriteWS(8, nil)
+				return
+			case 9: // ping
+				_ = safeWriteWS(10, payload) // pong
+			case 10: // pong: ignore
+			}
+		}
+	}()
+
+	wg.Wait()
+}
+
+func handle(c net.Conn, rq *request, r io.Reader) bool {
 	keep := rq.keepAlive
+	if strings.HasPrefix(rq.target, "/nats-proxy") {
+		if !rq.upgradeWS || rq.wsKey == "" {
+			write(c, 400, rq, "Content-Type: text/plain\r\n", []byte("WebSocket upgrade required\n"), false)
+			return false
+		}
+		target := "127.0.0.1:4222"
+		if u, err := url.Parse(rq.target); err == nil {
+			if t := u.Query().Get("target"); t != "" {
+				target = t
+			}
+		}
+		if !strings.Contains(target, ":") {
+			target += ":4222"
+		}
+		if _, _, err := net.SplitHostPort(target); err != nil {
+			write(c, 400, rq, "Content-Type: text/plain\r\n", []byte("invalid target address\n"), false)
+			return false
+		}
+		tcp, err := net.DialTimeout("tcp", target, 5*time.Second)
+		if err != nil {
+			write(c, 502, rq, "Content-Type: text/plain\r\n", []byte("Cannot connect to NATS TCP ("+target+"): "+err.Error()+"\n"), false)
+			return false
+		}
+		h := sha1.New()
+		h.Write([]byte(rq.wsKey + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"))
+		accept := base64.StdEncoding.EncodeToString(h.Sum(nil))
+		resp := "HTTP/1.1 101 Switching Protocols\r\n" +
+			"Upgrade: websocket\r\n" +
+			"Connection: Upgrade\r\n" +
+			"Sec-WebSocket-Accept: " + accept + "\r\n\r\n"
+		c.SetDeadline(time.Time{})
+		if _, err := c.Write([]byte(resp)); err != nil {
+			tcp.Close()
+			return false
+		}
+		proxyNats(c, r, tcp)
+		return false
+	}
+
 	if rq.method != "GET" && rq.method != "HEAD" {
 		write(c, 405, rq, "Allow: GET, HEAD\r\nContent-Type: text/plain\r\n", []byte("method not allowed\n"), false)
 		return false
@@ -252,7 +438,7 @@ func serve(c net.Conn) {
 			}
 			return
 		}
-		if !handle(c, &rq) {
+		if !handle(c, &rq, r) {
 			return
 		}
 	}

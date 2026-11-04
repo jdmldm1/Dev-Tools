@@ -49,7 +49,8 @@ function gzipRec(dir) {
 gzipRec(wwwDir);
 console.log("Staged & gzipped assets. Running 'go test ./...' in docker/server...");
 
-const res = spawnSync("go", ["test", "-v", "./..."], { cwd: serverDir, stdio: "inherit", shell: true });
+const env = { ...process.env, GOOS: process.platform === "win32" ? "windows" : (process.env.GOOS || "linux"), GOTOOLCHAIN: process.env.GOTOOLCHAIN || "local" };
+const res = spawnSync("go", ["test", "-v", "./..."], { cwd: serverDir, stdio: "inherit", shell: true, env });
 if (res.status !== 0) {
   process.exit(res.status || 1);
 }

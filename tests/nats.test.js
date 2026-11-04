@@ -204,3 +204,21 @@ test("the parser sustains well over 100k messages per second (guards against an 
   assert.equal(n, N);
   assert.ok(ms < 2000, `parsing ${N} messages took ${Math.round(ms)} ms`);        // typically ~200 ms; the bound leaves room for slow CI machines
 });
+
+test("natsResolveUrl translates nats:// and tcp:// to proxy websocket URLs", () => {
+  assert.equal(lib.natsResolveUrl("ws://localhost:8080"), "ws://localhost:8080");
+  assert.equal(lib.natsResolveUrl("wss://example.com/nats"), "wss://example.com/nats");
+  assert.equal(lib.natsResolveUrl("nats://localhost:4222", { protocol: "http:", host: "localhost:8080" }), "ws://localhost:8080/nats-proxy?target=localhost%3A4222");
+  assert.equal(lib.natsResolveUrl("nats://10.0.0.1:4222", { protocol: "https:", host: "secure.dev" }), "wss://secure.dev/nats-proxy?target=10.0.0.1%3A4222");
+  assert.equal(lib.natsResolveUrl("nats://my-host", { protocol: "http:", host: "localhost:8080" }), "ws://localhost:8080/nats-proxy?target=my-host%3A4222");
+  assert.equal(lib.natsResolveUrl("nats://localhost:4222", null), "ws://127.0.0.1:8080/nats-proxy?target=localhost%3A4222");
+});
+
+test("NatsClient.connect resolves nats:// URLs to proxy endpoint", async () => {
+  const f = fakeServer(), c = new lib.NatsClient({ WebSocket: f.WebSocket });
+  await c.connect("nats://localhost:4222");
+  assert.equal(f.FakeWS.last.url, "ws://127.0.0.1:8080/nats-proxy?target=localhost%3A4222");
+  assert.equal(c.connected, true);
+  c.close();
+});
+

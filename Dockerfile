@@ -1,6 +1,6 @@
 
 
-FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:alpine AS build
 ARG TARGETOS=linux
 ARG TARGETARCH
 RUN apk add --no-cache upx zopfli

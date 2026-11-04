@@ -190,3 +190,85 @@ func TestEveryEmbeddedFileInflates(t *testing.T) {
 		}
 	}
 }
+
+func TestNatsProxy(t *testing.T) {
+	// 1. Plain HTTP without websocket headers -> 400
+	r := get(t, "/nats-proxy", "")
+	if !strings.Contains(r.status, "400") {
+		t.Fatalf("expected 400 for plain HTTP GET, got %s", r.status)
+	}
+
+	// 2. Unreachable port -> 502 Bad Gateway
+	r502 := roundTrip(t, "GET /nats-proxy?target=127.0.0.1:59997 HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n")
+	if r502 == nil || !strings.Contains(r502.status, "502") {
+		t.Fatalf("expected 502 Bad Gateway, got %+v", r502)
+	}
+
+	// 3. Start a dummy TCP server representing NATS
+	tcpL, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tcpL.Close()
+	tcpAddr := tcpL.Addr().String()
+
+	go func() {
+		conn, err := tcpL.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		conn.Write([]byte("INFO {\"server_id\":\"TEST_NATS\"}\r\n"))
+		buf := make([]byte, 1024)
+		n, _ := conn.Read(buf)
+		if strings.Contains(string(buf[:n]), "PING") {
+			conn.Write([]byte("PONG\r\n"))
+		}
+	}()
+
+	// 4. Connect via WebSocket to the proxy
+	c, err := net.Dial("tcp", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+
+	handshake := "GET /nats-proxy?target=" + tcpAddr + " HTTP/1.1\r\n" +
+		"Host: x\r\n" +
+		"Upgrade: websocket\r\n" +
+		"Connection: Upgrade\r\n" +
+		"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n" +
+		"Sec-WebSocket-Version: 13\r\n\r\n"
+	c.Write([]byte(handshake))
+
+	br := bufio.NewReader(c)
+	resp := readResponse(t, br, false)
+	if !strings.Contains(resp.status, "101") || !strings.EqualFold(resp.headers["upgrade"], "websocket") {
+		t.Fatalf("expected 101 Switching Protocols, got %+v", resp)
+	}
+
+	op, payload, err := readWSFrame(br)
+	if err != nil {
+		t.Fatalf("readWSFrame: %v", err)
+	}
+	if op != 2 || !strings.Contains(string(payload), "TEST_NATS") {
+		t.Fatalf("unexpected frame: op=%d payload=%s", op, string(payload))
+	}
+
+	msg := []byte("CONNECT {}\r\nPING\r\n")
+	mask := [4]byte{1, 2, 3, 4}
+	masked := make([]byte, len(msg))
+	for i := range msg {
+		masked[i] = msg[i] ^ mask[i%4]
+	}
+	frame := append([]byte{0x82, 0x80 | byte(len(msg)), mask[0], mask[1], mask[2], mask[3]}, masked...)
+	c.Write(frame)
+
+	op, payload, err = readWSFrame(br)
+	if err != nil {
+		t.Fatalf("readWSFrame PONG: %v", err)
+	}
+	if op != 2 || !strings.Contains(string(payload), "PONG") {
+		t.Fatalf("unexpected PONG frame: op=%d payload=%s", op, string(payload))
+	}
+}

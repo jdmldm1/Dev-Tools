@@ -8,6 +8,7 @@
     "smoke": "node tests/browser-smoke.js",
     "crosscheck": "node tests/crosscheck.js && node tests/crosscheck-zoo.js && node tests/crosscheck-unq.js",
     "test:server": "node scripts/test-server.js",
+    "nats-proxy": "node scripts/nats-proxy.js",
     "serve": "python -m http.server 8000"
   },
   "engines": { "node": ">=18" }

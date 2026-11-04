@@ -134,8 +134,26 @@
 
   /* ---------- client ---------- */
 
-  /* Minimal NATS client over WebSocket (the server needs a `websocket {}` listener). No TLS; NKey and .creds auth are in nats-auth.js;
-     user/password and token auth work. opts.WebSocket lets tests inject a socket class. */
+  /* Translates a nats://, tcp:// or ws:// URL to the actual WebSocket endpoint.
+     If a nats://host:port is supplied, routes it through the dev-tools /nats-proxy bridge endpoint. */
+  lib.natsResolveUrl = (raw, baseLocation = globalThis.location) => {
+    let s = String(raw || "").trim();
+    if (!s) return "";
+    const m = /^(?:nats|tcp):\/\/(.+)$/i.exec(s);
+    if (m) {
+      let target = m[1];
+      if (!/:[0-9]+$/.test(target)) target += ":4222";
+      if (baseLocation && (baseLocation.protocol === "http:" || baseLocation.protocol === "https:")) {
+        const proto = baseLocation.protocol === "https:" ? "wss:" : "ws:";
+        return `${proto}//${baseLocation.host}/nats-proxy?target=${encodeURIComponent(target)}`;
+      }
+      return `ws://127.0.0.1:8080/nats-proxy?target=${encodeURIComponent(target)}`;
+    }
+    return s;
+  };
+
+  /* Minimal NATS client over WebSocket (the server needs a `websocket {}` listener or dev-tools TCP bridge).
+     No TLS; NKey and .creds auth are in nats-auth.js; user/password and token auth work. opts.WebSocket lets tests inject a socket class. */
   lib.NatsClient = class {
     constructor(opts = {}) {
       this.WS = opts.WebSocket || globalThis.WebSocket;
@@ -145,6 +163,7 @@
       this.onclose = null; this.onerror = null;
     }
     connect(url, o = {}) {
+      const resolved = lib.natsResolveUrl(url);
       return new Promise((resolve, reject) => {
         let settled = false, sentConnect = false;
         const done = err => {
@@ -153,7 +172,7 @@
         };
         const timer = setTimeout(() => done(new Error("Timed out waiting for the server.")), o.timeout || 6000);
         let ws;
-        try { ws = new this.WS(url); } catch (e) { return done(e); }
+        try { ws = new this.WS(resolved); } catch (e) { return done(e); }
         this.ws = ws; ws.binaryType = "arraybuffer";
         const parser = lib.natsParser(op => {
           if (op.op === "INFO") {
@@ -279,7 +298,7 @@
 
       root.innerHTML = `
         <div class="panel">
-          <div class="col"><label class="l" for="url">WebSocket URL</label><input type="text" id="url" class="mono" value="${esc(remembered || "ws://localhost:8080")}" spellcheck="false" autocomplete="off"></div>
+          <div class="col"><label class="l" for="url">Server URL (NATS TCP or WebSocket)</label><input type="text" id="url" class="mono" value="${esc(remembered || "nats://localhost:4222")}" placeholder="nats://localhost:4222 or ws://localhost:8080" spellcheck="false" autocomplete="off"></div>
           <div class="three" id="creds" style="margin-top:10px">
             <div class="col"><label class="l" for="user">User (optional)</label><input type="text" id="user" class="mono" autocomplete="off"></div>
             <div class="col"><label class="l" for="pass">Password</label><input type="password" id="pass" class="mono" autocomplete="off"></div>
@@ -294,13 +313,14 @@
           <div id="info"></div>
           <div id="opshost"></div>
           ${lib.schemaPanelHtml("XML / UCI messages")}
-          <details class="hint"><summary>The server needs a WebSocket listener</summary>
-            <p>Add this to the server config (or the NATS Helm values) and restart. Browsers cannot speak the plain TCP protocol on 4222.</p>
+          <details class="hint"><summary>Connecting via WebSocket or standard NATS TCP (port 4222)</summary>
+            <p><b>Standard NATS TCP:</b> Enter <code>nats://localhost:4222</code>. The connection is bridged over TCP by the dev-tools server (or <code>node scripts/nats-proxy.js</code>).</p>
+            <p><b>Direct WebSocket:</b> Enter <code>ws://localhost:8080</code> (or <code>wss://</code>). Enable WebSocket in your NATS server config:</p>
             <pre class="out">websocket {
   port: 8080
   no_tls: true      # dev only; use a certificate and wss:// anywhere else
 }</pre>
-            <p>Run it with <code>nats-server -js -c nats.conf</code> to include JetStream. A page served over https:// can only open wss:// URLs. Credentials above support user/password and token auth; NKey and .creds (JWT) auth are not supported.</p>
+            <p>Run it with <code>nats-server -js -c nats.conf</code> to include JetStream. A page served over https:// can only open wss:// URLs.</p>
           </details>
         </div>
         <div id="work" hidden>
@@ -413,20 +433,23 @@
         status("#cst", kind || "", msg);
       }
       async function connect() {
-        const url = $("#url").value.trim();
-        if (!/^wss?:\/\/\S+$/i.test(url)) return status("#cst", "err", "The URL must start with ws:// or wss://, for example ws://localhost:8080.");
+        const rawUrl = $("#url").value.trim();
+        if (!/^(?:wss?|nats|tcp):\/\/\S+$/i.test(rawUrl)) {
+          return status("#cst", "err", "The URL must start with ws://, wss://, or nats://, for example ws://localhost:8080 or nats://localhost:4222.");
+        }
+        const resolvedUrl = lib.natsResolveUrl(rawUrl);
         $("#conn").disabled = true; status("#cst", "", "Connecting…");
         client.onclose = reason => disconnected("Connection lost: " + reason + ".", "err");
         client.onerror = msg => status("#swarn", "warn", "Server: " + msg);
         try {
-          const info = await client.connect(url, { user: $("#user").value, pass: $("#pass").value, token: $("#tok").value.trim(), creds: credsParsed || undefined, nkeySeed: !credsParsed && $("#nkseed").value.trim() ? $("#nkseed").value.trim() : undefined });
-          try { localStorage.setItem("dt.nats.url", url); localStorage.setItem("dt.nats.noauth", $("#user").value || $("#pass").value || $("#tok").value || credsParsed || $("#nkseed").value ? "0" : "1"); } catch (_) { /* storage blocked */ }
+          const info = await client.connect(rawUrl, { user: $("#user").value, pass: $("#pass").value, token: $("#tok").value.trim(), creds: credsParsed || undefined, nkeySeed: !credsParsed && $("#nkseed").value.trim() ? $("#nkseed").value.trim() : undefined });
+          try { localStorage.setItem("dt.nats.url", rawUrl); localStorage.setItem("dt.nats.noauth", $("#user").value || $("#pass").value || $("#tok").value || credsParsed || $("#nkseed").value ? "0" : "1"); } catch (_) { /* storage blocked */ }
           const rows = [["server", info.server_name || info.server_id], ["version", info.version], ["go", info.go], ["host", `${info.host}:${info.port}`], ["max payload", lib.bytesLabel(info.max_payload || 0)],
             ["headers", info.headers ? "yes" : "no"], ["JetStream", info.jetstream ? "yes" : "no / unknown"], ["auth required", info.auth_required ? "yes" : "no"], ["client id", info.client_id], ["cluster", info.cluster || "-"]];
           $("#info").innerHTML = `<div class="hint" style="margin:4px 0">${esc(info.server_name || "server")} · v${esc(info.version)} · ${info.jetstream ? "JetStream" : "no JetStream"} · max payload ${esc(lib.bytesLabel(info.max_payload || 0))} · client ${esc(String(info.client_id))}</div><details class="hint"><summary>all server info</summary>${DT.kv(rows.filter(r => r[1] !== undefined && r[1] !== ""))}</details>`;
           $("#creds").style.display = "none"; $("#creds2").style.display = "none";
           $("#conn").hidden = true; $("#disc").hidden = false; $("#work").hidden = false;
-          status("#cst", "ok", "Connected to " + url);
+          status("#cst", "ok", "Connected to " + rawUrl + (resolvedUrl !== rawUrl ? " (via TCP bridge)" : ""));
           gTimer = setInterval(tick, 1000);
           if (pendingPub) { pendingPub = false; showTab("pub"); }
           for (const s of ops.takeSubs()) {
@@ -436,7 +459,11 @@
           draw(); drawGraphs(true);
         } catch (e) {
           $("#conn").disabled = false;
-          status("#cst", "err", /authorization|authentication/i.test(e.message) ? e.message + " Set a user/password or token above." : e.message);
+          let msg = e.message;
+          if (resolvedUrl !== rawUrl && /Could not open a WebSocket/i.test(msg)) {
+            msg += ". To use nats://, ensure the dev-tools server (:8080) or 'node scripts/nats-proxy.js' is running.";
+          }
+          status("#cst", "err", /authorization|authentication/i.test(msg) ? msg + " Set a user/password or token above." : msg);
         }
       }
       let credsParsed = null;
