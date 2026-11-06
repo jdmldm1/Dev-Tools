@@ -2,6 +2,7 @@
   const lib = DT.lib;
   const TE = new TextEncoder(), TD = new TextDecoder();
   const EMPTY = new Uint8Array(0), CRLF = TE.encode("\r\n"), STRICT = new TextDecoder("utf-8", { fatal: true });
+  const FEED_RENDER_MAX = 800;
   const cat = parts => { let n = 0; for (const p of parts) n += p.length; const o = new Uint8Array(n); let i = 0; for (const p of parts) { o.set(p, i); i += p.length; } return o; };
   const b64ToBytes = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
   const bytesToB64 = b => { let s = ""; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); };
@@ -330,7 +331,7 @@
             <div class="opts" style="margin:0 0 4px">
               <input type="text" id="ssub" class="mono" placeholder="add a subject, e.g. uci.&gt; or orders.*" spellcheck="false" style="width:260px"><input type="text" id="sq" class="mono" placeholder="queue group" spellcheck="false" style="width:120px">
               <button class="btn primary" id="sadd" type="button">Subscribe</button><button class="btn" id="spause" type="button">Pause</button><button class="btn" id="sclear" type="button">Clear</button><button class="btn" id="ssave" type="button">Save .jsonl</button>
-              <label title="Hide $JS.*, $SYS.* and _INBOX.* traffic (this explorer's own requests and server internals)"><input type="checkbox" id="shide" checked> hide internal</label>
+              <label title="Keep the live feed pinned to the newest messages"><input type="checkbox" id="sauto" checked> auto-scroll</label><label title="Hide $JS.*, $SYS.* and _INBOX.* traffic (this explorer's own requests and server internals)"><input type="checkbox" id="shide" checked> hide internal</label>
             </div>
             <div class="chip-row" id="subs"></div>
             <div class="status" id="swarn" style="margin:2px 0;min-height:0"></div>
@@ -342,7 +343,7 @@
               <div class="chart" id="c-type"><h3>Message types</h3><div class="plot"></div></div>
             </div>
             <div class="opts" style="margin:8px 0 4px"><input type="search" id="sf" class="mono" placeholder="filter by subject or payload text" style="width:280px"><span class="chip-row" id="types"></span></div>
-            <div class="tscroll" style="max-height:30vh"><table class="nl"><tbody id="feed"></tbody></table></div>
+            <div class="tscroll" id="feedbox" style="max-height:30vh"><table class="nl"><tbody id="feed"></tbody></table></div>
             <div id="sdet" style="margin-top:10px"></div>
             <details class="chart" id="c-tree" open><summary><b class="h3">Subject tree</b> <span class="hint">click to expand, double-click to filter the feed</span></summary><div class="stree" id="stree"></div></details>
             <details class="chart" id="c-plot" open><summary><b class="h3">Plot a field over time</b> <span class="hint">numeric fields of JSON or XML payloads, collected from now on</span></summary>
@@ -566,34 +567,84 @@
 
       /* ----- subscribe ----- */
       const subList = [];
-      let rowsLimit = MAX_ROWS;
+      const feedBox = $("#feedbox"), feedEl = $("#feed");
       let msgs = [], total = 0, paused = false, selected = null, timer = 0, typeFilter = "", typeSig = "";
+      let pendingRows = [], metaTimer = 0;
       function renderSubs() {
         $("#subs").innerHTML = subList.map((s, i) => `<span class="chip" data-i="${i}" title="Click to unsubscribe">${esc(s.subject)}${s.queue ? " [" + esc(s.queue) + "]" : ""} ×</span>`).join("");
       }
       $("#subs").onclick = e => { const c = e.target.closest(".chip"); if (!c) return; const s = subList.splice(+c.dataset.i, 1)[0]; if (s) s.unsubscribe(); renderSubs(); };
-      function draw() {
-        timer = 0;
-        const f = $("#sf").value.trim().toLowerCase(), rows = [], wq = /^where\s+/i.test($("#sf").value.trim()) ? lib.fieldQuery($("#sf").value.trim().replace(/^where\s+/i, "")) : null;
-        if (wq && !wq.ok) status("#swarn", "warn", wq.error); else if (wq) status("#swarn", "", "");
-        for (let i = msgs.length - 1; i >= 0 && rows.length < rowsLimit; i--) {
-          const m = msgs[i];
-          if (typeFilter && m.root !== typeFilter) continue;
-          if (wq) { if (wq.ok) { m.fields = m.fields || lib.payloadFields(m.payload).fields; if (!wq.test(m.fields, { topic: m.subject })) continue; } }
-          else if (f) { m.lc = m.lc || (m.subject + " " + TD.decode(m.payload.subarray(0, 4000))).toLowerCase(); if (!m.lc.includes(f)) continue; }
-          const unk = model && m.root && !model.elements.has(m.root);
-          rows.push(`<tr data-n="${m.n}"${m === selected ? ' class="on"' : ""}><td class="t">${hhmmss(m.t)}</td><td class="s">${esc(m.subject)}</td><td class="ty">${m.root ? `<span${unk ? ' class="unk" title="Not in the loaded schema"' : ""}>${esc(m.root)}</span>` : ""}</td><td class="t">${m.payload.length} B</td><td class="p">${esc(m.pv || (m.pv = preview(m)))}</td></tr>`);
+      const feedFilterState = () => {
+        const raw = $("#sf").value.trim();
+        const wq = /^where\s+/i.test(raw) ? lib.fieldQuery(raw.replace(/^where\s+/i, "")) : null;
+        const text = wq ? "" : raw.toLowerCase();
+        if (wq && !wq.ok) status("#swarn", "warn", wq.error); else status("#swarn", "", "");
+        return { raw, text, wq };
+      };
+      const feedMatches = (m, fs) => {
+        if (typeFilter && m.root !== typeFilter) return false;
+        if (fs.wq) {
+          if (!fs.wq.ok) return false;
+          m.fields = m.fields || lib.payloadFields(m.payload).fields;
+          return fs.wq.test(m.fields, { topic: m.subject });
         }
-        $("#feed").innerHTML = rows.join("") || `<tr><td class="t">${total ? "No message matches the filter." : "Waiting for messages…"}</td></tr>`;
-        status("#sst", paused ? "warn" : "", `${total.toLocaleString()} received · ${Math.min(msgs.length, MAX_KEEP).toLocaleString()} kept (last ${MAX_KEEP.toLocaleString()}) · ${paused ? "paused" : "live"}${stride > 1 ? ` · busy: feed shows 1 in ${stride}, counts and charts stay exact` : ""}`);
+        if (fs.text) {
+          m.lc = m.lc || (m.subject + " " + TD.decode(m.payload.subarray(0, 4000))).toLowerCase();
+          return m.lc.includes(fs.text);
+        }
+        return true;
+      };
+      const rowHtml = m => {
+        const unk = model && m.root && !model.elements.has(m.root);
+        return `<tr data-n="${m.n}"${m === selected ? ' class="on"' : ""}><td class="t">${hhmmss(m.t)}</td><td class="s">${esc(m.subject)}</td><td class="ty">${m.root ? `<span${unk ? ' class="unk" title="Not in the loaded schema"' : ""}>${esc(m.root)}</span>` : ""}</td><td class="t">${m.payload.length} B</td><td class="p">${esc(m.pv || (m.pv = preview(m)))}</td></tr>`;
+      };
+      const autoScroll = () => $("#sauto").checked;
+      const pinFeed = () => { if (autoScroll()) feedBox.scrollTop = feedBox.scrollHeight; };
+      function updateFeedMeta() {
+        metaTimer = 0;
+        status("#sst", paused ? "warn" : "", `${total.toLocaleString()} received · ${Math.min(msgs.length, MAX_KEEP).toLocaleString()} kept (last ${MAX_KEEP.toLocaleString()}) · live view shows newest ${Math.min(FEED_RENDER_MAX, msgs.length).toLocaleString()}${paused ? " · paused" : ""}${stride > 1 ? ` · busy: feed shows 1 in ${stride}, counts and charts stay exact` : ""}`);
         const top = [...typeCounts].sort((a, b) => b[1] - a[1]).slice(0, 12), s2 = typeFilter + "|" + top.map(x => x[0] + x[1]).join();
         if (s2 !== typeSig) {
           typeSig = s2;
           $("#types").innerHTML = top.length ? `<span class="chip" data-ty="" style="${!typeFilter ? "color:var(--accent);border-color:var(--accent)" : ""}">all types</span>` + top.map(([t, n]) => `<span class="chip" data-ty="${esc(t)}" style="${typeFilter === t ? "color:var(--accent);border-color:var(--accent)" : ""}">${esc(t)} ${n}</span>`).join("") : "";
         }
       }
+      function draw() {
+        timer = 0; pendingRows = [];
+        const fs = feedFilterState(), rows = [];
+        for (let i = msgs.length - 1; i >= 0 && rows.length < FEED_RENDER_MAX; i--) {
+          const m = msgs[i];
+          if (!feedMatches(m, fs)) continue;
+          rows.push(rowHtml(m));
+        }
+        rows.reverse();
+        feedEl.innerHTML = rows.join("") || `<tr><td class="t">${total ? "No message matches the filter." : "Waiting for messages…"}</td></tr>`;
+        updateFeedMeta();
+        pinFeed();
+      }
+      function flushFeed() {
+        timer = 0;
+        if (!pendingRows.length) return updateFeedMeta();
+        const fs = feedFilterState();
+        if (paused || fs.text || fs.wq || typeFilter) return draw();
+        const html = pendingRows.map(rowHtml).join("");
+        pendingRows = [];
+        if (!feedEl.querySelector("tr[data-n]")) feedEl.innerHTML = "";
+        feedEl.insertAdjacentHTML("beforeend", html);
+        while (feedEl.children.length > FEED_RENDER_MAX) {
+          const first = feedEl.firstElementChild;
+          if (!first) break;
+          if (selected && first.dataset && +first.dataset.n === selected.n) { selected = null; $("#sdet").innerHTML = ""; }
+          first.remove();
+        }
+        updateFeedMeta();
+        pinFeed();
+      }
       $("#types").onclick = e => { const c = e.target.closest(".chip"); if (c) { typeFilter = c.dataset.ty; typeSig = ""; draw(); } };
-      const schedule = () => { if (!timer) timer = setTimeout(draw, 120); };
+      const schedule = () => {
+        if (!timer) timer = setTimeout(flushFeed, 80);
+        if (!metaTimer) metaTimer = setTimeout(updateFeedMeta, 250);
+      };
       let hideInternal = true, stride = 1, strideN = 0;
       $("#shide").onchange = e => { hideInternal = e.target.checked; };
       function onMsg(m) {
@@ -612,6 +663,8 @@
         msgs.push(m);
         if (recording && m.payload.length) { const c = m.payload[0]; if (c === 60 || c === 123 || c === 32 || c === 10 || c === 13) store.add({ t: now, topic: m.subject, text: TD.decode(m.payload), source: "nats" }); }
         if (msgs.length > MAX_KEEP * 1.25) msgs.splice(0, msgs.length - MAX_KEEP);
+        pendingRows.push(m);
+        if (pendingRows.length > FEED_RENDER_MAX) pendingRows.splice(0, pendingRows.length - FEED_RENDER_MAX);
         schedule();
       }
       $("#sadd").onclick = () => {
@@ -623,10 +676,9 @@
       };
       $("#ssub").addEventListener("keydown", e => { if (e.key === "Enter") $("#sadd").click(); });
       $("#spause").onclick = e => { paused = !paused; e.target.textContent = paused ? "Resume" : "Pause"; draw(); };
-      $("#sclear").onclick = () => { msgs = []; total = 0; selected = null; typeFilter = ""; typeSig = ""; resetStats(); $("#sdet").innerHTML = ""; draw(); drawGraphs(true); };
-      $("#sf").addEventListener("input", DT.debounce(() => { rowsLimit = MAX_ROWS; draw(); }, 150));
-      /* the feed shows the newest rows first and adds more as you scroll down, up to everything that is kept */
-      $("#feed").closest(".tscroll").addEventListener("scroll", e => { const t = e.currentTarget; if (rowsLimit < MAX_KEEP * 1.25 && t.scrollTop + t.clientHeight > t.scrollHeight - 160) { rowsLimit += MAX_ROWS; draw(); } });
+      $("#sclear").onclick = () => { msgs = []; total = 0; selected = null; typeFilter = ""; typeSig = ""; pendingRows = []; resetStats(); $("#sdet").innerHTML = ""; draw(); drawGraphs(true); };
+      $("#sf").addEventListener("input", DT.debounce(draw, 150));
+      $("#sauto").onchange = () => pinFeed();
       $("#feed").onclick = e => {
         const tr = e.target.closest("tr[data-n]"); if (!tr) return;
         selected = msgs.find(m => m.n === +tr.dataset.n); if (!selected) return;

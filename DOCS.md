@@ -179,9 +179,19 @@ docker build -t dev-tools .
 docker run --rm -p 8080:8080 dev-tools        # http://localhost:8080   (use -p 8000:8080 if 8080 is taken)
 ```
 
+If you want the NATS Explorer to connect to `nats://` addresses through the built-in `/nats-proxy`, and the target NATS server is running on the Docker host, add a host-gateway mapping (commonly needed on Linux):
+
+```
+docker run --rm -p 9998:8080 \
+  --add-host=host.docker.internal:host-gateway \
+  dev-tools
+```
+
+Then open `http://localhost:9998/toolbox.html#nats` and connect to `nats://host.docker.internal:4222`. For direct NATS WebSocket connections, keep using `ws://...` as usual.
+
 The image is about **1.2 MB** (`docker save` size; `docker images` may show double on newer Docker because it counts the multi-platform index). It is `FROM scratch` with a single binary: the site gzipped and embedded in a small static Go server (GET/HEAD only, ETag revalidation, gzip for clients that accept it, nosniff and frame-deny headers, `/healthz`, graceful SIGTERM, runs as an unprivileged user, ~5 MB of memory). The build stage runs `go vet` and the server tests, stages only the files that are served (see `.dockerignore`), and UPX-packs the binary. `PORT` or `-addr` change the listen address. There is no TLS: put it behind your usual proxy, and remember a page served over https can only open `wss://` NATS URLs.
 
-The pages run in your browser, so the NATS WebSocket address you type is resolved from your machine, not from the container. The server code is in `docker/server`; to run its tests without Docker, copy the served files into `docker/server/www` and gzip them (the Dockerfile shows how).
+The pages run in your browser, so a direct NATS WebSocket address (`ws://...`) is resolved from your machine, not from the container. But `nats://...` is bridged through the dev-tools server's `/nats-proxy`, so the dev-tools container is the thing that must be able to reach that TCP target. The server code is in `docker/server`; to run its tests without Docker, copy the served files into `docker/server/www` and gzip them (the Dockerfile shows how).
 
 **Zarf.** `zarf.yaml` packages the image with a Deployment and Service (non-root, read-only filesystem, `/healthz` probes) for air-gapped Kubernetes: `docker build -t dev-tools:1.4.0 .`, `zarf package create .`, `zarf package deploy zarf-package-dev-tools-*.tar.zst --confirm`, then `kubectl -n dev-tools port-forward svc/dev-tools 9999:9999`. Keep the image tag in `zarf.yaml` and `zarf/dev-tools.yaml` equal to `package.json`.
 
